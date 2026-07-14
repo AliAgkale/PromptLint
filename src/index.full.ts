@@ -58,6 +58,7 @@ function buildResult(
   const {
     language,
     conversationTurn,
+    uiLocale = 'it',
     modelPrices = DEFAULT_PRICES,
     outputRatio = 2,
     disabledRules = [],
@@ -98,7 +99,7 @@ function buildResult(
   const cheapestInputRate = Math.min(...modelPrices.map(m => m.inputPer1M));
   const observations = runAllObservations(
     text, disabledRules, spell, cheapestInputRate, langState, language, conversationTurn,
-    { detected: detectedLang, model: promptModel },
+    { detected: detectedLang, model: promptModel }, uiLocale,
   );
 
   const tokens = analyzeTokens(text);
@@ -108,7 +109,7 @@ function buildResult(
   const conversational = resolveConversational(text, conversationTurn);
   const enrichment = resolveEnrichment(text, promptModel, conversationTurn);
 
-  const score = scorePrompt(text, observations, tokens, conversational, promptModel, enrichment);
+  const score = scorePrompt(text, observations, tokens, conversational, promptModel, enrichment, uiLocale);
   const costs = estimateCosts(tokenCount, outputRatio, modelPrices);
   // Was called with no spell adapter at all — the full build's real nspell
   // dictionary was loaded and used for the SPELL_001 rule, but as-you-type

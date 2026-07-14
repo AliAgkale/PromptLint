@@ -364,3 +364,94 @@ describe('user-discovered systematic category: role-setting + context prompts', 
     expect(r.score.total).toBeGreaterThanOrEqual(85);
   });
 });
+
+describe('adversarial corpus (round 8) — garbage-in-garbage-out prompts', () => {
+  it('"Aiutami con il mio lavoro." no longer gets a false context-marker boost from bare "il mio"', () => {
+    const r = a.analyze('Aiutami con il mio lavoro.');
+    expect(r.score.total).toBeLessThanOrEqual(72);
+  });
+
+  it('"il mio progetto di tesi..." (concrete noun after "il mio") is still recognized as real context', () => {
+    const r = a.analyze('Aiutami con il mio progetto di tesi sulla decarbonizzazione.');
+    expect(r.score.total).toBeGreaterThanOrEqual(80);
+  });
+
+  it('a bare "?" (no real content) scores near the bottom, not protected by the question exemption', () => {
+    const r = a.analyze('?');
+    expect(r.score.total).toBeLessThanOrEqual(20);
+  });
+
+  it('a real content-bearing question ("Quanto fa 18 x 27?") still gets the question exemption', () => {
+    const r = a.analyze('Quanto fa 18 x 27?');
+    expect(r.score.total).toBeGreaterThanOrEqual(65);
+  });
+});
+
+describe('adversarial corpus (round 9) — buildable structural fixes', () => {
+  it('"oggettivo e neutrale" + "senza dubbio il migliore" is detected as a contradiction', () => {
+    const r = a.analyze(
+      'Sii completamente oggettivo e neutrale, e dimmi qual è senza dubbio il miglior partito politico per cui votare.',
+    );
+    expect(r.observations.some((o) => o.code === 'CONTRA_002')).toBe(true);
+    expect(r.score.total).toBeLessThanOrEqual(55);
+  });
+
+  it('a genuine "be neutral" + "give an opinion" request (no absolutism) is not falsely flagged', () => {
+    const r = a.analyze('Sii oggettivo nel descrivere i pro e i contro di questa proposta.');
+    expect(r.observations.some((o) => o.code === 'CONTRA_002')).toBe(false);
+  });
+
+  it('referencing an unprovided external document ("l\'email di Marco") is flagged as missing material', () => {
+    const r = a.analyze(
+      "Rispondi all'email di Marco dicendo che il file allegato ieri non va bene e che preferisco la prima versione.",
+    );
+    expect(r.observations.some((o) => o.code === 'REF_001')).toBe(true);
+    expect(r.score.total).toBeLessThanOrEqual(50);
+  });
+
+  it('the same reference is NOT flagged when the material is actually provided inline', () => {
+    const r = a.analyze(
+      'Rispondi all\'email di Marco: "Il progetto slitta di una settimana per problemi col fornitore." Digli che va bene così.',
+    );
+    expect(r.observations.some((o) => o.code === 'REF_001')).toBe(false);
+  });
+
+  it('a normal prompt with "il mio"/"questo documento" is not falsely flagged as missing material', () => {
+    const r = a.analyze(
+      'Rivedi questo documento: la nostra strategia di marketing per il 2025 punta su TikTok e influencer.',
+    );
+    expect(r.observations.some((o) => o.code === 'REF_001')).toBe(false);
+  });
+});
+
+describe('i18n — uiLocale controls explanation language, independent of prompt language', () => {
+  it('defaults to Italian when uiLocale is not specified', () => {
+    const r = a.analyze('Scrivi qualcosa sul marketing.');
+    expect(r.score.summary).toMatch(/prompt|problema/i);
+    expect(r.score.dimensions.precision.name).toBe('Precisione');
+  });
+
+  it('switches to English when uiLocale is "en", even for an Italian prompt', () => {
+    const r = a.analyze('Scrivi qualcosa sul marketing.', { uiLocale: 'en' });
+    expect(r.score.dimensions.precision.name).toBe('Precision');
+    expect(r.observations.some((o) => /è un segnaposto|indovinare/.test(o.why))).toBe(false);
+  });
+
+  it('English UI locale works correctly on an English prompt too (not conflated with detectedLang)', () => {
+    const r = a.analyze('Fix this thign please.', { uiLocale: 'en' });
+    const spell = r.observations.find((o) => o.code === 'SPELL_001');
+    expect(spell?.why).toMatch(/doesn't appear in the dictionary/);
+  });
+
+  it('all five score dimension names are translated in English mode', () => {
+    const r = a.analyze('Write something nice about marketing for my company.', { uiLocale: 'en' });
+    const names = Object.values(r.score.dimensions).map((d) => d.name);
+    expect(names).toEqual(['Clarity', 'Precision', 'Length', 'Redundancy', 'Readability']);
+  });
+
+  it('all five score dimension names are in Italian by default', () => {
+    const r = a.analyze('Scrivi qualcosa di carino sul marketing per la mia azienda.');
+    const names = Object.values(r.score.dimensions).map((d) => d.name);
+    expect(names).toEqual(['Chiarezza', 'Precisione', 'Lunghezza', 'Ridondanza', 'Leggibilità']);
+  });
+});

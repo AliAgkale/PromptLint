@@ -38,6 +38,7 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
   const {
     language,
     conversationTurn,
+    uiLocale = 'it',
     modelPrices = DEFAULT_PRICES,
     outputRatio = 2,
     disabledRules = [],
@@ -55,7 +56,7 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
         total: 0, label: 'poor',
         dimensions: {},
         structure: EMPTY_STRUCTURE,
-        summary: 'Il prompt è vuoto.',
+        summary: uiLocale === 'it' ? 'Il prompt è vuoto.' : 'The prompt is empty.',
       },
       costs: [],
       potentialSavings: 0,
@@ -83,11 +84,11 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
   const promptModel = buildPromptModel(text, detectedLang);
   const obsAll    = runAllObservations(
     text, disabledRules, undefined, cheapestInputRate, undefined, language, conversationTurn,
-    { detected: detectedLang, model: promptModel },
+    { detected: detectedLang, model: promptModel }, uiLocale,
   );
   const conversational = resolveConversational(text, conversationTurn);
   const enrichment = resolveEnrichment(text, promptModel, conversationTurn);
-  const score     = scorePrompt(text, obsAll, tokens, conversational, promptModel, enrichment);
+  const score     = scorePrompt(text, obsAll, tokens, conversational, promptModel, enrichment, uiLocale);
   const costs     = estimateCosts(tokens.tokenCount, outputRatio, modelPrices);
   const autocorr  = includeAutocorrect ? getAutocorrectSuggestions(text) : [];
 

@@ -18,6 +18,7 @@
 import type { Observation, TokenAnalysis, PromptScore, ScoreLabel, ScoreDimension } from '../types.js';
 import { buildPromptModel, type PromptModel } from '../slots/model.js';
 import { detectLanguage } from '../spell/language.js';
+import type { UILocale } from '../analyzers/observations.js';
 
 function label(score: number): ScoreLabel {
   if (score >= 82) return 'excellent';
@@ -50,7 +51,8 @@ export function scorePrompt(
   tokens: TokenAnalysis,
   conversational = false,
   model?: PromptModel,
-  enrichment = false
+  enrichment = false,
+  uiLocale: UILocale = 'it'
 ): PromptScore {
   const byCode = (code: string) => observations.filter(o => o.code === code).length;
   const byType = (type: string) => observations.filter(o => o.type === type).length;
@@ -75,14 +77,16 @@ export function scorePrompt(
     byType('contradiction') * 28 +
     Math.min(36, byType('ambiguity') * 14) +
     byType('weak_verb') * 4;
-  const clarityScore = dim('Clarity', 100 - clarityPenalty,
-    clarityPenalty === 0 ? 'Task chiaro, nessuna ambiguità o conflitto.' : 'Il prompt manca di chiarezza o si contraddice.',
+  const clarityScore = dim(uiLocale === 'it' ? 'Chiarezza' : 'Clarity', 100 - clarityPenalty,
+    clarityPenalty === 0
+      ? (uiLocale === 'it' ? 'Task chiaro, nessuna ambiguità o conflitto.' : 'Clear task, no ambiguity or conflict.')
+      : (uiLocale === 'it' ? 'Il prompt manca di chiarezza o si contraddice.' : 'The prompt lacks clarity or contradicts itself.'),
     [
-      ...(byCode('PL_001') > 0 ? ["Aggiungi un verbo d'azione chiaro."] : []),
-      ...(byType('contradiction') > 0 ? ['Risolvi le istruzioni in conflitto.'] : []),
-      ...(byType('ambiguity') > 0 ? ['Sostituisci i termini vaghi con richieste concrete.'] : []),
-      ...(byType('spelling') > 0 ? [`Correggi ${byType('spelling')} errore/i ortografico/i.`] : []),
-      ...(byType('double_negation') > 0 ? ['Rimuovi le doppie negazioni.'] : []),
+      ...(byCode('PL_001') > 0 ? [uiLocale === 'it' ? "Aggiungi un verbo d'azione chiaro." : 'Add a clear action verb.'] : []),
+      ...(byType('contradiction') > 0 ? [uiLocale === 'it' ? 'Risolvi le istruzioni in conflitto.' : 'Resolve the conflicting instructions.'] : []),
+      ...(byType('ambiguity') > 0 ? [uiLocale === 'it' ? 'Sostituisci i termini vaghi con richieste concrete.' : 'Replace vague terms with concrete requests.'] : []),
+      ...(byType('spelling') > 0 ? [uiLocale === 'it' ? `Correggi ${byType('spelling')} errore/i ortografico/i.` : `Fix ${byType('spelling')} spelling error(s).`] : []),
+      ...(byType('double_negation') > 0 ? [uiLocale === 'it' ? 'Rimuovi le doppie negazioni.' : 'Remove the double negatives.'] : []),
     ]
   );
 
@@ -134,7 +138,7 @@ export function scorePrompt(
   // invisible to precision scoring for exactly the clearest way someone
   // can state it.
   const hasContext = has(/\b(contesto|context|background)\s*:/i) ||
-    has(/\b(dato che|considerato che|sto (lavorando|creando|scrivendo|lanciando)|il mio|la mia|our|my (team|company|project|app)|per\s+(una\s+persona|chi|chiunque|qualcuno)\s+che|for\s+someone\s+who)\b/i);
+    has(/\b(dato che|considerato che|sto (lavorando|creando|scrivendo|lanciando)|our|my (team|company|project|app)|il mio\s+(progetto|sito|blog|negozio|azienda|brand|prodotto|canale|cliente|team|business)|la mia\s+(azienda|newsletter|landing|campagna|startup|attività)|per\s+(una\s+persona|chi|chiunque|qualcuno)\s+che|for\s+someone\s+who)\b/i);
   const hasTaskVerb = byCode('PL_001') === 0;
   // Model-derived specs (external-corpus fix, and the H2 direction): a tone
   // ("professionale", "cupo") or an audience ("per principianti", "per un
@@ -229,18 +233,18 @@ export function scorePrompt(
   // principle be richer. A fair floor (~78) credits the contribution without
   // either punishing the missing specs or pretending it's a complete prompt.
   else if (enrichment) precisionRaw = Math.max(precisionRaw, 68);
-  const precisionScore = dim('Precision', precisionRaw,
-    conversational ? 'Risposta conversazionale: le regole di specifica non si applicano qui.' :
-    enrichment ? 'Turno di arricchimento: aggiunge contesto a un task già avviato.' :
-    precisionRaw >= 75 ? 'Ben specificato: ruolo, formato, vincoli o esempi presenti.'
-      : precisionRaw >= 52 ? 'Discretamente specificato — un formato o un esempio aiuterebbero.'
-      : 'Poco specificato: il modello deve indovinare troppo.',
+  const precisionScore = dim(uiLocale === 'it' ? 'Precisione' : 'Precision', precisionRaw,
+    conversational ? (uiLocale === 'it' ? 'Risposta conversazionale: le regole di specifica non si applicano qui.' : 'Conversational reply: specification rules don\'t apply here.') :
+    enrichment ? (uiLocale === 'it' ? 'Turno di arricchimento: aggiunge contesto a un task già avviato.' : 'Enrichment turn: adds context to an already-started task.') :
+    precisionRaw >= 75 ? (uiLocale === 'it' ? 'Ben specificato: ruolo, formato, vincoli o esempi presenti.' : 'Well specified: role, format, constraints or examples present.')
+      : precisionRaw >= 52 ? (uiLocale === 'it' ? 'Discretamente specificato — un formato o un esempio aiuterebbero.' : 'Fairly specified — a format or an example would help.')
+      : (uiLocale === 'it' ? 'Poco specificato: il modello deve indovinare troppo.' : 'Under-specified: the model has to guess too much.'),
     (conversational || enrichment) ? [] : [
-      ...(!hasTaskVerb ? ['Inizia con un verbo che dica cosa fare.'] : []),
-      ...(!hasFormat && !selfBounding ? ['Specifica il formato di output.'] : []),
-      ...(!hasExamples ? ['Aggiungi un esempio del risultato voluto.'] : []),
-      ...(!hasConstraints ? ['Indica vincoli, tono o pubblico.'] : []),
-      ...(!hasContext ? ['Aggiungi il contesto: a cosa serve, per chi.'] : []),
+      ...(!hasTaskVerb ? [uiLocale === 'it' ? 'Inizia con un verbo che dica cosa fare.' : 'Start with a verb that says what to do.'] : []),
+      ...(!hasFormat && !selfBounding ? [uiLocale === 'it' ? 'Specifica il formato di output.' : 'Specify the output format.'] : []),
+      ...(!hasExamples ? [uiLocale === 'it' ? 'Aggiungi un esempio del risultato voluto.' : 'Add an example of the result you want.'] : []),
+      ...(!hasConstraints ? [uiLocale === 'it' ? 'Indica vincoli, tono o pubblico.' : 'State constraints, tone, or audience.'] : []),
+      ...(!hasContext ? [uiLocale === 'it' ? 'Aggiungi il contesto: a cosa serve, per chi.' : 'Add context: what it\'s for, who it\'s for.'] : []),
     ]
   );
 
@@ -268,14 +272,15 @@ export function scorePrompt(
     // not because they're missing something. Penalizing their length punished
     // exactly the prompts that are naturally perfect at their size.
     lengthBase = Math.max(lengthBase, 88);
-  } else if (tok < 8) { lengthBase = 40; lengthTips.push('Prompt molto corto: aggiungi contesto, formato, vincoli.'); }
-  else if (tok < 16) { lengthBase = 66; lengthTips.push('Corto: uno o due dettagli in più aiuterebbero.'); }
-  else if (tok > 450) { lengthBase = 62; lengthTips.push('Molto lungo: controlla le ridondanze.'); }
+  } else if (tok < 8) { lengthBase = 40; lengthTips.push(uiLocale === 'it' ? 'Prompt molto corto: aggiungi contesto, formato, vincoli.' : 'Very short prompt: add context, format, constraints.'); }
+  else if (tok < 16) { lengthBase = 66; lengthTips.push(uiLocale === 'it' ? 'Corto: uno o due dettagli in più aiuterebbero.' : 'Short: one or two more details would help.'); }
+  else if (tok > 450) { lengthBase = 62; lengthTips.push(uiLocale === 'it' ? 'Molto lungo: controlla le ridondanze.' : 'Very long: check for redundancies.'); }
   else if (tok > 280) { lengthBase = 82; }
-  if (tokens.avgTokensPerSentence > 35) { lengthBase -= 10; lengthTips.push('Frasi troppo lunghe in media.'); }
-  const lengthScore = dim('Length', lengthBase,
-    conversational ? `Lunghezza corretta per una risposta conversazionale (${tok} token).` :
-    lengthBase >= 82 ? `Lunghezza adeguata (${tok} token).` : `${tok} token — ${tok < 16 ? 'un po\' corto' : 'valuta di ridurre'}.`,
+  if (tokens.avgTokensPerSentence > 35) { lengthBase -= 10; lengthTips.push(uiLocale === 'it' ? 'Frasi troppo lunghe in media.' : 'Sentences are too long on average.'); }
+  const lengthScore = dim(uiLocale === 'it' ? 'Lunghezza' : 'Length', lengthBase,
+    conversational ? (uiLocale === 'it' ? `Lunghezza corretta per una risposta conversazionale (${tok} token).` : `Correct length for a conversational reply (${tok} tokens).`) :
+    lengthBase >= 82 ? (uiLocale === 'it' ? `Lunghezza adeguata (${tok} token).` : `Adequate length (${tok} tokens).`)
+      : (uiLocale === 'it' ? `${tok} token — ${tok < 16 ? 'un po\' corto' : 'valuta di ridurre'}.` : `${tok} tokens — ${tok < 16 ? 'a bit short' : 'consider trimming'}.`),
     lengthTips
   );
 
@@ -283,18 +288,22 @@ export function scorePrompt(
   // REDUNDANCY & READABILITY — gradual.
   // ─────────────────────────────────────────────────────────────────────────
   const redundancyCount = byType('redundancy') + byType('filler') + byType('verbosity') + byType('politeness') + byType('repetition');
-  const redundancyScore = dim('Redundancy', 100 - Math.min(60, redundancyCount * 8),
-    redundancyCount === 0 ? 'Nessuna ridondanza.' : `${redundancyCount} elemento/i ridondante/i.`,
-    redundancyCount > 0 ? [`Rimuovi ${redundancyCount} parola/e o frase/i superflua/e.`] : []
+  const redundancyScore = dim(uiLocale === 'it' ? 'Ridondanza' : 'Redundancy', 100 - Math.min(60, redundancyCount * 8),
+    redundancyCount === 0
+      ? (uiLocale === 'it' ? 'Nessuna ridondanza.' : 'No redundancy.')
+      : (uiLocale === 'it' ? `${redundancyCount} elemento/i ridondante/i.` : `${redundancyCount} redundant element(s).`),
+    redundancyCount > 0 ? [uiLocale === 'it' ? `Rimuovi ${redundancyCount} parola/e o frase/i superflua/e.` : `Remove ${redundancyCount} unnecessary word(s) or phrase(s).`] : []
   );
 
   const passiveCount = byType('passive_voice');
   const longSentences = byType('long_sentence');
-  const readabilityScore = dim('Readability', 100 - (passiveCount * 8 + longSentences * 12),
-    (passiveCount + longSentences) === 0 ? 'Buona leggibilità.' : 'Alcune frasi riducono la leggibilità.',
+  const readabilityScore = dim(uiLocale === 'it' ? 'Leggibilità' : 'Readability', 100 - (passiveCount * 8 + longSentences * 12),
+    (passiveCount + longSentences) === 0
+      ? (uiLocale === 'it' ? 'Buona leggibilità.' : 'Good readability.')
+      : (uiLocale === 'it' ? 'Alcune frasi riducono la leggibilità.' : 'Some sentences reduce readability.'),
     [
-      ...(passiveCount > 0 ? [`${passiveCount} costrutto/i passivo/i: usa la voce attiva.`] : []),
-      ...(longSentences > 0 ? [`${longSentences} frase/i lunga/e: dividile.`] : []),
+      ...(passiveCount > 0 ? [uiLocale === 'it' ? `${passiveCount} costrutto/i passivo/i: usa la voce attiva.` : `${passiveCount} passive construction(s): use active voice.`] : []),
+      ...(longSentences > 0 ? [uiLocale === 'it' ? `${longSentences} frase/i lunga/e: dividile.` : `${longSentences} long sentence(s): split them.`] : []),
     ]
   );
 
@@ -334,6 +343,13 @@ export function scorePrompt(
   // above PL_001's 50: the verb gives slightly more direction than nothing,
   // but not much — the model still has to invent the entire content.
   if (byCode('OBJ_001') > 0) total = Math.min(total, 40);
+  // REF_001: the prompt references a specific external document/message
+  // ("l'email di Marco", "il file allegato") that was never provided. The
+  // task itself may be perfectly clear, but the model has nothing real to
+  // act on and must invent the referenced content wholesale — similarly
+  // severe to OBJ_001 for the same underlying reason (a clear verb pointing
+  // at nothing concrete).
+  if (byCode('REF_001') > 0) total = Math.min(total, 45);
   // VAGUE_002 (3+ subjective quality adjectives piled up: "bello,
   // interessante, utile…") is a much stronger vagueness signal than a single
   // generic ambiguity hit. But its severity should depend on whether there's
@@ -386,7 +402,13 @@ export function scorePrompt(
     // 10 chars skip the PL_001 rule entirely, so byCode('PL_001')===0 reads
     // as "has a verb" for "Non so." — exactly backwards for this tier.
     const hasRealVerb = m.task.confidence >= 0.5;
-    if (words <= 3 && objEmpty && !selfBounding && !isQuestionLike) {
+    // A bare "?" (no letters or digits at all) is not a content-bearing
+    // question — it's the null prompt, found via adversarial testing ("?"
+    // scored 55 because isQuestionLike protected it, the same exemption
+    // meant for "Quanto fa 18 × 27?"). Require actual alphanumeric content
+    // for a text to count as a real question worth exempting.
+    const hasAnyRealContent = /[\p{L}\p{N}]/u.test(text);
+    if (words <= 3 && objEmpty && !selfBounding && !(isQuestionLike && hasAnyRealContent)) {
       total = Math.min(total, hasRealVerb ? 20 : 12);
     }
     // A terse prompt with a real, actionable task verb ("Analizza questo
@@ -450,11 +472,16 @@ export function scorePrompt(
   const worst = [clarityScore, precisionScore, lengthScore, redundancyScore, readabilityScore]
     .sort((a, b) => a.score - b.score)[0];
 
-  const summaries: Record<ScoreLabel, string> = {
+  const summaries: Record<ScoreLabel, string> = uiLocale === 'it' ? {
     excellent: 'Ottimo prompt: ben strutturato e specificato.',
     good: `Buon prompt, migliorabile. Focus: ${worst.name.toLowerCase()}.`,
     fair: `Prompt discreto. Problema principale: ${worst.name.toLowerCase()}.`,
     poor: `Prompt debole. Inizia da: ${worst.name.toLowerCase()}.`,
+  } : {
+    excellent: 'Great prompt: well structured and specified.',
+    good: `Good prompt, room to improve. Focus: ${worst.name.toLowerCase()}.`,
+    fair: `Decent prompt. Main issue: ${worst.name.toLowerCase()}.`,
+    poor: `Weak prompt. Start with: ${worst.name.toLowerCase()}.`,
   };
 
   return {

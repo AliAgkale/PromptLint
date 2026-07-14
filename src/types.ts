@@ -322,6 +322,17 @@ export interface AnalyzeOptions {
    * meaningful regardless of where the message sits in a conversation.
    */
   conversationTurn?: 'first' | 'followup';
+  /**
+   * Language for EXPLANATIONS (why/suggestion/label text), independent of
+   * `language` above (which is about the PROMPT TEXT's own language). Before
+   * this existed, a few rules incorrectly used the prompt's detected
+   * language to decide the explanation language too — meaning an
+   * English-speaking user writing an Italian prompt got Italian
+   * explanations regardless of their own language. Pass the HOST's actual
+   * UI language here (e.g. Chrome's `chrome.i18n.getUILanguage()` in the
+   * extension). Defaults to 'it'.
+   */
+  uiLocale?: 'it' | 'en';
   /** Custom model prices (overrides defaults) */
   modelPrices?: ModelPrice[];
   /** Output/input ratio for cost estimation (default: 2) */

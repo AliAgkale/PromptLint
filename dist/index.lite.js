@@ -19034,7 +19034,7 @@ function getExemptMaterialRanges(text, taskConfidence) {
 function makeExemptChecker(ranges) {
   return (pos) => ranges.some(([s, e]) => pos >= s && pos < e);
 }
-function runSpell(text, spell, detectedLang, isExempt) {
+function runSpell(text, spell, detectedLang, isExempt, uiLocale = "it") {
   const results = [];
   const re = /[a-zA-Zà-ÿ][a-zA-Zà-ÿ']*[a-zA-Zà-ÿ]|[a-zA-Zà-ÿ]/g;
   let m;
@@ -19065,7 +19065,7 @@ function runSpell(text, spell, detectedLang, isExempt) {
       seen.set(lower, spell ? spell.suggest(lower, 4) : getSuggestions(lower, 4, fallbackLang));
     }
     const suggs = seen.get(lower);
-    const isItalian = !spell && fallbackLang === "it";
+    const isItalian = uiLocale === "it";
     results.push(obs(
       "spelling",
       "unnecessary",
@@ -19082,7 +19082,7 @@ function runSpell(text, spell, detectedLang, isExempt) {
   }
   return results;
 }
-function runRepeatedWord(text, isExempt) {
+function runRepeatedWord(text, isExempt, uiLocale = "it") {
   const results = [];
   const re = /\b(\w+)\s+\1\b/gi;
   let m;
@@ -19091,12 +19091,12 @@ function runRepeatedWord(text, isExempt) {
     results.push(obs(
       "repetition",
       "unnecessary",
-      "\u{1F4A1} Ripetizione",
+      uiLocale === "it" ? "\u{1F4A1} Ripetizione" : "\u{1F4A1} Repetition",
       m[0],
       m.index,
       text,
-      `La parola "${m[1]}" appare due volte di fila. \xC8 quasi sempre un refuso che pu\xF2 confondere il modello sull'intenzione reale.`,
-      `Rimuovi una delle due occorrenze di "${m[1]}".`,
+      uiLocale === "it" ? `La parola "${m[1]}" appare due volte di fila. \xC8 quasi sempre un refuso che pu\xF2 confondere il modello sull'intenzione reale.` : `The word "${m[1]}" appears twice in a row. This is almost always a typo that can confuse the model about the real intent.`,
+      uiLocale === "it" ? `Rimuovi una delle due occorrenze di "${m[1]}".` : `Remove one of the two occurrences of "${m[1]}".`,
       { before: m[0], after: m[1] },
       estimateTokens(m[1]),
       "GRAM_001"
@@ -19104,7 +19104,7 @@ function runRepeatedWord(text, isExempt) {
   }
   return results;
 }
-function runDoubleNegation(text, detectedLang) {
+function runDoubleNegation(text, detectedLang, uiLocale = "it") {
   if (detectedLang !== "en") return [];
   const results = [];
   const negs = ["not", "no", "never", "neither", "nor", "nothing", "nobody", "nowhere", "none"];
@@ -19117,20 +19117,20 @@ function runDoubleNegation(text, detectedLang) {
     results.push(obs(
       "double_negation",
       "contradiction",
-      "\u{1F534} Doppia negazione",
+      uiLocale === "it" ? "\u{1F534} Doppia negazione" : "\u{1F534} Double negation",
       m[0],
       m.index,
       text,
-      `"${m[1]}" e "${m[2]}" sono due negazioni nella stessa frase. I modelli LLM interpretano le doppie negazioni in modo imprevedibile \u2014 a volte si annullano, a volte no.`,
-      "Riscrivi la frase usando una sola negazione chiara, o formula in positivo.",
-      { before: m[0], after: "(riformulare in positivo)" },
+      uiLocale === "it" ? `"${m[1]}" e "${m[2]}" sono due negazioni nella stessa frase. I modelli LLM interpretano le doppie negazioni in modo imprevedibile \u2014 a volte si annullano, a volte no.` : `"${m[1]}" and "${m[2]}" are two negations in the same sentence. LLMs interpret double negatives unpredictably \u2014 sometimes they cancel out, sometimes they don't.`,
+      uiLocale === "it" ? "Riscrivi la frase usando una sola negazione chiara, o formula in positivo." : "Rewrite the sentence using a single clear negation, or phrase it positively.",
+      { before: m[0], after: uiLocale === "it" ? "(riformulare in positivo)" : "(rephrase positively)" },
       0,
       "GRAM_002"
     ));
   }
   return results;
 }
-function runLongSentence(text) {
+function runLongSentence(text, uiLocale = "it") {
   const results = [];
   const sentences = text.split(/(?<=[.!?])\s+|(?<=[.!?])$/);
   let cursor = 0;
@@ -19143,13 +19143,13 @@ function runLongSentence(text) {
       results.push(obs(
         "long_sentence",
         "improvable",
-        "\u{1F7E1} Frase lunga",
+        uiLocale === "it" ? "\u{1F7E1} Frase lunga" : "\u{1F7E1} Long sentence",
         sentence.slice(0, 60) + (sentence.length > 60 ? "\u2026" : ""),
         offset,
         text,
-        `Questa frase contiene ${wordCount2} parole. Frasi molto lunghe sono pi\xF9 difficili da parsare per il modello e spesso contengono istruzioni ridondanti.`,
-        "Dividi in 2\u20133 frasi pi\xF9 brevi, ognuna con un'istruzione singola.",
-        { before: sentence.slice(0, 50) + "\u2026", after: "(dividere in istruzioni separate)" },
+        uiLocale === "it" ? `Questa frase contiene ${wordCount2} parole. Frasi molto lunghe sono pi\xF9 difficili da parsare per il modello e spesso contengono istruzioni ridondanti.` : `This sentence has ${wordCount2} words. Very long sentences are harder for the model to parse and often contain redundant instructions.`,
+        uiLocale === "it" ? "Dividi in 2\u20133 frasi pi\xF9 brevi, ognuna con un'istruzione singola." : "Split into 2\u20133 shorter sentences, each with a single instruction.",
+        { before: sentence.slice(0, 50) + "\u2026", after: uiLocale === "it" ? "(dividere in istruzioni separate)" : "(split into separate instructions)" },
         Math.round(tok * 0.15),
         "GRAM_003"
       ));
@@ -19158,7 +19158,7 @@ function runLongSentence(text) {
   }
   return results;
 }
-function runMultipleSpaces(text) {
+function runMultipleSpaces(text, uiLocale = "it") {
   const results = [];
   const re = / {2,}/g;
   let m;
@@ -19169,12 +19169,12 @@ function runMultipleSpaces(text) {
     results.push(obs(
       "grammar",
       "unnecessary",
-      "\u{1F7E0} Spazi multipli",
+      uiLocale === "it" ? "\u{1F7E0} Spazi multipli" : "\u{1F7E0} Multiple spaces",
       m[0],
       m.index,
       text,
-      `${m[0].length} spazi consecutivi. Ogni spazio aggiuntivo spreca token e pu\xF2 interferire con parser di output strutturato.`,
-      "Sostituisci con un singolo spazio.",
+      uiLocale === "it" ? `${m[0].length} spazi consecutivi. Ogni spazio aggiuntivo spreca token e pu\xF2 interferire con parser di output strutturato.` : `${m[0].length} consecutive spaces. Each extra space wastes tokens and can interfere with structured-output parsers.`,
+      uiLocale === "it" ? "Sostituisci con un singolo spazio." : "Replace with a single space.",
       { before: m[0], after: " " },
       m[0].length - 1,
       "GRAM_004"
@@ -19183,34 +19183,29 @@ function runMultipleSpaces(text) {
   return results;
 }
 var FILLERS = [
-  { re: /\bbasically\b/gi, why: '"basically" non aggiunge significato alle istruzioni.', save: 1, code: "FILL_001" },
-  { re: /\bessentially\b/gi, why: '"essentially" \xE8 un intensificatore vuoto che non informa il modello.', save: 1, code: "FILL_002" },
-  { re: /\bliterally\b/gi, why: '"literally" raramente modifica il comportamento del modello.', save: 1, code: "FILL_003" },
-  { re: /\bactually\b/gi, why: `"actually" non aggiunge valore semantico in un'istruzione.`, save: 1, code: "FILL_004" },
-  { re: /\bjust\b/gi, why: `"just" indebolisce l'istruzione senza aggiungere precisione.`, save: 1, code: "FILL_005" },
-  { re: /\bsimply\b/gi, why: '"simply" \xE8 ridondante: il modello non sa se sia facile o difficile.', save: 1, code: "FILL_006" },
-  { re: /\bvery\b/gi, why: '"very" \xE8 un intensificatore vago. Preferisci un aggettivo pi\xF9 forte o rimuovilo.', save: 1, code: "FILL_007" },
-  { re: /\breally\b/gi, why: '"really" non aggiunge informazioni utili al modello.', save: 1, code: "FILL_008" },
-  { re: /\bquite\b/gi, why: '"quite" \xE8 un qualificatore vago \u2014 il modello non pu\xF2 misurarlo.', save: 1, code: "FILL_009" },
-  { re: /\bkind of\b/gi, why: `"kind of" crea ambiguit\xE0: il modello non sa quanto applicare l'istruzione.`, save: 1, code: "FILL_010" },
-  { re: /\bsort of\b/gi, why: `"sort of" crea ambiguit\xE0 nell'istruzione.`, save: 1, code: "FILL_011" },
-  // ── Italiano (serie FILL_1xx) ── Prima di questa aggiunta, TUTTE le
-  // regole di questa famiglia erano pattern inglesi: un utente italiano
-  // riceveva solo ortografia + regole strutturali, mai il valore vero del
-  // linter. Solo filler sicuri e privi di ambiguità — parole che in un
-  // prompt non cambiano mai il significato dell'istruzione.
-  { re: /\bpraticamente\b/gi, why: `"praticamente" non aggiunge significato a un'istruzione.`, save: 1, code: "FILL_101" },
-  { re: /\bfondamentalmente\b/gi, why: '"fondamentalmente" \xE8 un intensificatore vuoto che non informa il modello.', save: 1, code: "FILL_102" },
-  { re: /\bsostanzialmente\b/gi, why: '"sostanzialmente" non modifica il comportamento del modello.', save: 1, code: "FILL_103" },
-  { re: /\bin pratica\b/gi, why: `"in pratica" \xE8 un riempitivo: l'istruzione resta identica senza.`, save: 1, code: "FILL_104" },
-  { re: /\bin sostanza\b/gi, why: '"in sostanza" \xE8 un riempitivo che non aggiunge precisione.', save: 1, code: "FILL_105" },
-  { re: /\bletteralmente\b/gi, why: '"letteralmente" raramente modifica il comportamento del modello.', save: 1, code: "FILL_106" },
-  { re: /\bsemplicemente\b/gi, why: '"semplicemente" \xE8 ridondante: il modello non sa se sia facile o difficile.', save: 1, code: "FILL_107" },
-  { re: /\bdiciamo che\b/gi, why: `"diciamo che" crea ambiguit\xE0: il modello non sa quanto prendere alla lettera l'istruzione.`, save: 2, code: "FILL_108" }
+  { re: /\bbasically\b/gi, why: '"basically" non aggiunge significato alle istruzioni.', whyEn: '"basically" adds no meaning to the instructions.', save: 1, code: "FILL_001" },
+  { re: /\bessentially\b/gi, why: '"essentially" \xE8 un intensificatore vuoto che non informa il modello.', whyEn: '"essentially" is an empty intensifier that gives the model no information.', save: 1, code: "FILL_002" },
+  { re: /\bliterally\b/gi, why: '"literally" raramente modifica il comportamento del modello.', whyEn: `"literally" rarely changes the model's behavior.`, save: 1, code: "FILL_003" },
+  { re: /\bactually\b/gi, why: `"actually" non aggiunge valore semantico in un'istruzione.`, whyEn: '"actually" adds no semantic value to an instruction.', save: 1, code: "FILL_004" },
+  { re: /\bjust\b/gi, why: `"just" indebolisce l'istruzione senza aggiungere precisione.`, whyEn: '"just" weakens the instruction without adding precision.', save: 1, code: "FILL_005" },
+  { re: /\bsimply\b/gi, why: '"simply" \xE8 ridondante: il modello non sa se sia facile o difficile.', whyEn: `"simply" is redundant: the model has no way to know if it's easy or hard.`, save: 1, code: "FILL_006" },
+  { re: /\bvery\b/gi, why: '"very" \xE8 un intensificatore vago. Preferisci un aggettivo pi\xF9 forte o rimuovilo.', whyEn: '"very" is a vague intensifier. Prefer a stronger adjective or remove it.', save: 1, code: "FILL_007" },
+  { re: /\breally\b/gi, why: '"really" non aggiunge informazioni utili al modello.', whyEn: '"really" adds no useful information for the model.', save: 1, code: "FILL_008" },
+  { re: /\bquite\b/gi, why: '"quite" \xE8 un qualificatore vago \u2014 il modello non pu\xF2 misurarlo.', whyEn: '"quite" is a vague qualifier \u2014 the model has no way to measure it.', save: 1, code: "FILL_009" },
+  { re: /\bkind of\b/gi, why: `"kind of" crea ambiguit\xE0: il modello non sa quanto applicare l'istruzione.`, whyEn: `"kind of" creates ambiguity: the model doesn't know how strictly to apply the instruction.`, save: 1, code: "FILL_010" },
+  { re: /\bsort of\b/gi, why: `"sort of" crea ambiguit\xE0 nell'istruzione.`, whyEn: '"sort of" creates ambiguity in the instruction.', save: 1, code: "FILL_011" },
+  { re: /\bpraticamente\b/gi, why: `"praticamente" non aggiunge significato a un'istruzione.`, whyEn: '"praticamente" ("basically") adds no meaning to an instruction.', save: 1, code: "FILL_101" },
+  { re: /\bfondamentalmente\b/gi, why: '"fondamentalmente" \xE8 un intensificatore vuoto che non informa il modello.', whyEn: '"fondamentalmente" ("fundamentally") is an empty intensifier that gives the model no information.', save: 1, code: "FILL_102" },
+  { re: /\bsostanzialmente\b/gi, why: '"sostanzialmente" non modifica il comportamento del modello.', whyEn: `"sostanzialmente" ("substantially") doesn't change the model's behavior.`, save: 1, code: "FILL_103" },
+  { re: /\bin pratica\b/gi, why: `"in pratica" \xE8 un riempitivo: l'istruzione resta identica senza.`, whyEn: '"in pratica" ("in practice") is filler: the instruction is identical without it.', save: 1, code: "FILL_104" },
+  { re: /\bin sostanza\b/gi, why: '"in sostanza" \xE8 un riempitivo che non aggiunge precisione.', whyEn: '"in sostanza" ("in essence") is filler that adds no precision.', save: 1, code: "FILL_105" },
+  { re: /\bletteralmente\b/gi, why: '"letteralmente" raramente modifica il comportamento del modello.', whyEn: `"letteralmente" ("literally") rarely changes the model's behavior.`, save: 1, code: "FILL_106" },
+  { re: /\bsemplicemente\b/gi, why: '"semplicemente" \xE8 ridondante: il modello non sa se sia facile o difficile.', whyEn: `"semplicemente" ("simply") is redundant: the model has no way to know if it's easy or hard.`, save: 1, code: "FILL_107" },
+  { re: /\bdiciamo che\b/gi, why: `"diciamo che" crea ambiguit\xE0: il modello non sa quanto prendere alla lettera l'istruzione.`, whyEn: `"diciamo che" ("let's say") creates ambiguity: the model doesn't know how literally to take the instruction.`, save: 2, code: "FILL_108" }
 ];
-function runFillers(text, isExempt) {
+function runFillers(text, isExempt, uiLocale = "it") {
   const results = [];
-  for (const { re, why, save, code } of FILLERS) {
+  for (const { re, why, whyEn, save, code } of FILLERS) {
     const pattern = new RegExp(re.source, re.flags);
     let m;
     while ((m = pattern.exec(text)) !== null) {
@@ -19218,13 +19213,13 @@ function runFillers(text, isExempt) {
       results.push(obs(
         "filler",
         "unnecessary",
-        "\u{1F7E0} Parola inutile",
+        uiLocale === "it" ? "\u{1F7E0} Parola inutile" : "\u{1F7E0} Filler word",
         m[0],
         m.index,
         text,
-        why,
-        `Rimuovi "${m[0]}" \u2014 il prompt rimane identico nel significato.`,
-        { before: m[0], after: "(rimuovere)" },
+        uiLocale === "it" ? why : whyEn,
+        uiLocale === "it" ? `Rimuovi "${m[0]}" \u2014 il prompt rimane identico nel significato.` : `Remove "${m[0]}" \u2014 the prompt keeps the same meaning.`,
+        { before: m[0], after: uiLocale === "it" ? "(rimuovere)" : "(remove)" },
         save,
         code
       ));
@@ -19233,46 +19228,41 @@ function runFillers(text, isExempt) {
   return results;
 }
 var VERBOSE = [
-  { re: /\bin order to\b/gi, rep: "to", save: 2, why: '"in order to" \xE8 una costruzione verbosa. "to" trasmette lo stesso significato con meno token.', code: "VERB_001" },
-  { re: /\bdue to the fact that\b/gi, rep: "because", save: 4, why: '"due to the fact that" usa 5 parole dove basta "because".', code: "VERB_002" },
-  { re: /\bin the event that\b/gi, rep: "if", save: 3, why: '"in the event that" usa 4 parole dove basta "if".', code: "VERB_003" },
-  { re: /\bat this point in time\b/gi, rep: "now", save: 4, why: '"at this point in time" usa 5 parole dove basta "now".', code: "VERB_004" },
-  { re: /\bfor the purpose of\b/gi, rep: "to", save: 3, why: '"for the purpose of" usa 4 parole dove basta "to".', code: "VERB_005" },
-  { re: /\bhas the ability to\b/gi, rep: "can", save: 3, why: '"has the ability to" usa 4 parole dove basta "can".', code: "VERB_006" },
-  { re: /\bis able to\b/gi, rep: "can", save: 2, why: '"is able to" usa 3 parole dove basta "can".', code: "VERB_007" },
-  { re: /\bwith regard to\b/gi, rep: "about", save: 2, why: '"with regard to" usa 3 parole dove basta "about".', code: "VERB_008" },
-  { re: /\bdue to\b/gi, rep: "because of", save: 0, why: '"due to" \xE8 formale e spesso impreciso. Preferisci "because of".', code: "VERB_009" },
-  { re: /\ba large number of\b/gi, rep: "many", save: 3, why: '"a large number of" usa 4 parole dove basta "many".', code: "VERB_010" },
-  { re: /\bthe fact that\b/gi, rep: "that", save: 2, why: '"the fact that" \xE8 ridondante. Spesso "that" da solo \xE8 sufficiente.', code: "VERB_011" },
-  { re: /\bmake use of\b/gi, rep: "use", save: 2, why: '"make use of" usa 3 parole dove basta "use".', code: "VERB_012" },
-  { re: /\btake into account\b/gi, rep: "consider", save: 2, why: '"take into account" usa 3 parole dove basta "consider".', code: "VERB_013" },
-  { re: /\bprovide a summary of\b/gi, rep: "summarize", save: 3, why: '"provide a summary of" usa 4 parole dove basta "summarize".', code: "VERB_014a" },
-  { re: /\bprovide a description of\b/gi, rep: "describe", save: 3, why: '"provide a description of" usa 4 parole dove basta "describe".', code: "VERB_014b" },
-  { re: /\bprovide an explanation of\b/gi, rep: "explain", save: 3, why: '"provide an explanation of" usa 4 parole dove basta "explain".', code: "VERB_014c" },
-  { re: /\bin terms of\b/gi, rep: "for", save: 2, why: '"in terms of" \xE8 spesso sostituibile con "for" o riformulando la frase.', code: "VERB_015" },
-  // ── Italiano (serie VERB_1xx) ── le controparti italiane delle
-  // costruzioni prolisse più comuni. Solo sostituzioni che funzionano in
-  // qualunque contesto sintattico — esclusi casi come "in grado di", la
-  // cui sostituzione corretta dipende dal soggetto ("è in grado di"→"può"
-  // ma "sono in grado di"→"possono"), coperti dalle forme coniugate.
-  { re: /\bal fine di\b/gi, rep: "per", save: 2, why: '"al fine di" \xE8 una costruzione verbosa. "per" trasmette lo stesso significato con meno token.', code: "VERB_101" },
-  { re: /\ballo scopo di\b/gi, rep: "per", save: 2, why: '"allo scopo di" usa 3 parole dove basta "per".', code: "VERB_102" },
-  { re: /\bdal momento che\b/gi, rep: "poich\xE9", save: 2, why: '"dal momento che" usa 3 parole dove basta "poich\xE9".', code: "VERB_103" },
-  { re: /\bnel caso in cui\b/gi, rep: "se", save: 3, why: '"nel caso in cui" usa 4 parole dove basta "se".', code: "VERB_104" },
-  { re: /\bper quanto riguarda\b/gi, rep: "riguardo a", save: 1, why: '"per quanto riguarda" \xE8 formale e prolisso. "riguardo a" (o riformulare) \xE8 pi\xF9 diretto.', code: "VERB_105" },
-  { re: /\bin maniera tale da\b/gi, rep: "per", save: 3, why: '"in maniera tale da" usa 4 parole dove basta "per".', code: "VERB_106" },
-  { re: /\bè in grado di\b/gi, rep: "pu\xF2", save: 3, why: '"\xE8 in grado di" usa 4 parole dove basta "pu\xF2".', code: "VERB_107" },
-  { re: /\bsono in grado di\b/gi, rep: "possono", save: 3, why: '"sono in grado di" usa 4 parole dove basta "possono".', code: "VERB_108" },
-  { re: /\bun gran numero di\b/gi, rep: "molti", save: 3, why: '"un gran numero di" usa 4 parole dove basta "molti".', code: "VERB_109" },
-  { re: /\bfare uso di\b/gi, rep: "usare", save: 2, why: '"fare uso di" usa 3 parole dove basta "usare".', code: "VERB_110" },
-  { re: /\bprendere in considerazione\b/gi, rep: "considerare", save: 2, why: '"prendere in considerazione" usa 3 parole dove basta "considerare".', code: "VERB_111" },
-  { re: /\bfornisci un riassunto di\b/gi, rep: "riassumi", save: 3, why: '"fornisci un riassunto di" usa 4 parole dove basta "riassumi".', code: "VERB_112" },
-  { re: /\bfornisci una descrizione di\b/gi, rep: "descrivi", save: 3, why: '"fornisci una descrizione di" usa 4 parole dove basta "descrivi".', code: "VERB_113" },
-  { re: /\bfornisci una spiegazione di\b/gi, rep: "spiega", save: 3, why: '"fornisci una spiegazione di" usa 4 parole dove basta "spiega".', code: "VERB_114" }
+  { re: /\bin order to\b/gi, rep: "to", save: 2, why: '"in order to" \xE8 una costruzione verbosa. "to" trasmette lo stesso significato con meno token.', whyEn: '"in order to" is a wordy construction. "to" conveys the same meaning with fewer tokens.', code: "VERB_001" },
+  { re: /\bdue to the fact that\b/gi, rep: "because", save: 4, why: '"due to the fact that" usa 5 parole dove basta "because".', whyEn: '"due to the fact that" uses 5 words where "because" is enough.', code: "VERB_002" },
+  { re: /\bin the event that\b/gi, rep: "if", save: 3, why: '"in the event that" usa 4 parole dove basta "if".', whyEn: '"in the event that" uses 4 words where "if" is enough.', code: "VERB_003" },
+  { re: /\bat this point in time\b/gi, rep: "now", save: 4, why: '"at this point in time" usa 5 parole dove basta "now".', whyEn: '"at this point in time" uses 5 words where "now" is enough.', code: "VERB_004" },
+  { re: /\bfor the purpose of\b/gi, rep: "to", save: 3, why: '"for the purpose of" usa 4 parole dove basta "to".', whyEn: '"for the purpose of" uses 4 words where "to" is enough.', code: "VERB_005" },
+  { re: /\bhas the ability to\b/gi, rep: "can", save: 3, why: '"has the ability to" usa 4 parole dove basta "can".', whyEn: '"has the ability to" uses 4 words where "can" is enough.', code: "VERB_006" },
+  { re: /\bis able to\b/gi, rep: "can", save: 2, why: '"is able to" usa 3 parole dove basta "can".', whyEn: '"is able to" uses 3 words where "can" is enough.', code: "VERB_007" },
+  { re: /\bwith regard to\b/gi, rep: "about", save: 2, why: '"with regard to" usa 3 parole dove basta "about".', whyEn: '"with regard to" uses 3 words where "about" is enough.', code: "VERB_008" },
+  { re: /\bdue to\b/gi, rep: "because of", save: 0, why: '"due to" \xE8 formale e spesso impreciso. Preferisci "because of".', whyEn: '"due to" is formal and often imprecise. Prefer "because of".', code: "VERB_009" },
+  { re: /\ba large number of\b/gi, rep: "many", save: 3, why: '"a large number of" usa 4 parole dove basta "many".', whyEn: '"a large number of" uses 4 words where "many" is enough.', code: "VERB_010" },
+  { re: /\bthe fact that\b/gi, rep: "that", save: 2, why: '"the fact that" \xE8 ridondante. Spesso "that" da solo \xE8 sufficiente.', whyEn: '"the fact that" is redundant. Often "that" alone is enough.', code: "VERB_011" },
+  { re: /\bmake use of\b/gi, rep: "use", save: 2, why: '"make use of" usa 3 parole dove basta "use".', whyEn: '"make use of" uses 3 words where "use" is enough.', code: "VERB_012" },
+  { re: /\btake into account\b/gi, rep: "consider", save: 2, why: '"take into account" usa 3 parole dove basta "consider".', whyEn: '"take into account" uses 3 words where "consider" is enough.', code: "VERB_013" },
+  { re: /\bprovide a summary of\b/gi, rep: "summarize", save: 3, why: '"provide a summary of" usa 4 parole dove basta "summarize".', whyEn: '"provide a summary of" uses 4 words where "summarize" is enough.', code: "VERB_014a" },
+  { re: /\bprovide a description of\b/gi, rep: "describe", save: 3, why: '"provide a description of" usa 4 parole dove basta "describe".', whyEn: '"provide a description of" uses 4 words where "describe" is enough.', code: "VERB_014b" },
+  { re: /\bprovide an explanation of\b/gi, rep: "explain", save: 3, why: '"provide an explanation of" usa 4 parole dove basta "explain".', whyEn: '"provide an explanation of" uses 4 words where "explain" is enough.', code: "VERB_014c" },
+  { re: /\bin terms of\b/gi, rep: "for", save: 2, why: '"in terms of" \xE8 spesso sostituibile con "for" o riformulando la frase.', whyEn: '"in terms of" can usually be replaced with "for" or by rephrasing.', code: "VERB_015" },
+  { re: /\bal fine di\b/gi, rep: "per", save: 2, why: '"al fine di" \xE8 una costruzione verbosa. "per" trasmette lo stesso significato con meno token.', whyEn: '"al fine di" ("in order to") is a wordy construction. "per" ("to") conveys the same meaning with fewer tokens.', code: "VERB_101" },
+  { re: /\ballo scopo di\b/gi, rep: "per", save: 2, why: '"allo scopo di" usa 3 parole dove basta "per".', whyEn: '"allo scopo di" ("for the purpose of") uses 3 words where "per" ("to") is enough.', code: "VERB_102" },
+  { re: /\bdal momento che\b/gi, rep: "poich\xE9", save: 2, why: '"dal momento che" usa 3 parole dove basta "poich\xE9".', whyEn: '"dal momento che" ("given that") uses 3 words where "poich\xE9" ("since") is enough.', code: "VERB_103" },
+  { re: /\bnel caso in cui\b/gi, rep: "se", save: 3, why: '"nel caso in cui" usa 4 parole dove basta "se".', whyEn: '"nel caso in cui" ("in the event that") uses 4 words where "se" ("if") is enough.', code: "VERB_104" },
+  { re: /\bper quanto riguarda\b/gi, rep: "riguardo a", save: 1, why: '"per quanto riguarda" \xE8 formale e prolisso. "riguardo a" (o riformulare) \xE8 pi\xF9 diretto.', whyEn: '"per quanto riguarda" ("as regards") is formal and wordy. "riguardo a" ("about", or rephrasing) is more direct.', code: "VERB_105" },
+  { re: /\bin maniera tale da\b/gi, rep: "per", save: 3, why: '"in maniera tale da" usa 4 parole dove basta "per".', whyEn: '"in maniera tale da" ("in such a way as to") uses 4 words where "per" ("to") is enough.', code: "VERB_106" },
+  { re: /\bè in grado di\b/gi, rep: "pu\xF2", save: 3, why: '"\xE8 in grado di" usa 4 parole dove basta "pu\xF2".', whyEn: '"\xE8 in grado di" ("is capable of") uses 4 words where "pu\xF2" ("can") is enough.', code: "VERB_107" },
+  { re: /\bsono in grado di\b/gi, rep: "possono", save: 3, why: '"sono in grado di" usa 4 parole dove basta "possono".', whyEn: '"sono in grado di" ("are capable of") uses 4 words where "possono" ("can") is enough.', code: "VERB_108" },
+  { re: /\bun gran numero di\b/gi, rep: "molti", save: 3, why: '"un gran numero di" usa 4 parole dove basta "molti".', whyEn: '"un gran numero di" ("a large number of") uses 4 words where "molti" ("many") is enough.', code: "VERB_109" },
+  { re: /\bfare uso di\b/gi, rep: "usare", save: 2, why: '"fare uso di" usa 3 parole dove basta "usare".', whyEn: '"fare uso di" ("make use of") uses 3 words where "usare" ("use") is enough.', code: "VERB_110" },
+  { re: /\bprendere in considerazione\b/gi, rep: "considerare", save: 2, why: '"prendere in considerazione" usa 3 parole dove basta "considerare".', whyEn: '"prendere in considerazione" ("take into consideration") uses 3 words where "considerare" ("consider") is enough.', code: "VERB_111" },
+  { re: /\bfornisci un riassunto di\b/gi, rep: "riassumi", save: 3, why: '"fornisci un riassunto di" usa 4 parole dove basta "riassumi".', whyEn: '"fornisci un riassunto di" ("provide a summary of") uses 4 words where "riassumi" ("summarize") is enough.', code: "VERB_112" },
+  { re: /\bfornisci una descrizione di\b/gi, rep: "descrivi", save: 3, why: '"fornisci una descrizione di" usa 4 parole dove basta "descrivi".', whyEn: '"fornisci una descrizione di" ("provide a description of") uses 4 words where "descrivi" ("describe") is enough.', code: "VERB_113" },
+  { re: /\bfornisci una spiegazione di\b/gi, rep: "spiega", save: 3, why: '"fornisci una spiegazione di" usa 4 parole dove basta "spiega".', whyEn: '"fornisci una spiegazione di" ("provide an explanation of") uses 4 words where "spiega" ("explain") is enough.', code: "VERB_114" }
 ];
-function runVerbose(text, isExempt) {
+function runVerbose(text, isExempt, uiLocale = "it") {
   const results = [];
-  for (const { re, rep, save, why, code } of VERBOSE) {
+  for (const { re, rep, save, why, whyEn, code } of VERBOSE) {
     const pattern = new RegExp(re.source, re.flags);
     let m;
     while ((m = pattern.exec(text)) !== null) {
@@ -19281,12 +19271,12 @@ function runVerbose(text, isExempt) {
       results.push(obs(
         "verbosity",
         "unnecessary",
-        "\u{1F7E0} Frase prolissa",
+        uiLocale === "it" ? "\u{1F7E0} Frase prolissa" : "\u{1F7E0} Wordy phrase",
         m[0],
         m.index,
         text,
-        why,
-        `Sostituisci con "${replacement}".`,
+        uiLocale === "it" ? why : whyEn,
+        uiLocale === "it" ? `Sostituisci con "${replacement}".` : `Replace with "${replacement}".`,
         { before: m[0], after: replacement },
         save,
         code
@@ -19317,7 +19307,7 @@ var SYNONYMS = [
   { re: /\bunisci insieme\b/gi, keep: "unisci", code: "SYN_103" },
   { re: /\bciascuno e ognuno\b/gi, keep: "ciascuno", code: "SYN_104" }
 ];
-function runSynonymPairs(text) {
+function runSynonymPairs(text, uiLocale = "it") {
   const results = [];
   for (const { re, keep, code } of SYNONYMS) {
     const pattern = new RegExp(re.source, re.flags);
@@ -19326,12 +19316,12 @@ function runSynonymPairs(text) {
       results.push(obs(
         "redundancy",
         "unnecessary",
-        "\u{1F7E0} Ridondanza",
+        uiLocale === "it" ? "\u{1F7E0} Ridondanza" : "\u{1F7E0} Redundancy",
         m[0],
         m.index,
         text,
-        `"${m[0]}" contiene due parole con lo stesso significato. I sinonimi consecutivi non aggiungono precisione ma aumentano i token.`,
-        `Usa solo "${keep}".`,
+        uiLocale === "it" ? `"${m[0]}" contiene due parole con lo stesso significato. I sinonimi consecutivi non aggiungono precisione ma aumentano i token.` : `"${m[0]}" contains two words with the same meaning. Consecutive synonyms add no precision but do add tokens.`,
+        uiLocale === "it" ? `Usa solo "${keep}".` : `Use only "${keep}".`,
         { before: m[0], after: keep },
         estimateTokens(m[0]) - estimateTokens(keep),
         code
@@ -19363,7 +19353,7 @@ var POLITENESS2 = [
   { re: /\bti chiederei di\b/gi, code: "POL_106" },
   { re: /\bmi piacerebbe che\b/gi, code: "POL_107" }
 ];
-function runPoliteness(text) {
+function runPoliteness(text, uiLocale = "it") {
   const results = [];
   for (const { re, code } of POLITENESS2) {
     const pattern = new RegExp(re.source, re.flags);
@@ -19372,13 +19362,13 @@ function runPoliteness(text) {
       results.push(obs(
         "politeness",
         "improvable",
-        "\u{1F7E1} Cortesia inutile",
+        uiLocale === "it" ? "\u{1F7E1} Cortesia inutile" : "\u{1F7E1} Unnecessary politeness",
         m[0],
         m.index,
         text,
-        `I modelli LLM rispondono alle istruzioni, non alla cortesia. "${m[0]}" spreca token senza migliorare la risposta.`,
-        `Rimuovi "${m[0]}" e formula l'istruzione direttamente.`,
-        { before: m[0], after: "(rimuovere)" },
+        uiLocale === "it" ? `I modelli LLM rispondono alle istruzioni, non alla cortesia. "${m[0]}" spreca token senza migliorare la risposta.` : `LLMs respond to instructions, not to politeness. "${m[0]}" wastes tokens without improving the response.`,
+        uiLocale === "it" ? `Rimuovi "${m[0]}" e formula l'istruzione direttamente.` : `Remove "${m[0]}" and phrase the instruction directly.`,
+        { before: m[0], after: uiLocale === "it" ? "(rimuovere)" : "(remove)" },
         estimateTokens(m[0]),
         code
       ));
@@ -19399,7 +19389,7 @@ function looksLikeEnrichmentTurn(text, model) {
   const finiteVerb = /\b(è|sono|ho|hai|ha|abbiamo|hanno|era|erano|sta|stanno|uso|usa|usano|usiamo|voglio|vuole|serve|servono|deve|devono|contiene|contengono|include|includono|funziona|funzionano|gira|girano|ho\s+\w+ato|ho\s+\w+ito|ho\s+\w+uto|è\s+\w+ato|sono\s+\w+ati|is|are|has|have|uses|contains|needs|runs|works|includes)\b/i.test(t);
   return hasNumber || hasNamedObject || hasAudience || hasToneOrFormat || hasLength || declarativeFrame || finiteVerb;
 }
-function runNoTask(text, detectedLang, model, conversationTurn) {
+function runNoTask(text, detectedLang, model, conversationTurn, uiLocale = "it") {
   const trimmed = text.trim();
   if (trimmed.length < 10) return [];
   if (model.task.confidence >= 0.5) return [];
@@ -19409,18 +19399,18 @@ function runNoTask(text, detectedLang, model, conversationTurn) {
   return [obs(
     "no_task",
     "contradiction",
-    "\u{1F534} Nessun task",
+    uiLocale === "it" ? "\u{1F534} Nessun task" : "\u{1F534} No task",
     trimmed.slice(0, 40),
     0,
     text,
-    "Il prompt non inizia con un verbo d'azione chiaro. Senza un'istruzione esplicita il modello sceglie autonomamente cosa fare, con risultati imprevedibili.",
-    detectedLang === "it" ? "Inizia con un verbo imperativo: Scrivi, Analizza, Riassumi, Spiega, Elenca, Confronta, Genera\u2026" : "Inizia con un verbo imperativo: Write, Analyze, Summarize, Explain, List, Compare, Generate\u2026",
-    { before: trimmed.slice(0, 30), after: detectedLang === "it" ? "Analizza / Scrivi / Spiega \u2026" : "Analyze / Write / Explain \u2026" },
+    uiLocale === "it" ? "Il prompt non inizia con un verbo d'azione chiaro. Senza un'istruzione esplicita il modello sceglie autonomamente cosa fare, con risultati imprevedibili." : "The prompt doesn't start with a clear action verb. Without an explicit instruction the model decides on its own what to do, with unpredictable results.",
+    uiLocale === "it" ? "Inizia con un verbo imperativo: Scrivi, Analizza, Riassumi, Spiega, Elenca, Confronta, Genera\u2026" : "Start with an imperative verb: Write, Analyze, Summarize, Explain, List, Compare, Generate\u2026",
+    { before: trimmed.slice(0, 30), after: uiLocale === "it" ? "Analizza / Scrivi / Spiega \u2026" : "Analyze / Write / Explain \u2026" },
     0,
     "PL_001"
   )].map((o) => ({ ...o, matchText: "(no task \u2014 " + o.matchText + ")" }));
 }
-function runNoObject(text, detectedLang, model) {
+function runNoObject(text, detectedLang, model, uiLocale = "it") {
   const trimmed = text.trim();
   if (trimmed.length < 10) return [];
   if (isConversationalReply(text)) return [];
@@ -19431,17 +19421,17 @@ function runNoObject(text, detectedLang, model) {
   }
   const object = model.object;
   if (object.presence !== "none" && object.presence !== "bare") return [];
-  const why = object.presence === "none" ? "Il prompt ha un verbo ma non dice su cosa agire: manca completamente l'oggetto della richiesta. Il modello deve indovinare tutto." : `Il prompt chiede "${object.text}" ma non specifica su quale argomento, testo o materiale \u2014 il modello deve inventare il contenuto da zero, con risultati casuali.`;
+  const why = uiLocale === "it" ? object.presence === "none" ? "Il prompt ha un verbo ma non dice su cosa agire: manca completamente l'oggetto della richiesta. Il modello deve indovinare tutto." : `Il prompt chiede "${object.text}" ma non specifica su quale argomento, testo o materiale \u2014 il modello deve inventare il contenuto da zero, con risultati casuali.` : object.presence === "none" ? "The prompt has a verb but doesn't say what to act on: the object of the request is completely missing. The model has to guess everything." : `The prompt asks for "${object.text}" but doesn't specify what topic, text, or material it's about \u2014 the model has to invent the content from scratch, with random results.`;
   return [obs(
     "ambiguity",
     "improvable",
-    "\u{1F7E0} Oggetto della richiesta mancante",
+    uiLocale === "it" ? "\u{1F7E0} Oggetto della richiesta mancante" : "\u{1F7E0} Missing object of the request",
     object.text ?? trimmed.slice(0, 30),
     0,
     text,
     why,
-    detectedLang === "it" ? "Aggiungi su cosa: un argomento, un testo da elaborare, o un riferimento concreto." : "Add what it's about: a topic, a text to work on, or a concrete reference.",
-    { before: object.text ?? trimmed.slice(0, 30), after: "(argomento o materiale specifico)" },
+    uiLocale === "it" ? "Aggiungi su cosa: un argomento, un testo da elaborare, o un riferimento concreto." : "Add what it's about: a topic, a text to work on, or a concrete reference.",
+    { before: object.text ?? trimmed.slice(0, 30), after: uiLocale === "it" ? "(argomento o materiale specifico)" : "(specific topic or material)" },
     0,
     "OBJ_001"
   )];
@@ -19469,7 +19459,7 @@ function isConversationalReply(text) {
   const HAS_TASK_PAYLOAD = /^(ora\s+|adesso\s+|poi\s+|quindi\s+)?(scriv\w*|genera\w*|crea\w*|analizz\w*|riassum\w*|traduc\w*|spiega\w*|elenca\w*|descriv\w*|redigi|componi|sviluppa\w*|implementa\w*|prepara\w*|rifa\w*|rifar\w*|riscriv\w*|riscrivere|write|create|generate|analyze|summarize|translate|explain|list|describe|develop|implement|build|design|make|rewrite|redo)\b/i.test(remainder) || /\d{2,}\s*(parole|words|caratteri|characters|capitoli|chapters|paragraf\w*|righe|pagine|pages)/i.test(remainder) || /\b(in\s+)?(json|markdown|tabella|table|csv|xml|yaml)\b/i.test(remainder) || wordCount(remainder) >= 7 && /\b(scriv\w*|genera\w*|crea\w*|analizz\w*|rifa\w*|riscriv\w*|sviluppa\w*|implementa\w*|aggiung\w*|modifica\w*|cambia\w*|trasforma\w*|converti\w*|ottimizza\w*|migliora\w*|corregg\w*|sistema\w*|rendi\w*)\b/i.test(remainder);
   return !HAS_TASK_PAYLOAD;
 }
-function runNoFormat(text) {
+function runNoFormat(text, uiLocale = "it") {
   if (text.length < 80) return [];
   if (isQuestion(text) || isSelfBounding(text)) return [];
   const FORMAT = /\b(json|markdown|html|xml|yaml|csv|diff|code|codice|snippet|list|bullet|table|numbered|paragraph|sentence|format|structure|outline|heading|section|column|schema|diagram|plain text|elenco|lista|puntat[oa]|tabell[ae]|numerat[oa]|paragraf[oi]|fras[ei]|formato|struttura|intestazione|sezion[ei]|colonn[ae]|punt[oi]|diagramma|testo semplice)\b/i;
@@ -19479,18 +19469,18 @@ function runNoFormat(text) {
   return [obs(
     "no_format",
     "improvable",
-    "\u{1F7E1} Nessun formato",
+    uiLocale === "it" ? "\u{1F7E1} Nessun formato" : "\u{1F7E1} No format",
     "(intero prompt)",
     0,
     text,
-    "Senza un formato di output specificato il modello sceglie la struttura autonomamente.",
-    'Specifica il formato: "in JSON", "come lista numerata", "in 2 paragrafi", "in una tabella Markdown".',
-    { before: "\u2026", after: "\u2026 in formato JSON." },
+    uiLocale === "it" ? "Senza un formato di output specificato il modello sceglie la struttura autonomamente." : "Without a specified output format the model chooses the structure on its own.",
+    uiLocale === "it" ? 'Specifica il formato: "in JSON", "come lista numerata", "in 2 paragrafi", "in una tabella Markdown".' : 'Specify the format: "in JSON", "as a numbered list", "in 2 paragraphs", "in a Markdown table".',
+    { before: "\u2026", after: uiLocale === "it" ? "\u2026 in formato JSON." : "\u2026 in JSON format." },
     0,
     "PL_002"
   )];
 }
-function runNoRole(text) {
+function runNoRole(text, uiLocale = "it") {
   if (wordCount(text) < 25) return [];
   if (isQuestion(text) || isSelfBounding(text)) return [];
   const ROLE = /\b(you are|act as|as an? |your role|pretend|imagine you|sei un|sei uno|sei una|agisci come|nel ruolo di|come esperto|in qualità di)\b/i;
@@ -19500,18 +19490,18 @@ function runNoRole(text) {
   return [obs(
     "no_role",
     "improvable",
-    "\u{1F7E1} Nessun ruolo",
+    uiLocale === "it" ? "\u{1F7E1} Nessun ruolo" : "\u{1F7E1} No role",
     text.slice(0, 20),
     0,
     text,
-    'Assegnare un ruolo o persona al modello ("Sei un ingegnere senior") pu\xF2 migliorare qualit\xE0 e pertinenza orientando vocabolario, tono e profondit\xE0. Facoltativo, ma utile nei task aperti.',
-    `Aggiungi un ruolo all'inizio: "Sei un [esperto di\u2026]. ".`,
-    { before: text.slice(0, 20), after: "Sei un esperto di [dominio]. " + text.slice(0, 20) },
+    uiLocale === "it" ? 'Assegnare un ruolo o persona al modello ("Sei un ingegnere senior") pu\xF2 migliorare qualit\xE0 e pertinenza orientando vocabolario, tono e profondit\xE0. Facoltativo, ma utile nei task aperti.' : 'Assigning a role or persona to the model ("You are a senior engineer") can improve quality and relevance by steering vocabulary, tone and depth. Optional, but useful for open-ended tasks.',
+    uiLocale === "it" ? `Aggiungi un ruolo all'inizio: "Sei un [esperto di\u2026]. ".` : 'Add a role at the start: "You are a [domain expert]. ".',
+    { before: text.slice(0, 20), after: (uiLocale === "it" ? "Sei un esperto di [dominio]. " : "You are a [domain] expert. ") + text.slice(0, 20) },
     0,
     "PL_006"
   )];
 }
-function runNoLength(text) {
+function runNoLength(text, uiLocale = "it") {
   if (wordCount(text) < 25) return [];
   if (isSelfBounding(text) || isQuestion(text)) return [];
   if (/\b\d{1,2}\s+\p{L}/u.test(text)) return [];
@@ -19520,13 +19510,13 @@ function runNoLength(text) {
   return [obs(
     "no_length",
     "improvable",
-    "\u{1F7E1} Nessun limite di lunghezza",
+    uiLocale === "it" ? "\u{1F7E1} Nessun limite di lunghezza" : "\u{1F7E1} No length limit",
     "(intero prompt)",
     0,
     text,
-    "Senza un limite di lunghezza il modello genera risposte di dimensione arbitraria, aumentando i token di output e i costi.",
-    'Aggiungi: "in 100 parole", "in 3 bullet point", "in 2 frasi".',
-    { before: "\u2026", after: "\u2026 in 3 bullet point." },
+    uiLocale === "it" ? "Senza un limite di lunghezza il modello genera risposte di dimensione arbitraria, aumentando i token di output e i costi." : "Without a length limit the model generates responses of arbitrary size, increasing output tokens and cost.",
+    uiLocale === "it" ? 'Aggiungi: "in 100 parole", "in 3 bullet point", "in 2 frasi".' : 'Add: "in 100 words", "in 3 bullet points", "in 2 sentences".',
+    { before: "\u2026", after: uiLocale === "it" ? "\u2026 in 3 bullet point." : "\u2026 in 3 bullet points." },
     0,
     "PL_009"
   )];
@@ -19534,7 +19524,7 @@ function runNoLength(text) {
 function hasExample(text) {
   return /(esempi?o?\s*:|per\s+esempio|ad\s+esempio|e\.g\.|example\s*:|for\s+example|\binput\s*:|\boutput\s*:)/i.test(text) || /(^|\n)\s*[-*]?\s*.+\s*(→|->|=>)\s*\S/.test(text) || /"""/.test(text);
 }
-function runNoExample(text) {
+function runNoExample(text, uiLocale = "it") {
   if (wordCount(text) < 6) return [];
   if (hasExample(text)) return [];
   const FORMAT_SENSITIVE = /\b(classif(y|ica|icami|icare)|categoriz(e|za|zami|zare)|extract|estra(i|rre|imi)|convert(i|ire|imi)?|transform|trasform(a|are|ami)|format(ta|tare|tami)?|tag(ga|gare|gami)?|etichett(a|are|ami)|parse|parsa|normaliz(e|za|zare)|map(pa|pare|pami)?|struttur(a|are|ami)(?!\s*:)|estrapol(a|are|ami)|standardizz(a|are|ami))\b/i;
@@ -19542,18 +19532,18 @@ function runNoExample(text) {
   return [obs(
     "no_example",
     "improvable",
-    "\u{1F7E1} Nessun esempio (few-shot)",
+    uiLocale === "it" ? "\u{1F7E1} Nessun esempio (few-shot)" : "\u{1F7E1} No example (few-shot)",
     "(intero prompt)",
     0,
     text,
-    `Per i task sensibili al formato (classificare, estrarre, convertire, formattare) un solo esempio input\u2192output guida il modello molto pi\xF9 di una descrizione: fissa la forma esatta dell'output e riduce le risposte fuori formato. \xC8 la regola d'oro del "few-shot".`,
-    'Aggiungi un esempio concreto, es: "Input: mario@x.it \u2014 Output: {\\"nome\\":\\"mario\\"}". Anche uno solo cambia molto.',
-    { before: "\u2026", after: "\u2026\\n\\nEsempio:\\nInput: [\u2026]\\nOutput: [\u2026]" },
+    uiLocale === "it" ? `Per i task sensibili al formato (classificare, estrarre, convertire, formattare) un solo esempio input\u2192output guida il modello molto pi\xF9 di una descrizione: fissa la forma esatta dell'output e riduce le risposte fuori formato. \xC8 la regola d'oro del "few-shot".` : 'For format-sensitive tasks (classify, extract, convert, format) a single input\u2192output example guides the model far more than a description: it pins down the exact output shape and reduces out-of-format responses. This is the golden "few-shot" rule.',
+    uiLocale === "it" ? 'Aggiungi un esempio concreto, es: "Input: mario@x.it \u2014 Output: {\\"nome\\":\\"mario\\"}". Anche uno solo cambia molto.' : 'Add a concrete example, e.g.: "Input: mario@x.it \u2014 Output: {\\"name\\":\\"mario\\"}". Even just one changes a lot.',
+    { before: "\u2026", after: uiLocale === "it" ? "\u2026\\n\\nEsempio:\\nInput: [\u2026]\\nOutput: [\u2026]" : "\u2026\\n\\nExample:\\nInput: [\u2026]\\nOutput: [\u2026]" },
     0,
     "EX_001"
   )];
 }
-function runNegativeFraming(text) {
+function runNegativeFraming(text, uiLocale = "it") {
   if (wordCount(text) < 4) return [];
   const NEG_DIRECTIVE = /\b(non\s+(usare|includere|scrivere|fare|mettere|aggiungere|inserire|dire|menzionare|ripetere|superare|essere|usar|utilizzare|citare|elencare|generare|creare|iniziare|finire|concludere|parlare|toccare)|non\s+devi|evita(re|)|senza\s+(usare|includere|mai)|do\s+not|don't|dont|never|avoid\s+\w|refrain\s+from|without\s+using|no\s+(jargon|filler|fluff|preamble|preamboli|introduzione|introductions?))\b/gi;
   const negMatches = text.match(NEG_DIRECTIVE) ?? [];
@@ -19567,18 +19557,40 @@ function runNegativeFraming(text) {
   return [obs(
     "negative_framing",
     "improvable",
-    "\u{1F7E1} Istruzione solo negativa",
+    uiLocale === "it" ? "\u{1F7E1} Istruzione solo negativa" : "\u{1F7E1} Negative-only instruction",
     first,
     idx < 0 ? 0 : idx,
     text,
-    'Il prompt dice al modello cosa NON fare senza dire cosa fare. Una proibizione ("non essere formale") lascia aperto tutto il resto; una direttiva positiva ("usa un tono colloquiale") indica il bersaglio. I modelli seguono meglio le istruzioni affermative.',
-    `Riformula in positivo: invece di "non usare X" scrivi "usa Y". Di' cosa fare, non solo cosa evitare.`,
-    { before: "Non essere troppo formale", after: "Usa un tono colloquiale e diretto" },
+    uiLocale === "it" ? 'Il prompt dice al modello cosa NON fare senza dire cosa fare. Una proibizione ("non essere formale") lascia aperto tutto il resto; una direttiva positiva ("usa un tono colloquiale") indica il bersaglio. I modelli seguono meglio le istruzioni affermative.' : `The prompt tells the model what NOT to do without saying what to do. A prohibition ("don't be formal") leaves everything else open; a positive directive ("use a conversational tone") points at the target. Models follow affirmative instructions better.`,
+    uiLocale === "it" ? `Riformula in positivo: invece di "non usare X" scrivi "usa Y". Di' cosa fare, non solo cosa evitare.` : `Rephrase positively: instead of "don't use X" write "use Y". Say what to do, not just what to avoid.`,
+    { before: uiLocale === "it" ? "Non essere troppo formale" : "Don't be too formal", after: uiLocale === "it" ? "Usa un tono colloquiale e diretto" : "Use a conversational, direct tone" },
     0,
     "NEG_001"
   )];
 }
-function runNoContext(text) {
+function runMissingReferencedMaterial(text, model, isExempt, uiLocale = "it") {
+  if (model.task.confidence < 0.5) return [];
+  if (model.object.fromInlineMaterial) return [];
+  if (wordCount(text) < 5) return [];
+  const EXTERNAL_REFERENCE = /\b(l[ao]\s+(mail|email|messaggio|file|documento|testo|articolo|allegato|proposta|contratto|report|codice|script|foglio|pdf|immagine|foto|screenshot|video|lista|tabella)\s+(di|che|che\s+ti|inviato|allegato|mandato)|il\s+(file|documento|testo|messaggio|report|codice|allegato|contratto)\s+(allegato|che\s+ti|di\s+ieri|che\s+ho\s+mandato|inviato\s+ieri)|che\s+(ti\s+ho\s+mandato|ho\s+inviato|ho\s+allegato|ti\s+ho\s+inviato)|the\s+(email|file|document|message|report|code|attachment|proposal|contract)\s+(from|i\s+sent|attached|i\s+shared|below)|i\s+(sent|shared|attached|uploaded)\b)/i;
+  const m = text.match(EXTERNAL_REFERENCE);
+  if (!m) return [];
+  if (/["'""''«»][^"'""''«»]{5,}["""''«»]|```[\s\S]*?```|:\s*\S.{10,}/s.test(text)) return [];
+  return [obs(
+    "no_context",
+    "improvable",
+    uiLocale === "it" ? "\u{1F7E1} Materiale mancante" : "\u{1F7E1} Missing material",
+    m[0],
+    text.indexOf(m[0]),
+    text,
+    uiLocale === "it" ? `Il prompt fa riferimento a "${m[0]}" \u2014 un documento o messaggio specifico \u2014 ma non lo ha incollato nel prompt. Il modello non pu\xF2 vedere il materiale e dovr\xE0 inventarne il contenuto.` : `The prompt references "${m[0]}" \u2014 a specific document or message \u2014 but hasn't pasted it into the prompt. The model can't see the material and will have to invent its content.`,
+    uiLocale === "it" ? "Incolla il contenuto direttamente nel prompt (dopo i due punti, tra virgolette, o come blocco separato)." : "Paste the content directly into the prompt (after a colon, in quotes, or as a separate block).",
+    { before: `${m[0]}`, after: uiLocale === "it" ? `${m[0]}: [incolla qui il contenuto]` : `${m[0]}: [paste the content here]` },
+    0,
+    "REF_001"
+  )];
+}
+function runNoContext(text, uiLocale = "it") {
   if (wordCount(text) < 12) return [];
   if (isQuestion(text) || isSelfBounding(text)) return [];
   const GENERATIVE = /\b(write|create|generate|compose|draft|design|build|develop|scrivi|crea|genera|componi|redigi|progetta|realizza|sviluppa|racconta|inventa|stendi|prepara)\b/i;
@@ -19590,13 +19602,16 @@ function runNoContext(text) {
   return [obs(
     "no_context",
     "improvable",
-    "\u{1F7E1} Manca contesto/scopo",
+    uiLocale === "it" ? "\u{1F7E1} Manca contesto/scopo" : "\u{1F7E1} Missing context/goal",
     "(intero prompt)",
     0,
     text,
-    'Il task \xE8 chiaro ma non dice a chi \xE8 rivolto n\xE9 a cosa serve. Scopo e pubblico permettono al modello di scegliere tono, profondit\xE0 e taglio invece di indovinarli: lo stesso task "scrivi una landing" cambia molto se \xE8 "per CTO di aziende B2B, per generare richieste di demo".',
-    'Aggiungi due cose: per chi \xE8 (pubblico) e a che scopo. Es: "\u2026per principianti, allo scopo di convincerli a iscriversi".',
-    { before: "Scrivi una landing page per il prodotto", after: "Scrivi una landing page per il prodotto, rivolta a CTO B2B, per generare richieste di demo" },
+    uiLocale === "it" ? 'Il task \xE8 chiaro ma non dice a chi \xE8 rivolto n\xE9 a cosa serve. Scopo e pubblico permettono al modello di scegliere tono, profondit\xE0 e taglio invece di indovinarli: lo stesso task "scrivi una landing" cambia molto se \xE8 "per CTO di aziende B2B, per generare richieste di demo".' : `The task is clear but doesn't say who it's for or what it's for. Purpose and audience let the model pick tone, depth and framing instead of guessing: the same task "write a landing page" changes a lot if it's "for B2B CTOs, to drive demo signups".`,
+    uiLocale === "it" ? 'Aggiungi due cose: per chi \xE8 (pubblico) e a che scopo. Es: "\u2026per principianti, allo scopo di convincerli a iscriversi".' : `Add two things: who it's for (audience) and its purpose. E.g.: "\u2026for beginners, to convince them to sign up".`,
+    {
+      before: uiLocale === "it" ? "Scrivi una landing page per il prodotto" : "Write a landing page for the product",
+      after: uiLocale === "it" ? "Scrivi una landing page per il prodotto, rivolta a CTO B2B, per generare richieste di demo" : "Write a landing page for the product, aimed at B2B CTOs, to drive demo signups"
+    },
     0,
     "CTX_001"
   )];
@@ -19615,7 +19630,7 @@ var VAGUE_TERMS = [
   { re: /\bil tema che preferisci|argomento a piacere|quello che vuoi|come preferisci|come ti pare\b/gi, term: "a scelta libera" },
   { re: /\b(some\s+(kind\s+of|sort\s+of)|something\s+like|a\s+thing\s+that|some\s+stuff|whatever you want)\b/gi, term: "something like\u2026" }
 ];
-function runVaguePlaceholders(text) {
+function runVaguePlaceholders(text, uiLocale = "it") {
   if (isQuestion(text)) return [];
   const results = [];
   for (const { re, term } of VAGUE_TERMS) {
@@ -19625,13 +19640,13 @@ function runVaguePlaceholders(text) {
       results.push(obs(
         "ambiguity",
         "improvable",
-        "\u{1F7E1} Termine vago",
+        uiLocale === "it" ? "\u{1F7E1} Termine vago" : "\u{1F7E1} Vague term",
         m[0],
         m.index,
         text,
-        `"${m[0]}" \xE8 un segnaposto generico: il modello deve indovinare cosa intendi. I prompt vaghi producono risposte imprevedibili.`,
-        "Sostituisci con ci\xF2 che vuoi davvero: oggetto concreto, formato, contesto.",
-        { before: m[0], after: "[descrizione concreta]" },
+        uiLocale === "it" ? `"${m[0]}" \xE8 un segnaposto generico: il modello deve indovinare cosa intendi. I prompt vaghi producono risposte imprevedibili.` : `"${m[0]}" is a generic placeholder: the model has to guess what you mean. Vague prompts produce unpredictable answers.`,
+        uiLocale === "it" ? "Sostituisci con ci\xF2 che vuoi davvero: oggetto concreto, formato, contesto." : "Replace with what you actually want: a concrete object, format, context.",
+        { before: m[0], after: uiLocale === "it" ? "[descrizione concreta]" : "[concrete description]" },
         0,
         "VAGUE_001"
       ));
@@ -19639,7 +19654,7 @@ function runVaguePlaceholders(text) {
   }
   return results;
 }
-function runVagueQualityPileup(text) {
+function runVagueQualityPileup(text, uiLocale = "it") {
   if (isQuestion(text)) return [];
   const QUALITY = /\b(bell[oai]|interessante|util[ei]|carin[oai]|figo|figa|buon[oai]?|piacevol[ei]|gradevol[ei]|accattivante|coinvolgente|efficace|valid[oai]|decent[ei]|nic[e]?|cool|interesting|useful|good|great|engaging|compelling)\b/gi;
   const hits = [...text.matchAll(QUALITY)];
@@ -19649,30 +19664,33 @@ function runVagueQualityPileup(text) {
   return [obs(
     "ambiguity",
     "unnecessary",
-    "\u{1F7E0} Aggettivi vaghi accumulati",
+    uiLocale === "it" ? "\u{1F7E0} Aggettivi vaghi accumulati" : "\u{1F7E0} Piled-up vague adjectives",
     first[0],
     first.index,
     text,
-    `Il prompt accumula ${hits.length} aggettivi soggettivi ("${words}") che non definiscono nulla di misurabile. "Bello", "interessante", "utile" non dicono al modello cosa produrre n\xE9 come valutare il risultato: sono desideri, non specifiche.`,
-    'Sostituisci gli aggettivi vaghi con criteri concreti: per chi \xE8, che scopo ha, che struttura deve avere, quanto lungo. Es: invece di "bello e utile" \u2192 "con 3 esempi pratici, per principianti".',
-    { before: "qualcosa di bello, interessante e utile", after: "una guida in 5 punti con un esempio per punto, per chi parte da zero" },
+    uiLocale === "it" ? `Il prompt accumula ${hits.length} aggettivi soggettivi ("${words}") che non definiscono nulla di misurabile. "Bello", "interessante", "utile" non dicono al modello cosa produrre n\xE9 come valutare il risultato: sono desideri, non specifiche.` : `The prompt piles up ${hits.length} subjective adjectives ("${words}") that don't define anything measurable. "Nice", "interesting", "useful" don't tell the model what to produce or how to judge the result: they're wishes, not specs.`,
+    uiLocale === "it" ? 'Sostituisci gli aggettivi vaghi con criteri concreti: per chi \xE8, che scopo ha, che struttura deve avere, quanto lungo. Es: invece di "bello e utile" \u2192 "con 3 esempi pratici, per principianti".' : `Replace the vague adjectives with concrete criteria: who it's for, its purpose, its structure, how long. E.g. instead of "nice and useful" \u2192 "with 3 practical examples, for beginners".`,
+    {
+      before: uiLocale === "it" ? "qualcosa di bello, interessante e utile" : "something nice, interesting and useful",
+      after: uiLocale === "it" ? "una guida in 5 punti con un esempio per punto, per chi parte da zero" : "a 5-point guide with one example per point, for absolute beginners"
+    },
     0,
     "VAGUE_002"
   )];
 }
-function runScopeLengthContradiction(text, model) {
+function runScopeLengthContradiction(text, model, uiLocale = "it") {
   const tight = model.cross.lengthDepth;
   if (tight) {
     return [obs(
       "contradiction",
       "contradiction",
-      "\u{1F534} Contraddizione",
+      uiLocale === "it" ? "\u{1F534} Contraddizione" : "\u{1F534} Contradiction",
       tight.match,
       tight.index,
       text,
-      `La lunghezza richiesta (${tight.match}) \xE8 troppo ridotta per la profondit\xE0 che chiedi. Il modello non pu\xF2 essere esaustivo e rispettare quel limite: ne ignorer\xE0 uno.`,
-      "Aumenta la lunghezza, oppure riduci la profondit\xE0 richiesta.",
-      { before: tight.match, after: "(lunghezza coerente con la profondit\xE0)" },
+      uiLocale === "it" ? `La lunghezza richiesta (${tight.match}) \xE8 troppo ridotta per la profondit\xE0 che chiedi. Il modello non pu\xF2 essere esaustivo e rispettare quel limite: ne ignorer\xE0 uno.` : `The requested length (${tight.match}) is too short for the depth you're asking for. The model can't be exhaustive and respect that limit at the same time: it will ignore one of them.`,
+      uiLocale === "it" ? "Aumenta la lunghezza, oppure riduci la profondit\xE0 richiesta." : "Increase the length, or reduce the requested depth.",
+      { before: tight.match, after: uiLocale === "it" ? "(lunghezza coerente con la profondit\xE0)" : "(length consistent with the depth)" },
       0,
       "CONTRA_001"
     )];
@@ -19685,13 +19703,13 @@ function runScopeLengthContradiction(text, model) {
   return [obs(
     "contradiction",
     "contradiction",
-    "\u{1F534} Contraddizione",
+    uiLocale === "it" ? "\u{1F534} Contraddizione" : "\u{1F534} Contradiction",
     cm[0] + " \u2026 " + sm[0],
     text.indexOf(cm[0]),
     text,
-    `"${cm[0]}" e "${sm[0]}" si contraddicono: chiedi qualcosa di esaustivo e allo stesso tempo molto breve. Il modello non pu\xF2 soddisfare entrambi e ne ignorer\xE0 uno.`,
-    "Scegli una delle due: o completo, o breve. Oppure specifica la lunghezza adeguata alla profondit\xE0 richiesta.",
-    { before: cm[0] + " \u2026 " + sm[0], after: "(coerenza tra profondit\xE0 e lunghezza)" },
+    uiLocale === "it" ? `"${cm[0]}" e "${sm[0]}" si contraddicono: chiedi qualcosa di esaustivo e allo stesso tempo molto breve. Il modello non pu\xF2 soddisfare entrambi e ne ignorer\xE0 uno.` : `"${cm[0]}" and "${sm[0]}" contradict each other: you're asking for something exhaustive and very short at the same time. The model can't satisfy both and will ignore one.`,
+    uiLocale === "it" ? "Scegli una delle due: o completo, o breve. Oppure specifica la lunghezza adeguata alla profondit\xE0 richiesta." : "Pick one: either comprehensive, or short. Or specify a length that matches the requested depth.",
+    { before: cm[0] + " \u2026 " + sm[0], after: uiLocale === "it" ? "(coerenza tra profondit\xE0 e lunghezza)" : "(consistency between depth and length)" },
     0,
     "CONTRA_001"
   )];
@@ -19725,32 +19743,42 @@ var CONFLICT_PAIRS = [
     b: /\b(attieniti (strettamente|esattamente)|segui alla lettera|senza (deviare|inventare)|rigorosamente|strictly follow|do not deviate)\b/i,
     why: "libert\xE0 creativa e aderenza rigida"
   },
-  // NOTE: the former list-vs-prose pair here was replaced by the FORMAT slot
-  // (src/slots/format.ts), which normalizes format cues and checks a
-  // compatibility matrix — catching table↔prose, json↔prose, json↔table and
-  // the cross-slot data-format↔narrative-tone conflict the flat pair missed.
-  // See runConflictingInstructions, which now calls the slot first.
+  // NOTE: the former list-vs-prose pair here was replaced by the FORMAT slot.
   {
     a: /\b(solo (i )?fatti|oggettiv[oa]|senza opinioni|neutrale|just the facts|objective)\b/i,
     b: /\b(dai (la )?tua opinione|cosa ne pensi|opinione personale|your opinion|what do you think)\b/i,
     why: "solo fatti e opinione personale"
+  },
+  // Neutralità + verdetto assoluto: "sii obiettivo e neutrale" + "dimmi qual
+  // è senza dubbio il migliore" è un conflitto semantico indipendente dal
+  // dominio — chiedere neutralità e contemporaneamente un verdetto definitivo
+  // si escludono a vicenda anche senza sapere nulla dell'argomento in questione
+  // (found via adversarial testing: "Sii completamente oggettivo... dimmi
+  // qual è senza dubbio il miglior partito" scored 74 with no contradiction
+  // detected). The same pattern covers "dimmi oggettivamente il prodotto
+  // migliore", "analisi neutrale e poi dimmi certamente X" etc.
+  {
+    a: /\b(obiettiv[oa]|neutrale|imparziale|senza pregiudizi|bilanciato|unbiased|neutral|impartial|balanced)\b/i,
+    b: /\b(senza dubbio|indubbiamente|certamente|sicuramente il (migliore?|peggiore?|più)|definitivamente|è chiaramente|without (a )?doubt|definitely the best|clearly the best|objectively the best)\b/i,
+    why: "neutralit\xE0 richiesta e verdetto assoluto incompatibili"
   }
 ];
-function runConflictingInstructions(text, model) {
+function runConflictingInstructions(text, model, uiLocale = "it") {
   const results = [];
+  const CONFLICT_LABEL = uiLocale === "it" ? "\u{1F534} Istruzioni in conflitto" : "\u{1F534} Conflicting instructions";
   const tone = model.tone;
   for (const c of tone.conflicts) {
     const lo = Math.min(c.a.index, c.b.index);
     results.push(obs(
       "contradiction",
       "contradiction",
-      "\u{1F534} Istruzioni in conflitto",
+      CONFLICT_LABEL,
       `${c.a.match} \u2026 ${c.b.match}`,
       lo,
       text,
-      `Il prompt chiede due registri incompatibili (${c.why}): "${c.a.match}" e "${c.b.match}". Il modello non pu\xF2 soddisfarli entrambi e ne sceglier\xE0 uno a caso.`,
-      "Tieni una sola direzione di tono, oppure chiarisci come combinarle.",
-      { before: `${c.a.match} \u2026 ${c.b.match}`, after: "(scegli un registro coerente)" },
+      uiLocale === "it" ? `Il prompt chiede due registri incompatibili (${c.why}): "${c.a.match}" e "${c.b.match}". Il modello non pu\xF2 soddisfarli entrambi e ne sceglier\xE0 uno a caso.` : `The prompt asks for two incompatible registers (${c.why}): "${c.a.match}" and "${c.b.match}". The model can't satisfy both and will pick one at random.`,
+      uiLocale === "it" ? "Tieni una sola direzione di tono, oppure chiarisci come combinarle." : "Keep a single tone direction, or clarify how to combine them.",
+      { before: `${c.a.match} \u2026 ${c.b.match}`, after: uiLocale === "it" ? "(scegli un registro coerente)" : "(pick a consistent register)" },
       0,
       "CONTRA_002"
     ));
@@ -19761,13 +19789,13 @@ function runConflictingInstructions(text, model) {
     results.push(obs(
       "contradiction",
       "contradiction",
-      "\u{1F534} Istruzioni in conflitto",
+      CONFLICT_LABEL,
       `${c.a.match} \u2026 ${c.b.match}`,
       lo,
       text,
-      `Il prompt chiede due formati di output incompatibili (${c.why}): "${c.a.match}" e "${c.b.match}". Il modello non pu\xF2 produrli entrambi come forma della stessa risposta.`,
-      "Scegli un solo formato di output.",
-      { before: `${c.a.match} \u2026 ${c.b.match}`, after: "(un solo formato)" },
+      uiLocale === "it" ? `Il prompt chiede due formati di output incompatibili (${c.why}): "${c.a.match}" e "${c.b.match}". Il modello non pu\xF2 produrli entrambi come forma della stessa risposta.` : `The prompt asks for two incompatible output formats (${c.why}): "${c.a.match}" and "${c.b.match}". The model can't produce both as the shape of a single answer.`,
+      uiLocale === "it" ? "Scegli un solo formato di output." : "Pick a single output format.",
+      { before: `${c.a.match} \u2026 ${c.b.match}`, after: uiLocale === "it" ? "(un solo formato)" : "(a single format)" },
       0,
       "CONTRA_002"
     ));
@@ -19778,13 +19806,13 @@ function runConflictingInstructions(text, model) {
     results.push(obs(
       "contradiction",
       "contradiction",
-      "\u{1F534} Istruzioni in conflitto",
+      CONFLICT_LABEL,
       `${ftConflict.match} \u2026 ${voice.match}`,
       Math.min(ftConflict.index, voice.index),
       text,
-      `Un formato dati strutturato ("${ftConflict.match}") non pu\xF2 avere un tono ${voice.match}: i formati come JSON, CSV o tabella non hanno spazio per una voce narrativa. Il modello ne ignorer\xE0 uno.`,
-      "Scegli: o un formato dati strutturato, o un testo con voce narrativa.",
-      { before: `${ftConflict.match} \u2026 ${voice.match}`, after: "(formato dati OPPURE voce narrativa)" },
+      uiLocale === "it" ? `Un formato dati strutturato ("${ftConflict.match}") non pu\xF2 avere un tono ${voice.match}: i formati come JSON, CSV o tabella non hanno spazio per una voce narrativa. Il modello ne ignorer\xE0 uno.` : `A structured data format ("${ftConflict.match}") can't have a ${voice.match} tone: formats like JSON, CSV or tables leave no room for a narrative voice. The model will ignore one.`,
+      uiLocale === "it" ? "Scegli: o un formato dati strutturato, o un testo con voce narrativa." : "Choose: either a structured data format, or a narrative-voice text.",
+      { before: `${ftConflict.match} \u2026 ${voice.match}`, after: uiLocale === "it" ? "(formato dati OPPURE voce narrativa)" : "(data format OR narrative voice)" },
       0,
       "CONTRA_002"
     ));
@@ -19798,13 +19826,13 @@ function runConflictingInstructions(text, model) {
     results.push(obs(
       "contradiction",
       "contradiction",
-      "\u{1F534} Istruzioni in conflitto",
+      CONFLICT_LABEL,
       `${atConflict.audienceMatch} \u2026 ${atConflict.toneMatch}`,
       Math.min(text.indexOf(atConflict.audienceMatch), text.indexOf(atConflict.toneMatch)),
       text,
-      `Il prompt chiede due cose incompatibili (${atConflict.why}): il livello del pubblico e il tono richiesto si contraddicono. Il modello ne ignorer\xE0 uno.`,
-      "Allinea il tono al pubblico: un pubblico esperto vuole un taglio tecnico, un principiante uno semplice.",
-      { before: `${atConflict.audienceMatch} \u2026 ${atConflict.toneMatch}`, after: "(tono coerente col pubblico)" },
+      uiLocale === "it" ? `Il prompt chiede due cose incompatibili (${atConflict.why}): il livello del pubblico e il tono richiesto si contraddicono. Il modello ne ignorer\xE0 uno.` : `The prompt asks for two incompatible things (${atConflict.why}): the audience level and the requested tone contradict each other. The model will ignore one.`,
+      uiLocale === "it" ? "Allinea il tono al pubblico: un pubblico esperto vuole un taglio tecnico, un principiante uno semplice." : "Align the tone with the audience: an expert audience wants a technical angle, a beginner wants a simple one.",
+      { before: `${atConflict.audienceMatch} \u2026 ${atConflict.toneMatch}`, after: uiLocale === "it" ? "(tono coerente col pubblico)" : "(tone consistent with the audience)" },
       0,
       "CONTRA_002"
     ));
@@ -19813,13 +19841,13 @@ function runConflictingInstructions(text, model) {
     results.push(obs(
       "contradiction",
       "contradiction",
-      "\u{1F534} Istruzioni in conflitto",
+      CONFLICT_LABEL,
       `${aa.match} \u2026 ${ab.match}`,
       Math.min(aa.index, ab.index),
       text,
-      `Il prompt indica due pubblici incompatibili: "${aa.match}" e "${ab.match}". Il modello non pu\xF2 rivolgersi a entrambi con lo stesso taglio.`,
-      "Scegli un solo pubblico di riferimento.",
-      { before: `${aa.match} \u2026 ${ab.match}`, after: "(un solo pubblico)" },
+      uiLocale === "it" ? `Il prompt indica due pubblici incompatibili: "${aa.match}" e "${ab.match}". Il modello non pu\xF2 rivolgersi a entrambi con lo stesso taglio.` : `The prompt states two incompatible audiences: "${aa.match}" and "${ab.match}". The model can't address both with the same angle.`,
+      uiLocale === "it" ? "Scegli un solo pubblico di riferimento." : "Pick a single target audience.",
+      { before: `${aa.match} \u2026 ${ab.match}`, after: uiLocale === "it" ? "(un solo pubblico)" : "(a single audience)" },
       0,
       "CONTRA_002"
     ));
@@ -19836,13 +19864,13 @@ function runConflictingInstructions(text, model) {
       results.push(obs(
         "contradiction",
         "contradiction",
-        "\u{1F534} Istruzioni in conflitto",
+        CONFLICT_LABEL,
         `${ma[0]} \u2026 ${mb[0]}`,
         Math.min(text.indexOf(ma[0]), text.indexOf(mb[0])),
         text,
-        `Il prompt chiede due cose incompatibili (${pair.why}): "${ma[0]}" e "${mb[0]}". Il modello non pu\xF2 soddisfarle entrambe e ne sceglier\xE0 una a caso.`,
-        "Tieni una sola delle due istruzioni in conflitto, oppure chiarisci come combinarle.",
-        { before: `${ma[0]} \u2026 ${mb[0]}`, after: "(scegli una direzione coerente)" },
+        uiLocale === "it" ? `Il prompt chiede due cose incompatibili (${pair.why}): "${ma[0]}" e "${mb[0]}". Il modello non pu\xF2 soddisfarle entrambe e ne sceglier\xE0 una a caso.` : `The prompt asks for two incompatible things (${pair.why}): "${ma[0]}" and "${mb[0]}". The model can't satisfy both and will pick one at random.`,
+        uiLocale === "it" ? "Tieni una sola delle due istruzioni in conflitto, oppure chiarisci come combinarle." : "Keep only one of the two conflicting instructions, or clarify how to combine them.",
+        { before: `${ma[0]} \u2026 ${mb[0]}`, after: uiLocale === "it" ? "(scegli una direzione coerente)" : "(pick a consistent direction)" },
         0,
         "CONTRA_002"
       ));
@@ -19865,13 +19893,16 @@ function runConflictingInstructions(text, model) {
       results.push(obs(
         "contradiction",
         "contradiction",
-        "\u{1F534} Azione richiesta e negata",
+        uiLocale === "it" ? "\u{1F534} Azione richiesta e negata" : "\u{1F534} Action requested and forbidden",
         word,
         occ[0].index,
         text,
-        `Il prompt chiede e insieme vieta la stessa cosa ("${word}"): compare sia come richiesta sia con una negazione. Il modello riceve due ordini opposti sullo stesso elemento e ne ignorer\xE0 uno.`,
-        "Decidi se vuoi quell'elemento oppure no, e lascia una sola istruzione.",
-        { before: `includi ${word} \u2026 non usare ${word}`, after: `(scegli: includere o non includere ${word})` },
+        uiLocale === "it" ? `Il prompt chiede e insieme vieta la stessa cosa ("${word}"): compare sia come richiesta sia con una negazione. Il modello riceve due ordini opposti sullo stesso elemento e ne ignorer\xE0 uno.` : `The prompt both requests and forbids the same thing ("${word}"): it appears both as a request and with a negation. The model gets two opposite orders about the same element and will ignore one.`,
+        uiLocale === "it" ? "Decidi se vuoi quell'elemento oppure no, e lascia una sola istruzione." : "Decide whether you want that element or not, and leave only one instruction.",
+        {
+          before: uiLocale === "it" ? `includi ${word} \u2026 non usare ${word}` : `include ${word} \u2026 don't use ${word}`,
+          after: uiLocale === "it" ? `(scegli: includere o non includere ${word})` : `(choose: include or exclude ${word})`
+        },
         0,
         "CONTRA_003"
       ));
@@ -19880,7 +19911,7 @@ function runConflictingInstructions(text, model) {
   }
   return results;
 }
-function runPassiveVoice(text, detectedLang, isExempt) {
+function runPassiveVoice(text, detectedLang, isExempt, uiLocale = "it") {
   if (detectedLang !== "en") return [];
   const results = [];
   const re = /\b(is|are|was|were|be|been|being)\s+(\w+ed)\b/gi;
@@ -19890,20 +19921,20 @@ function runPassiveVoice(text, detectedLang, isExempt) {
     results.push(obs(
       "passive_voice",
       "improvable",
-      "\u{1F7E1} Voce passiva",
+      uiLocale === "it" ? "\u{1F7E1} Voce passiva" : "\u{1F7E1} Passive voice",
       m[0],
       m.index,
       text,
-      "Le costruzioni passive sono pi\xF9 ambigue per i modelli LLM. La voce attiva \xE8 pi\xF9 diretta e usa meno token per lo stesso significato.",
-      "Riformula in voce attiva.",
-      { before: m[0], after: "(soggetto + verbo attivo)" },
+      uiLocale === "it" ? "Le costruzioni passive sono pi\xF9 ambigue per i modelli LLM. La voce attiva \xE8 pi\xF9 diretta e usa meno token per lo stesso significato." : "Passive constructions are more ambiguous for LLMs. Active voice is more direct and uses fewer tokens for the same meaning.",
+      uiLocale === "it" ? "Riformula in voce attiva." : "Rephrase in active voice.",
+      { before: m[0], after: uiLocale === "it" ? "(soggetto + verbo attivo)" : "(subject + active verb)" },
       1,
       "GRAM_010"
     ));
   }
   return results;
 }
-function runAmbiguousPronoun(text, exemptRanges) {
+function runAmbiguousPronoun(text, exemptRanges, uiLocale = "it") {
   const trimmed = text.trim();
   const re = /^(fix|update|change|improve|modify|rewrite|edit|correct|adjust|refactor|optimize|optimise|clean up|simplify|review|check|correggi|aggiorna|cambia|migliora|modifica|riscrivi|sistema|rivedi|controlla|riordina|semplifica)\s+(it|this|that|these|those|lo|la|li|le|questo|questa|questi|queste|quello|quella)\b/i;
   const m = trimmed.match(re);
@@ -19912,18 +19943,18 @@ function runAmbiguousPronoun(text, exemptRanges) {
   return [obs(
     "ambiguity",
     "contradiction",
-    "\u{1F534} Riferimento ambiguo",
+    uiLocale === "it" ? "\u{1F534} Riferimento ambiguo" : "\u{1F534} Ambiguous reference",
     m[0],
     0,
     text,
-    `"${m[2]}" non ha un referente: \xE8 la prima frase del prompt, quindi non c'\xE8 nulla a cui possa riferirsi. Il modello deve indovinare il contesto.`,
-    `Sostituisci "${m[2]}" con l'oggetto specifico (es. "questo paragrafo", "la funzione login", "il file config.json").`,
-    { before: m[0], after: `${m[1]} [oggetto specifico]` },
+    uiLocale === "it" ? `"${m[2]}" non ha un referente: \xE8 la prima frase del prompt, quindi non c'\xE8 nulla a cui possa riferirsi. Il modello deve indovinare il contesto.` : `"${m[2]}" has no antecedent: it's the first sentence of the prompt, so there's nothing it could refer to. The model has to guess the context.`,
+    uiLocale === "it" ? `Sostituisci "${m[2]}" con l'oggetto specifico (es. "questo paragrafo", "la funzione login", "il file config.json").` : `Replace "${m[2]}" with the specific object (e.g. "this paragraph", "the login function", "the config.json file").`,
+    { before: m[0], after: uiLocale === "it" ? `${m[1]} [oggetto specifico]` : `${m[1]} [specific object]` },
     0,
     "AMB_001"
   )];
 }
-function runVagueQuality(text, isExempt) {
+function runVagueQuality(text, isExempt, uiLocale = "it") {
   const results = [];
   const re = /\b(better|nicer|cleaner|prettier|cooler|smarter|simpler|improved?|migliore|migliori|più bell[oa]|più pulit[oa]|più carin[oa]|più intelligente|più semplice|migliorat[oa])\b/gi;
   let m;
@@ -19932,20 +19963,20 @@ function runVagueQuality(text, isExempt) {
     results.push(obs(
       "ambiguity",
       "improvable",
-      "\u{1F7E1} Criterio vago",
+      uiLocale === "it" ? "\u{1F7E1} Criterio vago" : "\u{1F7E1} Vague criterion",
       m[0],
       m.index,
       text,
-      `"${m[0]}" non definisce un criterio misurabile. Il modello non sa quale aspetto migliorare n\xE9 come valutare il risultato.`,
-      "Specifica il criterio: pi\xF9 veloce, pi\xF9 leggibile, pi\xF9 conciso, con meno dipendenze\u2026",
-      { before: m[0], after: '[criterio specifico, es. "pi\xF9 leggibile"]' },
+      uiLocale === "it" ? `"${m[0]}" non definisce un criterio misurabile. Il modello non sa quale aspetto migliorare n\xE9 come valutare il risultato.` : `"${m[0]}" doesn't define a measurable criterion. The model doesn't know which aspect to improve or how to judge the result.`,
+      uiLocale === "it" ? "Specifica il criterio: pi\xF9 veloce, pi\xF9 leggibile, pi\xF9 conciso, con meno dipendenze\u2026" : "Specify the criterion: faster, more readable, more concise, with fewer dependencies\u2026",
+      { before: m[0], after: uiLocale === "it" ? '[criterio specifico, es. "pi\xF9 leggibile"]' : '[specific criterion, e.g. "more readable"]' },
       0,
       "AMB_002"
     ));
   }
   return results;
 }
-function runVaguePlaceholderNouns(text) {
+function runVaguePlaceholderNouns(text, uiLocale = "it") {
   const PLACEHOLDER2 = /\b(?:(?:la|le|una|le|quella|quelle|questa|queste|della|delle|sta|ste)\s+cos[ae]|cos[ae]\s+(?:con|per|di|da|che\s+(?:mi|ti|ci)))\b|\b(roba|robe|aggeggio|aggeggi|thing|things|stuff)\b/gi;
   const hits = [];
   let m;
@@ -19956,13 +19987,16 @@ function runVaguePlaceholderNouns(text) {
   return [obs(
     "ambiguity",
     "unnecessary",
-    "\u{1F7E0} Riferimenti generici senza contenuto",
+    uiLocale === "it" ? "\u{1F7E0} Riferimenti generici senza contenuto" : "\u{1F7E0} Generic content-free references",
     first[0],
     first.index,
     text,
-    `Il prompt usa ${hits.length} volte parole segnaposto generiche ("${words}") che non identificano nulla di concreto. Il modello non ha alcun contenuto reale a cui agganciarsi: \xE8 come chiedere di fare "una cosa" senza dire quale.`,
-    "Sostituisci ogni riferimento generico con il nome specifico della cosa a cui ti riferisci (il documento, il file, il report, il progetto X\u2026).",
-    { before: "Fammi la cosa con le cose per quella roba", after: "Genera il report vendite usando i dati del file export.csv" },
+    uiLocale === "it" ? `Il prompt usa ${hits.length} volte parole segnaposto generiche ("${words}") che non identificano nulla di concreto. Il modello non ha alcun contenuto reale a cui agganciarsi: \xE8 come chiedere di fare "una cosa" senza dire quale.` : `The prompt uses ${hits.length} generic placeholder words ("${words}") that identify nothing concrete. The model has no real content to anchor to: it's like asking it to do "a thing" without saying which.`,
+    uiLocale === "it" ? "Sostituisci ogni riferimento generico con il nome specifico della cosa a cui ti riferisci (il documento, il file, il report, il progetto X\u2026)." : "Replace every generic reference with the specific name of the thing you mean (the document, the file, the report, project X\u2026).",
+    {
+      before: uiLocale === "it" ? "Fammi la cosa con le cose per quella roba" : "Do the thing with the stuff for that thing",
+      after: uiLocale === "it" ? "Genera il report vendite usando i dati del file export.csv" : "Generate the sales report using the data in export.csv"
+    },
     0,
     "AMB_003"
   )];
@@ -19984,7 +20018,7 @@ var WEAK_VERBS = [
   "prenditi cura di",
   "sistema in qualche modo"
 ];
-function runWeakVerbs(text, isExempt) {
+function runWeakVerbs(text, isExempt, uiLocale = "it") {
   const results = [];
   for (const verb of WEAK_VERBS) {
     const re = new RegExp(`\\b${verb.replace(/ /g, "\\s+")}\\b`, "gi");
@@ -19994,13 +20028,13 @@ function runWeakVerbs(text, isExempt) {
       results.push(obs(
         "weak_verb",
         "improvable",
-        "\u{1F7E1} Verbo debole",
+        uiLocale === "it" ? "\u{1F7E1} Verbo debole" : "\u{1F7E1} Weak verb",
         m[0],
         m.index,
         text,
-        `"${m[0]}" \xE8 un verbo vago: non specifica un'azione concreta. Il modello deve indovinare cosa fare esattamente.`,
-        "Sostituisci con un verbo specifico: fix, implement, refactor, investigate, resolve, document\u2026",
-        { before: m[0], after: "[verbo specifico]" },
+        uiLocale === "it" ? `"${m[0]}" \xE8 un verbo vago: non specifica un'azione concreta. Il modello deve indovinare cosa fare esattamente.` : `"${m[0]}" is a vague verb: it doesn't specify a concrete action. The model has to guess exactly what to do.`,
+        uiLocale === "it" ? "Sostituisci con un verbo specifico: fix, implement, refactor, investigate, resolve, document\u2026" : "Replace with a specific verb: fix, implement, refactor, investigate, resolve, document\u2026",
+        { before: m[0], after: uiLocale === "it" ? "[verbo specifico]" : "[specific verb]" },
         0,
         "WEAK_001"
       ));
@@ -20024,7 +20058,7 @@ function resolveLanguageForAnalysis(text, langState, forcedLang) {
   else _lastDetectedLang = detected;
   return detected;
 }
-function runAllObservations(text, disabledRules = [], spell, inputPricePerMillion = 2.5, langState, forcedLang, conversationTurn, preResolved) {
+function runAllObservations(text, disabledRules = [], spell, inputPricePerMillion = 2.5, langState, forcedLang, conversationTurn, preResolved, uiLocale = "it") {
   if (!text?.trim()) return [];
   _inputPricePerMillion = inputPricePerMillion;
   let detected;
@@ -20050,32 +20084,33 @@ function runAllObservations(text, disabledRules = [], spell, inputPricePerMillio
   const exemptRanges = getExemptMaterialRanges(text, model.task.confidence);
   const isExempt = makeExemptChecker(exemptRanges);
   const runners = [
-    () => runSpell(text, spell, detected, isExempt),
-    () => runRepeatedWord(text, isExempt),
-    () => runDoubleNegation(text, detected),
-    () => runLongSentence(text),
-    () => runMultipleSpaces(text),
-    () => runFillers(text, isExempt),
-    () => runVerbose(text, isExempt),
-    () => runSynonymPairs(text),
-    () => runPoliteness(text),
-    () => runNoTask(text, detected, model, conversationTurn),
-    () => runNoObject(text, detected, model),
-    () => runNoFormat(text),
-    () => runNoRole(text),
-    () => runNoLength(text),
-    () => runNoExample(text),
-    () => runNegativeFraming(text),
-    () => runNoContext(text),
-    () => runPassiveVoice(text, detected, isExempt),
-    () => runVaguePlaceholders(text),
-    () => runVagueQualityPileup(text),
-    () => runScopeLengthContradiction(text, model),
-    () => runConflictingInstructions(text, model),
-    () => runAmbiguousPronoun(text, exemptRanges),
-    () => runVagueQuality(text, isExempt),
-    () => runVaguePlaceholderNouns(text),
-    () => runWeakVerbs(text, isExempt)
+    () => runSpell(text, spell, detected, isExempt, uiLocale),
+    () => runRepeatedWord(text, isExempt, uiLocale),
+    () => runDoubleNegation(text, detected, uiLocale),
+    () => runLongSentence(text, uiLocale),
+    () => runMultipleSpaces(text, uiLocale),
+    () => runFillers(text, isExempt, uiLocale),
+    () => runVerbose(text, isExempt, uiLocale),
+    () => runSynonymPairs(text, uiLocale),
+    () => runMissingReferencedMaterial(text, model, isExempt, uiLocale),
+    () => runPoliteness(text, uiLocale),
+    () => runNoTask(text, detected, model, conversationTurn, uiLocale),
+    () => runNoObject(text, detected, model, uiLocale),
+    () => runNoFormat(text, uiLocale),
+    () => runNoRole(text, uiLocale),
+    () => runNoLength(text, uiLocale),
+    () => runNoExample(text, uiLocale),
+    () => runNegativeFraming(text, uiLocale),
+    () => runNoContext(text, uiLocale),
+    () => runPassiveVoice(text, detected, isExempt, uiLocale),
+    () => runVaguePlaceholders(text, uiLocale),
+    () => runVagueQualityPileup(text, uiLocale),
+    () => runScopeLengthContradiction(text, model, uiLocale),
+    () => runConflictingInstructions(text, model, uiLocale),
+    () => runAmbiguousPronoun(text, exemptRanges, uiLocale),
+    () => runVagueQuality(text, isExempt, uiLocale),
+    () => runVaguePlaceholderNouns(text, uiLocale),
+    () => runWeakVerbs(text, isExempt, uiLocale)
   ];
   for (const runner of runners) {
     const obs2 = runner().filter((o) => !disabled.has(o.code));
@@ -20165,22 +20200,22 @@ function isSelfBoundingTask(text) {
   const t = text.trim().replace(/^[^\p{L}\d]+/u, "");
   return /^(translate|traduci|traducimi|list|elenca|elencami|enumera|calculate|calcola|calcolami|classify|classifica|classificami|convert|converti|count|conta|sort|ordina|rank|brainstorm|suggerisci|proponi)\b/i.test(t) || /^([^.!?]{0,40}\b)?(dammi|give me|elenca|list|proponi|suggest|genera|generate|scrivi|write|crea|create|mostra)\b[^.!?]{0,30}\b(idee|ideas|suggerimenti|suggestions|esempi|examples|opzioni|options|alternative|alternatives)\b/i.test(t);
 }
-function scorePrompt(text, observations, tokens, conversational = false, model, enrichment = false) {
+function scorePrompt(text, observations, tokens, conversational = false, model, enrichment = false, uiLocale = "it") {
   const byCode = (code) => observations.filter((o) => o.code === code).length;
   const byType = (type) => observations.filter((o) => o.type === type).length;
   const words = (text.trim().match(/\S+/g) ?? []).length;
   const m = model ?? buildPromptModel(text, detectLanguage(text));
   const clarityPenalty = (byCode("PL_001") > 0 ? 35 : 0) + byType("spelling") * 7 + byType("double_negation") * 15 + byType("contradiction") * 28 + Math.min(36, byType("ambiguity") * 14) + byType("weak_verb") * 4;
   const clarityScore = dim(
-    "Clarity",
+    uiLocale === "it" ? "Chiarezza" : "Clarity",
     100 - clarityPenalty,
-    clarityPenalty === 0 ? "Task chiaro, nessuna ambiguit\xE0 o conflitto." : "Il prompt manca di chiarezza o si contraddice.",
+    clarityPenalty === 0 ? uiLocale === "it" ? "Task chiaro, nessuna ambiguit\xE0 o conflitto." : "Clear task, no ambiguity or conflict." : uiLocale === "it" ? "Il prompt manca di chiarezza o si contraddice." : "The prompt lacks clarity or contradicts itself.",
     [
-      ...byCode("PL_001") > 0 ? ["Aggiungi un verbo d'azione chiaro."] : [],
-      ...byType("contradiction") > 0 ? ["Risolvi le istruzioni in conflitto."] : [],
-      ...byType("ambiguity") > 0 ? ["Sostituisci i termini vaghi con richieste concrete."] : [],
-      ...byType("spelling") > 0 ? [`Correggi ${byType("spelling")} errore/i ortografico/i.`] : [],
-      ...byType("double_negation") > 0 ? ["Rimuovi le doppie negazioni."] : []
+      ...byCode("PL_001") > 0 ? [uiLocale === "it" ? "Aggiungi un verbo d'azione chiaro." : "Add a clear action verb."] : [],
+      ...byType("contradiction") > 0 ? [uiLocale === "it" ? "Risolvi le istruzioni in conflitto." : "Resolve the conflicting instructions."] : [],
+      ...byType("ambiguity") > 0 ? [uiLocale === "it" ? "Sostituisci i termini vaghi con richieste concrete." : "Replace vague terms with concrete requests."] : [],
+      ...byType("spelling") > 0 ? [uiLocale === "it" ? `Correggi ${byType("spelling")} errore/i ortografico/i.` : `Fix ${byType("spelling")} spelling error(s).`] : [],
+      ...byType("double_negation") > 0 ? [uiLocale === "it" ? "Rimuovi le doppie negazioni." : "Remove the double negatives."] : []
     ]
   );
   const has = (re) => re.test(text);
@@ -20194,7 +20229,7 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
   const hasExamples = hasExamplesRaw && !DELEGATES_EXAMPLE;
   const hasConstraints = has(/\b(deve|devono|assicurati|non (usare|includere|superare)|evita\w*|solo se|vincol\w*|requisit\w*|tono:?|stile:?|in modo|purché|a condizione|must|should|do not|don't|avoid|constraints?:|tone:?|target|pubblico|audience|tono (giovane|formale|serio|amichevole|professionale|informale|ironico|neutro)|per (un pubblico|giovani|adulti|professionisti|principianti))(?![a-zà-ù])/i) || has(/\b(mantenendo|preservando|conservando|senza\s+\w+(?:re|rne|rlo|rla|rli|rle)|evitando|rispettando|migliorand\w+|keeping|preserving|maintaining|without\s+\w+ing)\b/i);
   const hasDelimiters = /```|~~~|\n#{1,3}\s|\n\s*[-*]\s|\n\d+[.)]\s|<\w+>|"""/.test(text) || (text.match(/\n/g)?.length ?? 0) >= 2;
-  const hasContext = has(/\b(contesto|context|background)\s*:/i) || has(/\b(dato che|considerato che|sto (lavorando|creando|scrivendo|lanciando)|il mio|la mia|our|my (team|company|project|app)|per\s+(una\s+persona|chi|chiunque|qualcuno)\s+che|for\s+someone\s+who)\b/i);
+  const hasContext = has(/\b(contesto|context|background)\s*:/i) || has(/\b(dato che|considerato che|sto (lavorando|creando|scrivendo|lanciando)|our|my (team|company|project|app)|il mio\s+(progetto|sito|blog|negozio|azienda|brand|prodotto|canale|cliente|team|business)|la mia\s+(azienda|newsletter|landing|campagna|startup|attività)|per\s+(una\s+persona|chi|chiunque|qualcuno)\s+che|for\s+someone\s+who)\b/i);
   const hasTaskVerb = byCode("PL_001") === 0;
   const hasToneSpec = m.tone.tones.length > 0;
   const hasAudienceSpec = m.audience.level !== null;
@@ -20224,15 +20259,15 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
   if (conversational) precisionRaw = 100;
   else if (enrichment) precisionRaw = Math.max(precisionRaw, 68);
   const precisionScore = dim(
-    "Precision",
+    uiLocale === "it" ? "Precisione" : "Precision",
     precisionRaw,
-    conversational ? "Risposta conversazionale: le regole di specifica non si applicano qui." : enrichment ? "Turno di arricchimento: aggiunge contesto a un task gi\xE0 avviato." : precisionRaw >= 75 ? "Ben specificato: ruolo, formato, vincoli o esempi presenti." : precisionRaw >= 52 ? "Discretamente specificato \u2014 un formato o un esempio aiuterebbero." : "Poco specificato: il modello deve indovinare troppo.",
+    conversational ? uiLocale === "it" ? "Risposta conversazionale: le regole di specifica non si applicano qui." : "Conversational reply: specification rules don't apply here." : enrichment ? uiLocale === "it" ? "Turno di arricchimento: aggiunge contesto a un task gi\xE0 avviato." : "Enrichment turn: adds context to an already-started task." : precisionRaw >= 75 ? uiLocale === "it" ? "Ben specificato: ruolo, formato, vincoli o esempi presenti." : "Well specified: role, format, constraints or examples present." : precisionRaw >= 52 ? uiLocale === "it" ? "Discretamente specificato \u2014 un formato o un esempio aiuterebbero." : "Fairly specified \u2014 a format or an example would help." : uiLocale === "it" ? "Poco specificato: il modello deve indovinare troppo." : "Under-specified: the model has to guess too much.",
     conversational || enrichment ? [] : [
-      ...!hasTaskVerb ? ["Inizia con un verbo che dica cosa fare."] : [],
-      ...!hasFormat && !selfBounding ? ["Specifica il formato di output."] : [],
-      ...!hasExamples ? ["Aggiungi un esempio del risultato voluto."] : [],
-      ...!hasConstraints ? ["Indica vincoli, tono o pubblico."] : [],
-      ...!hasContext ? ["Aggiungi il contesto: a cosa serve, per chi."] : []
+      ...!hasTaskVerb ? [uiLocale === "it" ? "Inizia con un verbo che dica cosa fare." : "Start with a verb that says what to do."] : [],
+      ...!hasFormat && !selfBounding ? [uiLocale === "it" ? "Specifica il formato di output." : "Specify the output format."] : [],
+      ...!hasExamples ? [uiLocale === "it" ? "Aggiungi un esempio del risultato voluto." : "Add an example of the result you want."] : [],
+      ...!hasConstraints ? [uiLocale === "it" ? "Indica vincoli, tono o pubblico." : "State constraints, tone, or audience."] : [],
+      ...!hasContext ? [uiLocale === "it" ? "Aggiungi il contesto: a cosa serve, per chi." : "Add context: what it's for, who it's for."] : []
     ]
   );
   const tok = tokens.tokenCount;
@@ -20244,42 +20279,42 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
     lengthBase = Math.max(lengthBase, 88);
   } else if (tok < 8) {
     lengthBase = 40;
-    lengthTips.push("Prompt molto corto: aggiungi contesto, formato, vincoli.");
+    lengthTips.push(uiLocale === "it" ? "Prompt molto corto: aggiungi contesto, formato, vincoli." : "Very short prompt: add context, format, constraints.");
   } else if (tok < 16) {
     lengthBase = 66;
-    lengthTips.push("Corto: uno o due dettagli in pi\xF9 aiuterebbero.");
+    lengthTips.push(uiLocale === "it" ? "Corto: uno o due dettagli in pi\xF9 aiuterebbero." : "Short: one or two more details would help.");
   } else if (tok > 450) {
     lengthBase = 62;
-    lengthTips.push("Molto lungo: controlla le ridondanze.");
+    lengthTips.push(uiLocale === "it" ? "Molto lungo: controlla le ridondanze." : "Very long: check for redundancies.");
   } else if (tok > 280) {
     lengthBase = 82;
   }
   if (tokens.avgTokensPerSentence > 35) {
     lengthBase -= 10;
-    lengthTips.push("Frasi troppo lunghe in media.");
+    lengthTips.push(uiLocale === "it" ? "Frasi troppo lunghe in media." : "Sentences are too long on average.");
   }
   const lengthScore = dim(
-    "Length",
+    uiLocale === "it" ? "Lunghezza" : "Length",
     lengthBase,
-    conversational ? `Lunghezza corretta per una risposta conversazionale (${tok} token).` : lengthBase >= 82 ? `Lunghezza adeguata (${tok} token).` : `${tok} token \u2014 ${tok < 16 ? "un po' corto" : "valuta di ridurre"}.`,
+    conversational ? uiLocale === "it" ? `Lunghezza corretta per una risposta conversazionale (${tok} token).` : `Correct length for a conversational reply (${tok} tokens).` : lengthBase >= 82 ? uiLocale === "it" ? `Lunghezza adeguata (${tok} token).` : `Adequate length (${tok} tokens).` : uiLocale === "it" ? `${tok} token \u2014 ${tok < 16 ? "un po' corto" : "valuta di ridurre"}.` : `${tok} tokens \u2014 ${tok < 16 ? "a bit short" : "consider trimming"}.`,
     lengthTips
   );
   const redundancyCount = byType("redundancy") + byType("filler") + byType("verbosity") + byType("politeness") + byType("repetition");
   const redundancyScore = dim(
-    "Redundancy",
+    uiLocale === "it" ? "Ridondanza" : "Redundancy",
     100 - Math.min(60, redundancyCount * 8),
-    redundancyCount === 0 ? "Nessuna ridondanza." : `${redundancyCount} elemento/i ridondante/i.`,
-    redundancyCount > 0 ? [`Rimuovi ${redundancyCount} parola/e o frase/i superflua/e.`] : []
+    redundancyCount === 0 ? uiLocale === "it" ? "Nessuna ridondanza." : "No redundancy." : uiLocale === "it" ? `${redundancyCount} elemento/i ridondante/i.` : `${redundancyCount} redundant element(s).`,
+    redundancyCount > 0 ? [uiLocale === "it" ? `Rimuovi ${redundancyCount} parola/e o frase/i superflua/e.` : `Remove ${redundancyCount} unnecessary word(s) or phrase(s).`] : []
   );
   const passiveCount = byType("passive_voice");
   const longSentences = byType("long_sentence");
   const readabilityScore = dim(
-    "Readability",
+    uiLocale === "it" ? "Leggibilit\xE0" : "Readability",
     100 - (passiveCount * 8 + longSentences * 12),
-    passiveCount + longSentences === 0 ? "Buona leggibilit\xE0." : "Alcune frasi riducono la leggibilit\xE0.",
+    passiveCount + longSentences === 0 ? uiLocale === "it" ? "Buona leggibilit\xE0." : "Good readability." : uiLocale === "it" ? "Alcune frasi riducono la leggibilit\xE0." : "Some sentences reduce readability.",
     [
-      ...passiveCount > 0 ? [`${passiveCount} costrutto/i passivo/i: usa la voce attiva.`] : [],
-      ...longSentences > 0 ? [`${longSentences} frase/i lunga/e: dividile.`] : []
+      ...passiveCount > 0 ? [uiLocale === "it" ? `${passiveCount} costrutto/i passivo/i: usa la voce attiva.` : `${passiveCount} passive construction(s): use active voice.`] : [],
+      ...longSentences > 0 ? [uiLocale === "it" ? `${longSentences} frase/i lunga/e: dividile.` : `${longSentences} long sentence(s): split them.`] : []
     ]
   );
   let total = Math.round(
@@ -20289,6 +20324,7 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
   if (contradictions > 0) total = Math.min(total, 46 - Math.min(12, (contradictions - 1) * 6));
   if (byCode("PL_001") > 0) total = Math.min(total, 50);
   if (byCode("OBJ_001") > 0) total = Math.min(total, 40);
+  if (byCode("REF_001") > 0) total = Math.min(total, 45);
   if (byCode("VAGUE_002") > 0) {
     const hasAnyRealSpec = hasFormat || hasLength || hasRole || hasExamples || hasContext;
     total = Math.min(total, hasAnyRealSpec ? 60 : 42);
@@ -20300,7 +20336,8 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
   if (!conversational && !enrichment && !selfBounding && !(isQuestionLike && questionHasContent)) {
     const objEmpty = m.object.presence === "none" || m.object.presence === "placeholder";
     const hasRealVerb = m.task.confidence >= 0.5;
-    if (words <= 3 && objEmpty && !selfBounding && !isQuestionLike) {
+    const hasAnyRealContent = /[\p{L}\p{N}]/u.test(text);
+    if (words <= 3 && objEmpty && !selfBounding && !(isQuestionLike && hasAnyRealContent)) {
       total = Math.min(total, hasRealVerb ? 20 : 12);
     } else if (words < 4 && !hasTaskVerb) total = Math.min(total, 38);
     else if (words < 4 && hasTaskVerb) total = Math.min(total, 55);
@@ -20318,11 +20355,16 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
   total = clamp(total);
   const lbl = label(total);
   const worst = [clarityScore, precisionScore, lengthScore, redundancyScore, readabilityScore].sort((a, b) => a.score - b.score)[0];
-  const summaries = {
+  const summaries = uiLocale === "it" ? {
     excellent: "Ottimo prompt: ben strutturato e specificato.",
     good: `Buon prompt, migliorabile. Focus: ${worst.name.toLowerCase()}.`,
     fair: `Prompt discreto. Problema principale: ${worst.name.toLowerCase()}.`,
     poor: `Prompt debole. Inizia da: ${worst.name.toLowerCase()}.`
+  } : {
+    excellent: "Great prompt: well structured and specified.",
+    good: `Good prompt, room to improve. Focus: ${worst.name.toLowerCase()}.`,
+    fair: `Decent prompt. Main issue: ${worst.name.toLowerCase()}.`,
+    poor: `Weak prompt. Start with: ${worst.name.toLowerCase()}.`
   };
   return {
     total,
@@ -20707,6 +20749,7 @@ function analyze(text, options = {}) {
   const {
     language,
     conversationTurn,
+    uiLocale = "it",
     modelPrices = DEFAULT_PRICES,
     outputRatio = 2,
     disabledRules = [],
@@ -20719,7 +20762,7 @@ function analyze(text, options = {}) {
       byLine: /* @__PURE__ */ new Map(),
       byType: /* @__PURE__ */ new Map(),
       tokens: analyzeTokens(""),
-      score: { total: 0, label: "poor", dimensions: {}, structure: EMPTY_STRUCTURE, summary: "Prompt vuoto." },
+      score: { total: 0, label: "poor", dimensions: {}, structure: EMPTY_STRUCTURE, summary: uiLocale === "it" ? "Prompt vuoto." : "Empty prompt." },
       costs: [],
       potentialSavings: 0,
       compressedText: "",
@@ -20741,12 +20784,13 @@ function analyze(text, options = {}) {
     void 0,
     language,
     conversationTurn,
-    { detected: detectedLang, model: promptModel }
+    { detected: detectedLang, model: promptModel },
+    uiLocale
   );
   const tokens = analyzeTokens(text);
   const conversational = resolveConversational(text, conversationTurn);
   const enrichment = resolveEnrichment(text, promptModel, conversationTurn);
-  const score = scorePrompt(text, observations, tokens, conversational, promptModel, enrichment);
+  const score = scorePrompt(text, observations, tokens, conversational, promptModel, enrichment, uiLocale);
   const costs = estimateCosts(tokens.tokenCount, outputRatio, modelPrices);
   const autocorrect = includeAutocorrect ? getAutocorrectSuggestions(text, void 0, detectedLang) : [];
   const potentialSavings = observations.reduce((n, o) => n + o.impact.tokensSaved, 0);

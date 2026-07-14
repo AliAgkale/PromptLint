@@ -46,6 +46,7 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
   const {
     language,
     conversationTurn,
+    uiLocale = 'it',
     modelPrices = DEFAULT_PRICES,
     outputRatio = 2,
     disabledRules = [],
@@ -56,7 +57,7 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
     return {
       text, observations: [], byLine: new Map(), byType: new Map(),
       tokens: analyzeTokens(''),
-      score: { total: 0, label: 'poor', dimensions: {}, structure: EMPTY_STRUCTURE, summary: 'Prompt vuoto.' },
+      score: { total: 0, label: 'poor', dimensions: {}, structure: EMPTY_STRUCTURE, summary: uiLocale === 'it' ? 'Prompt vuoto.' : 'Empty prompt.' },
       costs: [], potentialSavings: 0, compressedText: '', autocorrect: [],
       analysisDurationMs: 0,
       engineReady: true,
@@ -74,12 +75,12 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
   const promptModel = buildPromptModel(text, detectedLang);
   const observations = runAllObservations(
     text, disabledRules, _spell, cheapestInputRate, undefined, language, conversationTurn,
-    { detected: detectedLang, model: promptModel },
+    { detected: detectedLang, model: promptModel }, uiLocale,
   );
   const tokens = analyzeTokens(text);
   const conversational = resolveConversational(text, conversationTurn);
   const enrichment = resolveEnrichment(text, promptModel, conversationTurn);
-  const score = scorePrompt(text, observations, tokens, conversational, promptModel, enrichment);
+  const score = scorePrompt(text, observations, tokens, conversational, promptModel, enrichment, uiLocale);
   const costs = estimateCosts(tokens.tokenCount, outputRatio, modelPrices);
   const autocorrect = includeAutocorrect ? getAutocorrectSuggestions(text, undefined, detectedLang) : [];
   const potentialSavings = observations.reduce((n, o) => n + o.impact.tokensSaved, 0);
