@@ -228,6 +228,6 @@ export { getTiktokenAdapter } from './tokenizer/adapters/TiktokenAdapter.js';
 export type {
   AnalysisResult, AnalyzeOptions, Observation, ObservationType,
   ObservationLevel, ImpactEstimate, AutocorrectSuggestion,
-  TokenAnalysis, PromptScore, ScoreLabel, ScoreDimension,
+  TokenAnalysis, PromptScore, ScoreLabel, ScoreDimension, ScoreContribution,
   ModelPrice, CostEstimate,
 } from './types.js';

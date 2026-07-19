@@ -1,3 +1,5 @@
+'use strict';
+
 /* promptlint-core/lite — Chrome extension build (zero external deps) */
 
 // src/types.ts
@@ -21217,4 +21219,24 @@ function analyze(text, options = {}) {
   };
 }
 
-export { DEFAULT_PRICES, analyze, analyzeTokens, applyAllAutoCorrections, applyAutocorrect, applyTabCompletion, detectIntent, detectLanguage, estimateCosts, estimateTokens, formatCost, getAutocorrectSuggestions, getSuggestions, getTabCompletion, isCorrect, makeLangState, resetLanguageState, resolveConversational, runAllObservations, scorePrompt, splitSentences };
+exports.DEFAULT_PRICES = DEFAULT_PRICES;
+exports.analyze = analyze;
+exports.analyzeTokens = analyzeTokens;
+exports.applyAllAutoCorrections = applyAllAutoCorrections;
+exports.applyAutocorrect = applyAutocorrect;
+exports.applyTabCompletion = applyTabCompletion;
+exports.detectIntent = detectIntent;
+exports.detectLanguage = detectLanguage;
+exports.estimateCosts = estimateCosts;
+exports.estimateTokens = estimateTokens;
+exports.formatCost = formatCost;
+exports.getAutocorrectSuggestions = getAutocorrectSuggestions;
+exports.getSuggestions = getSuggestions;
+exports.getTabCompletion = getTabCompletion;
+exports.isCorrect = isCorrect;
+exports.makeLangState = makeLangState;
+exports.resetLanguageState = resetLanguageState;
+exports.resolveConversational = resolveConversational;
+exports.runAllObservations = runAllObservations;
+exports.scorePrompt = scorePrompt;
+exports.splitSentences = splitSentences;

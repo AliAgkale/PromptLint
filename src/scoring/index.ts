@@ -15,7 +15,7 @@
  *    else just moves the weighted total.
  */
 
-import type { Observation, TokenAnalysis, PromptScore, ScoreLabel, ScoreDimension } from '../types.js';
+import type { Observation, TokenAnalysis, PromptScore, ScoreLabel, ScoreDimension, ScoreContribution } from '../types.js';
 import { buildPromptModel, type PromptModel } from '../slots/model.js';
 import { detectLanguage } from '../spell/language.js';
 import type { UILocale } from '../analyzers/observations.js';
@@ -176,7 +176,18 @@ export function scorePrompt(
   // naturally complete — the request contains everything needed. These
   // scored 48-55 while deserving 74-85: brevity-as-completeness was being
   // read as brevity-as-emptiness.
-  const selfBounding = isSelfBoundingTask(text)
+  // A self-bounding VERB ("translate", "riassumi", "converti") only bounds the
+  // answer if there is something real to act on. "Translate this." / "Riassumi
+  // questo." have a self-bounding verb but a dangling demonstrative object
+  // (presence 'placeholder' after the object-slot fix) — the request is NOT
+  // complete, so it must not get the self-bounding floor. Elliptical tasks
+  // ("Sinonimo di rapido") and inline material ("Traduci: 'Buongiorno'") carry
+  // their content with them, so they stay valid regardless of object presence.
+  // Found via the benchmark: "Translate this." scored 93/excellent.
+  const selfBoundingObjectOk =
+    m.object.presence !== 'placeholder' && m.object.presence !== 'none';
+  const selfBounding =
+    (isSelfBoundingTask(text) && selfBoundingObjectOk)
     || m.task.source === 'elliptical'
     || m.object.fromInlineMaterial;
 
@@ -319,6 +330,25 @@ export function scorePrompt(
     readabilityScore.score * 0.13
   );
 
+  // ── Interpretability: record each factor's contribution to `total`. The five
+  // dimension entries are the additive core (points each added to the weighted
+  // sum); the `cap()` helper below appends a 'cap' entry ONLY when a poison
+  // ceiling actually binds (ceiling < current total). Purely explanatory — the
+  // arithmetic is identical to the previous bare Math.min calls. This is the
+  // first, low-risk half of the feature-scorer direction: expose WHY the number
+  // is what it is, without yet touching how it's computed.
+  const breakdown: ScoreContribution[] = [
+    { label: 'clarity',     effect: Math.round(clarityScore.score * 0.30),     kind: 'dimension' },
+    { label: 'precision',   effect: Math.round(precisionScore.score * 0.30),   kind: 'dimension' },
+    { label: 'length',      effect: Math.round(lengthScore.score * 0.13),      kind: 'dimension' },
+    { label: 'redundancy',  effect: Math.round(redundancyScore.score * 0.14),  kind: 'dimension' },
+    { label: 'readability', effect: Math.round(readabilityScore.score * 0.13), kind: 'dimension' },
+  ];
+  const cap = (ceiling: number, reason: string): void => {
+    if (ceiling < total) breakdown.push({ label: reason, effect: ceiling, kind: 'cap' });
+    total = Math.min(total, ceiling);
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   // POISON CAPS — only the three problems that invalidate a prompt wholesale.
   // Gentler and fewer than before: each is a ceiling, applied once, with a
@@ -332,8 +362,12 @@ export function scorePrompt(
   // terse real task is capped at 55 by the short-prompt rule below, safely
   // above the role-only (no-task) ceiling of 50.
   const contradictions = byType('contradiction');
-  if (contradictions > 0) total = Math.min(total, 46 - Math.min(12, (contradictions - 1) * 6));
-  if (byCode('PL_001') > 0) total = Math.min(total, 50);
+  // A contradiction poisons the prompt: the model must resolve conflicting
+  // instructions and will silently drop one. Benchmark showed the old ceiling
+  // of 46 still read as borderline-'fair'; a genuine contradiction belongs in
+  // 'poor'. Lowered to 35, with additional contradictions pulling further down.
+  if (contradictions > 0) cap(35 - Math.min(12, (contradictions - 1) * 6), 'contradiction');
+  if (byCode('PL_001') > 0) cap(50, 'no_task');
   // OBJ_001 (v2.22): a task verb with no real object to act on ("fammi un
   // riassunto" with nothing to summarize, "dammi dei consigli" about nothing)
   // was the single largest scoring bias the corpus benchmark found — these
@@ -342,14 +376,165 @@ export function scorePrompt(
   // though they're nearly as unusable as having no task at all. Capped just
   // above PL_001's 50: the verb gives slightly more direction than nothing,
   // but not much — the model still has to invent the entire content.
-  if (byCode('OBJ_001') > 0) total = Math.min(total, 40);
-  // REF_001: the prompt references a specific external document/message
+  if (byCode('OBJ_001') > 0) cap(40, 'empty_object');
+  // Unfilled template/skeleton: nothing concrete to act on (benchmark: bracket
+  // placeholders and empty label blocks were scoring 50-68). Treat like an
+  // empty object — the model would have to invent all the content.
+  if (byCode('TMPL_001') > 0) cap(18, 'unfilled_template');
+
+  // ── DELEGATION (250-benchmark Gruppo A) ──────────────────────────────────
+  // Task verb present but ALL parameters explicitly delegated to the model.
+  // Conjunction: delegation phrase + no named object + ≤1 real spec.
+  const DELEGATION_RE =
+    /\b(come (preferisci|vuoi|ritieni|credi|ti sembra|meglio credi)|nel formato (che (preferisci|ritieni|credi)|adeguato|giusto|opportuno)|della lunghezza (che (preferisci|ritieni)|appropriata|giusta|adeguata|opportuna)|whatever you (think|want|prefer|like)|as you (see fit|prefer|wish)|up to you|a tua (scelta|discrezione)|decidi tu|you decide|su[gl]l'argomento che (preferisci|vuoi|ritieni)|sorprendimi|surprise me)\b/i;
+  // Also detect delegation of the TOPIC itself ("su un argomento che ritieni
+  // interessante", "lungo quanto vuoi"): these turn even a named generic
+  // object ("un articolo") into a full delegation because the model must
+  // invent the actual subject matter.
+  const TOPIC_DELEGATED =
+    /\b(su\s+un\s+argomento\s+(che\s+)?(ritieni|preferisci|vuoi|credi|ti\s+sembra)|lungo\s+quanto\s+(vuoi|preferisci|ritieni)|about\s+(whatever|anything)\s+you\s+(want|like|prefer))\b/i;
+  const hasDelegation = DELEGATION_RE.test(text) || TOPIC_DELEGATED.test(text);
+  // Multi-delegation: count how many separate parameters are delegated to the
+  // model. When 3+ are delegated, it's a total delegation even if the object
+  // is nominally "named" ("un articolo" + delegated format + delegated length
+  // + delegated tone = nothing concrete for the model to act on).
+  const DELEG_PHRASES = /\b(formato\s+(adeguat[oa]|giusto|opportuno|che\s+(ritieni|preferisci|vuoi))|lunghezza\s+(appropriat[oa]|adeguat[oa]|giust[oa]|che\s+(ritieni|preferisci|vuoi))|lungo\s+quanto\s+(vuoi|preferisci|serve)|tono\s+(che\s+ritieni|giusto|adatto|appropriat[oa]|opportuno)|pubblico\s+(che\s+(stimi|ritieni)|più\s+adatto|opportuno)|argomento\s+(che\s+(ritieni|preferisci)|interessante)|whatever|as\s+you\s+(see\s+fit|prefer|wish)|up\s+to\s+you|you\s+decide|decidi\s+tu)\b/gi;
+  const delegCount = (text.match(DELEG_PHRASES) ?? []).length;
+  if (hasDelegation || delegCount >= 3) {
+    const specCount =
+      (m.format.formats.length > 0 ? 1 : 0) +
+      (m.length.cues.length > 0 ? 1 : 0) +
+      (m.audience.level !== null ? 1 : 0) +
+      (m.tone.tones.length > 0 ? 1 : 0);
+    const objGuard = TOPIC_DELEGATED.test(text) || delegCount >= 3 ? true : m.object.presence !== 'named';
+    if (objGuard && specCount <= 1) cap(22, 'total_delegation');
+  }
+
+  // ── POLITE FILLER (250-benchmark Gruppo A) ───────────────────────────────
+  // 2+ politeness observations + empty/placeholder object = courtesy with no
+  // actionable content. Guard: named object = polite-but-specific, no cap.
+  const polCount = byType('politeness');
+  if (polCount >= 2 && (m.object.presence === 'none' || m.object.presence === 'placeholder' || m.object.presence === 'bare')) {
+    cap(28, 'polite_filler');
+  }
+
+  // ── PURE REPETITION (250-benchmark edge case) ───────────────────────────
+  // 4+ consecutive identical words ("write write write write").
+  const words_lower = text.toLowerCase().match(/\b[a-zà-ÿ]+\b/g) ?? [];
+  if (words_lower.length >= 4) {
+    let maxRun = 1, run = 1;
+    for (let i = 1; i < words_lower.length; i++) {
+      if (words_lower[i] === words_lower[i - 1]) { run++; if (run > maxRun) maxRun = run; }
+      else run = 1;
+    }
+    if (maxRun >= 4) cap(12, 'pure_repetition');
+  }
+
+  // ── BARE ACKNOWLEDGMENT as first turn ───────────────────────────────────
+  // "Ok" alone as a first message is not a real prompt. But the core can't
+  // distinguish first-turn from followup on single words (the conversational
+  // detector correctly marks them true for followup scenarios). The
+  // extension, which sees the DOM, handles first-turn capping. The core only
+  // caps when it's sure it's NOT conversational.
+  if (words <= 2 && !conversational && !m.object.fromInlineMaterial) {
+    const ACK_FIRST = /^\s*(ok|okay|va bene|d'accordo|alright|sure|yes|no|si|sì|\.{1,}|!{1,}|\?{1,})\s*[.!?]*\s*$/i;
+    if (ACK_FIRST.test(text)) cap(15, 'bare_acknowledgment');
+  }
+
+  // ── ROLE-ONLY: prompt assigns a persona but never gives a task ──────────
+  // "Agisci come un esperto di cybersecurity." — the model knows WHO to be
+  // but not WHAT to do. task.source is 'enclitic' or 'nominal-role' because
+  // the role-assignment verb is mistaken for a task verb. The conjunction:
+  // the ONLY verb is a role-assigning verb + no real action follows.
+  const ROLE_ASSIGN = /^(sei\s+un|agisci\s+come|comportati\s+come|fai\s+finta\s+di\s+essere|you\s+are\s+(a|an)|act\s+as)\b/i;
+  if (ROLE_ASSIGN.test(text.trim()) && m.task.source !== 'imperative-lead') {
+    const ACTION_VERB = /\b(scrivi|crea|genera|analizza|spiega|elenca|dimmi|fammi|rispondi|traduci|correggi|ottimizza|confronta|write|create|explain|analyze|list|make|tell|give|find|help|review|debug|fix|compare|translate|summarize)\b/i;
+    const DECL_CONTEXT = /\b(il\s+(paziente|cliente|utente|candidato)|the\s+(patient|client|user|customer)|ti\s+(descrive|chiede|racconta|dice)|describes|asks|tells|says)\b/i;
+    // Search the WHOLE text — "Act as X and review Y" has the action in the
+    // same sentence as the role assignment.
+    const hasAction = ACTION_VERB.test(text) || DECL_CONTEXT.test(text);
+    // Inline material (code block, quotes) implies the role has something to act on.
+    const hasInlineMaterial = m.object.fromInlineMaterial || /```|`[^`]+`|["«»""]/.test(text);
+    if (!hasAction && !hasInlineMaterial) cap(30, 'role_without_task');
+  }
+
+  // ── COURTESY FILLER: excessive politeness wrapping zero content ─────────
+  // The POL_* detector misses many Italian/English courtesy forms. Instead of
+  // extending the detector (fragile), detect the PATTERN directly: hedging
+  // phrases + no concrete object/spec. The conjunction makes it safe.
+  const COURTESY_HEAVY =
+    /\b(scusami|scusa\s+se|non\s+voglio\s+disturbar|mi\s+dispiace\s+disturbar|saresti\s+così\s+gentile|potresti\s+gentilmente|per\s+favore\s+potresti|i\s+hope\s+this\s+isn'?t\s+too\s+much|sorry\s+to\s+bother|would\s+you\s+be\s+so\s+kind|could\s+you\s+possibly|if\s+it'?s\s+not\s+too\s+much\s+trouble|grazie\s+mille!?\s+(saresti|potresti))\b/i;
+  if (COURTESY_HEAVY.test(text) && !m.object.fromInlineMaterial) {
+    // Only fire if there's no real, concrete spec beyond the courtesy
+    const realSpecs = (m.format.formats.length > 0 ? 1 : 0) + (m.length.cues.length > 0 ? 1 : 0) + (m.audience.level !== null ? 1 : 0);
+    if (realSpecs <= 1) cap(25, 'courtesy_filler');
+  }
+
+  // ── SELF-BOUNDING VERB WITHOUT OBJECT ──────────────────────────────────
+  // "Traduci in inglese" — the verb implies a closed task but there's nothing
+  // TO translate. The earlier fix handled "Translate this." (dangling
+  // demonstrative), but "Traduci in inglese" has no demonstrative at all —
+  // it just has a target language with no source material.
+  const SELF_BOUND_VERBS = /^(traduc\w+|translate|riassumi\w*|summarize|summarise|converti\w*|convert|trascrivi\w*|transcribe)\b/i;
+  // Guard: these verbs are only "self-bounding without material" when the
+  // prompt gives them nothing concrete to operate on. A number ("100 USD"),
+  // a quoted string, specific named object, or bare anaphoric pronoun ("it",
+  // "this", "quello") are all evidence of external material.
+  const ANAPHORIC = /\b(it|this|that|them|these|those|quello|questa|questo|il\s+testo|the\s+text|the\s+above)\b/i;
+  const HAS_CONCRETE_MATERIAL = /\d/.test(text) || /["'«»""]/.test(text) || m.object.fromInlineMaterial || ANAPHORIC.test(text);
+  if (SELF_BOUND_VERBS.test(text.trim()) && !HAS_CONCRETE_MATERIAL && m.object.presence !== 'named') {
+    cap(25, 'self_bounding_no_object');
+  }
+  // Also catch "Traduci in <lingua>" where the object slot says 'named' because
+  // "inglese"/"francese" looks like a named entity, but there's actually nothing
+  // to translate — no inline material, no reference, no number, word count ≤ 5.
+  if (SELF_BOUND_VERBS.test(text.trim()) && !HAS_CONCRETE_MATERIAL && words <= 5) {
+    cap(28, 'self_bounding_no_material');
+  }
+
+  // "Genera e crea e produci" / "sintetico e conciso e breve" / "scritto
+  // bene e ben scritto". Three or more synonym-class words joined by "e"/"and"
+  // in a short span. The cap fires on the CONJUNCTION of: 3+ items linked
+  // by "e"/"and" + all items are from the same synonym cluster.
+  const SYN_CLUSTERS = [
+    /\b(genera|crea|produci|inventa|fabbrica|scrivi|componi|make|create|generate|produce|write|compose)\b/gi,
+    /\b(sintetico|conciso|breve|corto|succinto|stringato|short|brief|concise|succinct|compact)\b/gi,
+    /\b(dettagliato|approfondito|esaustivo|completo|esauriente|comprehensive|detailed|thorough|exhaustive|extensive)\b/gi,
+    /\b(bello|carino|grazioso|attraente|piacevole|nice|beautiful|pretty|lovely|attractive)\b/gi,
+    /\b(utile|pratico|funzionale|useful|practical|helpful|handy)\b/gi,
+  ];
+  for (const cluster of SYN_CLUSTERS) {
+    const matches = text.match(cluster);
+    if (matches && matches.length >= 3) {
+      cap(30, 'synonymic_redundancy');
+      break;
+    }
+  }
+
+  // ── CONTRADICTION: "in detail but short" (EN) ──────────────────────────
+  // The Italian version is caught by CONTRA_001, but the English "in detail"
+  // + "short/brief" across an adversative wasn't covered.
+  const DETAIL_SHORT_EN =
+    /\b(in\s+detail|detailed|thorough|comprehensive|exhaustive)\b[^.!?]{0,30}\b(but|yet|however)\b[^.!?]{0,30}\b(short|brief|concise|quick|succinct)\b/i;
+  const SHORT_DETAIL_EN =
+    /\b(short|brief|concise|quick|succinct)\b[^.!?]{0,30}\b(but|yet|however)\b[^.!?]{0,30}\b(in\s+detail|detailed|thorough|comprehensive|exhaustive)\b/i;
+  if (DETAIL_SHORT_EN.test(text) || SHORT_DETAIL_EN.test(text)) {
+    cap(35, 'contradiction');
+  }
+
+  // ── "Do the same thing but different" — contradiction ──────────────────
+  const SAME_BUT_DIFF =
+    /\b(same|stess[oa]|uguale|medesim[oa])\b[^.!?]{0,20}\b(but|yet|however|ma|però|pero)\b[^.!?]{0,20}\b(different|divers[oa]|altro)\b/i;
+  if (SAME_BUT_DIFF.test(text)) {
+    cap(20, 'contradiction');
+  }
+
   // ("l'email di Marco", "il file allegato") that was never provided. The
   // task itself may be perfectly clear, but the model has nothing real to
   // act on and must invent the referenced content wholesale — similarly
   // severe to OBJ_001 for the same underlying reason (a clear verb pointing
   // at nothing concrete).
-  if (byCode('REF_001') > 0) total = Math.min(total, 45);
+  if (byCode('REF_001') > 0) cap(45, 'missing_reference');
   // VAGUE_002 (3+ subjective quality adjectives piled up: "bello,
   // interessante, utile…") is a much stronger vagueness signal than a single
   // generic ambiguity hit. But its severity should depend on whether there's
@@ -361,7 +546,7 @@ export function scorePrompt(
   // precision either way (VAGUE_002 requires 3+ adjectives).
   if (byCode('VAGUE_002') > 0) {
     const hasAnyRealSpec = hasFormat || hasLength || hasRole || hasExamples || hasContext;
-    total = Math.min(total, hasAnyRealSpec ? 60 : 42);
+    cap(hasAnyRealSpec ? 60 : 42, 'vague_adjectives');
   }
   // A conversational reply is exempt from the ambiguity poison cap too — same
   // invariant as the length/precision exemptions above. Without this gate, any
@@ -372,8 +557,8 @@ export function scorePrompt(
   // though conversational replies aren't supposed to be judged by spec-rules
   // at all.
   const vague = conversational ? 0 : byType('ambiguity');
-  if (vague >= 2) total = Math.min(total, 48);
-  else if (vague === 1) total = Math.min(total, 58);
+  if (vague >= 2) cap(48, 'ambiguity');
+  else if (vague === 1) cap(58, 'ambiguity');
 
   // Trivially short "prompts": nothing to evaluate. But a short prompt that
   // is nonetheless well-specified (has a real task + at least one spec) is a
@@ -409,20 +594,20 @@ export function scorePrompt(
     // for a text to count as a real question worth exempting.
     const hasAnyRealContent = /[\p{L}\p{N}]/u.test(text);
     if (words <= 3 && objEmpty && !selfBounding && !(isQuestionLike && hasAnyRealContent)) {
-      total = Math.min(total, hasRealVerb ? 20 : 12);
+      cap(hasRealVerb ? 20 : 12, 'ultra_short');
     }
     // A terse prompt with a real, actionable task verb ("Analizza questo
     // testo.") is underspecified but not meaningless — it should never score
     // BELOW a prompt with no task at all ("Sei un esperto di marketing.",
     // capped via the PL_001 rule above at 60). Splitting the floor by
     // whether there's an actual verb fixes that inversion.
-    else if (words < 4 && !hasTaskVerb) total = Math.min(total, 38);
-    else if (words < 4 && hasTaskVerb) total = Math.min(total, 55);
+    else if (words < 4 && !hasTaskVerb) cap(38, 'very_short_no_task');
+    else if (words < 4 && hasTaskVerb) cap(55, 'very_short_task');
     // A named object is real content (external-corpus fix): "Configura una
     // campagna Klaviyo per clienti inattivi" (7 words, fully concrete) must
     // not share the 54 cap with genuinely underspecified terse prompts.
-    else if (words < 8 && !wellSpecifiedShort && hasNamedObject) total = Math.min(total, 74);
-    else if (words < 8 && !wellSpecifiedShort) total = Math.min(total, 54);
+    else if (words < 8 && !wellSpecifiedShort && hasNamedObject) cap(74, 'short_named_object');
+    else if (words < 8 && !wellSpecifiedShort) cap(54, 'short_underspecified');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -460,14 +645,15 @@ export function scorePrompt(
     // named object isn't a spec, but it IS content: the harsh floor is for
     // prompts that give the model nothing concrete.
     if (hasNamedObject) {
-      total = Math.min(total, words < 8 ? 68 : 74);
+      cap(words < 8 ? 68 : 74, 'underspecified_named');
     }
-    else if (byType('ambiguity') > 0 || words < 8) total = Math.min(total, 48);
-    else if (words < 14) total = Math.min(total, 54);
-    else total = Math.min(total, 62);
+    else if (byType('ambiguity') > 0 || words < 8) cap(48, 'underspecified_vague');
+    else if (words < 14) cap(54, 'underspecified_short');
+    else cap(62, 'underspecified');
   }
 
   total = clamp(total);
+
   const lbl = label(total);
   const worst = [clarityScore, precisionScore, lengthScore, redundancyScore, readabilityScore]
     .sort((a, b) => a.score - b.score)[0];
@@ -487,6 +673,7 @@ export function scorePrompt(
   return {
     total,
     label: lbl,
+    breakdown,
     dimensions: {
       clarity: clarityScore,
       precision: precisionScore,

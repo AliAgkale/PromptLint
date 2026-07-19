@@ -133,6 +133,6 @@ export { resolveConversational } from './analyzers/observations.js';
 export type {
   AnalysisResult, AnalyzeOptions, Observation, ObservationType,
   ObservationLevel, ImpactEstimate, AutocorrectSuggestion,
-  TokenAnalysis, PromptScore, ScoreLabel, ScoreDimension,
+  TokenAnalysis, PromptScore, ScoreLabel, ScoreDimension, ScoreContribution,
   ModelPrice, CostEstimate, PromptStructure, PromptIntent,
 } from './types.js';

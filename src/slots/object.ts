@@ -57,6 +57,16 @@ export interface ObjectSlot {
 const PLACEHOLDER =
   /\b(qualcosa(?:\s+di\s+\w+)?|una cosa|delle cose|roba|something|anything|stuff|some\s+things?)\b/i;
 
+// ── Standalone demonstrative pronoun as the WHOLE object ("Translate this",
+//    "Riassumi questo", "Spiega ciò"): it points at a referent that was never
+//    provided. When the material is actually inline (quotes/code/colon) that's
+//    handled first by hasInlineMaterial() → 'named'; reaching here means there
+//    is nothing to act on, so it's as empty as "qualcosa". Found via the
+//    benchmark: "Translate this." scored 93/excellent because the bare
+//    demonstrative resolved to 'named' and let the self-bounding floor apply. ──
+const STANDALONE_DEMONSTRATIVE =
+  /^(it|this|that|these|those|lo|la|li|le|questo|questa|questi|queste|quello|quella|quelli|quelle|ciò|cio)$/i;
+
 // ── Bare collective/abstract nouns that structurally need a topic/domain/
 //    source to be actionable. Matched only on the object fragment itself.
 const BARE_NOUNS =
@@ -122,6 +132,11 @@ export function extractObject(objectFragment: string | null, fullText: string): 
     return { presence: 'none', text: null, fromInlineMaterial: false };
   }
   if (PLACEHOLDER.test(frag)) {
+    return { presence: 'placeholder', text: frag, fromInlineMaterial: false };
+  }
+  // A bare demonstrative pronoun with nothing after it (trailing punctuation
+  // stripped) is a dangling reference — no inline material rescued it above.
+  if (STANDALONE_DEMONSTRATIVE.test(frag.replace(/[.!?,;:]+$/, '').trim())) {
     return { presence: 'placeholder', text: frag, fromInlineMaterial: false };
   }
   // The bare-noun test must apply to the HEAD of the fragment (its first

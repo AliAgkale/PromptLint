@@ -57,6 +57,33 @@ const TECH_TERMS = new Set([
   'salesforce','shopware','prestashop','magento','squarespace','wix','canva',
   'chatgpt','claude','gemini','copilot','perplexity','openai','anthropic',
   'gmail','outlook','excel','powerpoint','sheets','drive','dropbox','icloud',
+  // ── Italian common technical & scientific vocabulary. The Italian dictionary
+  // ── is derived from a general-purpose frequency corpus that under-covers
+  //    domain terms: probing surfaced ~40 legitimate Italian words missing
+  //    (grafo, nodo, arco, vertice, matrice, vettore, stringa, cache, hash,
+  //    fotosintesi, clorofilliana, enzima, proteina…). These are the most
+  //    trust-eroding kind of false positive because they hit every technical
+  //    or scientific prompt. Lowercased at check time. Additions are lemmas
+  //    only when the dictionary has enough coverage for morphology to work;
+  //    otherwise both singular and plural are listed.
+  'grafo','grafi','nodo','nodi','arco','archi','vertice','vertici',  'matrice','matrici','vettore','vettori','stringa','stringhe','pila','pile',
+  'coda','code','elemento','elementi','oggetto','oggetti','istanza','istanze',
+  'ereditarietà','interfaccia','interfacce','modulo','moduli','pacchetto',
+  'pacchetti','libreria','librerie','ambiente','ambienti','processo','processi',
+  'memoria','buffer','cache','socket','porta','porte','protocollo','protocolli',
+  'richiesta','richieste','risposta','risposte','sessione','sessioni',
+  'autenticazione','autorizzazione','crittografia','decrittografia','hash',
+  'firma','certificato','certificati','ruolo','ruoli','permesso','permessi',
+  'chiave','chiavi','valore','valori','indice','indici','tabella','tabelle',
+  'cartella','cartelle','directory','percorso','percorsi','file','riga','righe',
+  'colonna','colonne','array','claim','clorofilliana','fotosintesi',
+  'mitocondrio','ribosoma','citoplasma','enzima','enzimi','proteina','proteine',
+  'peptide','peptidi','anticorpo','anticorpi','vaccinare','vaccino','vaccini',
+  'batterio','batteri','fungo','funghi','simbiosi','ecosistema','ecosistemi',
+  'biodiversità','endemismo',
+  // Common accented loanwords the English/Italian dicts drop.
+  'clichés','cliché','naïve','naïveté','déjà','façade','résumé','café',
+  'fiancé','fiancée','soirée','entrée','vis-à-vis','à',
 ]);
 
 export function shouldSkipWord(word: string): boolean {
@@ -79,6 +106,12 @@ export function shouldSkipWord(word: string): boolean {
     'ci','cd','jwt','uuid','id','nb','aka','etc','vs','eg','ie',
     'lol','asap','fyi','tbd','imo','imho','afaik','btw','faq','kpi',
     'agi','asi','bert','rlhf',
+    // Added after 250-prompt benchmark: common words / tech terms that the
+    // bundled dictionaries miss, producing trust-eroding spelling false
+    // positives ("Ok", "docstring", "middleware"…).
+    'ok','okay','docstring','changelog','middleware','runtime','stdout',
+    'stdin','stderr','frontend','backend','fullstack','regex','npm','env',
+    'async','await','webhook','endpoint','endpoints','dataset','datasets',
   ]);
   return ABBREV.has(lower);
 }

@@ -1,7 +1,7 @@
 {
   "name": "promptlint-core",
   "version": "2.22.0",
-  "description": "Algorithmic prompt analysis engine. No AI. Full build (nspell + tiktoken) and lite build (zero-deps) for Chrome extension.",
+  "description": "Deterministic prompt linter for LLMs — offline, provider-agnostic, ESLint for prompts",
   "keywords": [
     "prompt",
     "linter",
@@ -65,5 +65,13 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AliAgkale/PromptLint"
+  },
+  "homepage": "https://github.com/AliAgkale/PromptLint#readme",
+  "bugs": {
+    "url": "https://github.com/AliAgkale/PromptLint/issues"
   }
 }

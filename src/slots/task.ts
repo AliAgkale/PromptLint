@@ -158,6 +158,16 @@ const EN_IMPERATIVE = new Set([
   'import', 'export', 'compile', 'install', 'configure', 'optimize', 'optimise',
   'integrate', 'migrate', 'deploy', 'brainstorm', 'ignore', 'consider', 'use',
   'turn', 'convert', 'break', 'walk', 'tell', 'draw', 'map', 'pick', 'choose',
+  // Added after 250-prompt benchmark: these clear action verbs were missing,
+  // producing false "no task" (PL_001) flags on "Proofread: '…'", "Transcribe
+  // this audio", "Set up a CI/CD pipeline", "Paraphrase the intro".
+  'proofread', 'transcribe', 'set', 'paraphrase', 'annotate', 'shorten',
+  'expand', 'label', 'categorize', 'categorise', 'group', 'merge', 'split',
+  'reverse', 'count', 'estimate', 'critique', 'benchmark',
+  // Second round from 250-prompt benchmark: label-based prompts often use
+  // these as the top-level action verb.
+  'propose', 'suggest', 'apply', 'assign', 'answer', 'reply', 'respond',
+  'assemble', 'derive', 'formulate', 'sketch',
 ]);
 
 // Italian has exactly six verbs with a TRULY irregular 2nd-person imperative
@@ -342,6 +352,24 @@ export function extractTask(text: string, lang: SupportedLanguage): TaskSlot {
   const refMatch = lead.match(REFERENCE_COLON);
   if (refMatch && /:\s*\S.{5,}/s.test(lead.slice(refMatch[0].length - 1))) {
     return { verb: null, object: lead.slice(refMatch[0].length).trim() || null, source: 'elliptical', confidence: 0.65 };
+  }
+
+  // 4c) LABEL-BASED prompt engineering ("Context: …\nGoal: …\nTask: <verb>
+  //     <object>"). This is a widely documented style and the current pipeline
+  //     was missing it: the leading label ("Context:") isn't a verb, so the
+  //     lead-verb / elliptical checks all miss even though the prompt clearly
+  //     spells out a task later. Found via the 250-prompt benchmark. Anchored
+  //     to a "Task:"/"Compito:" (or "Instruction:") label at line start and
+  //     followed immediately by a recognized action verb, so a mere mention of
+  //     the word "task" in prose can't trigger it.
+  const LABEL_TASK =
+    /(?:^|\n)\s*(?:task|compito|istruzione|instruction|azione|action)\s*:\s*([A-Za-zÀ-ÿ]+)\b/i;
+  const labeled = text.match(LABEL_TASK);
+  if (labeled) {
+    const verbLower = labeled[1].toLowerCase();
+    if (EN_IMPERATIVE.has(verbLower) || isItalianImperative(labeled[1])) {
+      return { verb: verbLower, object: null, source: 'imperative-lead', confidence: 0.85 };
+    }
   }
 
   // 5) Buried request: scan clause starts (after ., :, newline, comma, or

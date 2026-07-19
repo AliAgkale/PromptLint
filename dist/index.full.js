@@ -18179,7 +18179,139 @@ var TECH_TERMS = /* @__PURE__ */ new Set([
   "sheets",
   "drive",
   "dropbox",
-  "icloud"
+  "icloud",
+  // ── Italian common technical & scientific vocabulary. The Italian dictionary
+  // ── is derived from a general-purpose frequency corpus that under-covers
+  //    domain terms: probing surfaced ~40 legitimate Italian words missing
+  //    (grafo, nodo, arco, vertice, matrice, vettore, stringa, cache, hash,
+  //    fotosintesi, clorofilliana, enzima, proteina…). These are the most
+  //    trust-eroding kind of false positive because they hit every technical
+  //    or scientific prompt. Lowercased at check time. Additions are lemmas
+  //    only when the dictionary has enough coverage for morphology to work;
+  //    otherwise both singular and plural are listed.
+  "grafo",
+  "grafi",
+  "nodo",
+  "nodi",
+  "arco",
+  "archi",
+  "vertice",
+  "vertici",
+  "matrice",
+  "matrici",
+  "vettore",
+  "vettori",
+  "stringa",
+  "stringhe",
+  "pila",
+  "pile",
+  "coda",
+  "code",
+  "elemento",
+  "elementi",
+  "oggetto",
+  "oggetti",
+  "istanza",
+  "istanze",
+  "ereditariet\xE0",
+  "interfaccia",
+  "interfacce",
+  "modulo",
+  "moduli",
+  "pacchetto",
+  "pacchetti",
+  "libreria",
+  "librerie",
+  "ambiente",
+  "ambienti",
+  "processo",
+  "processi",
+  "memoria",
+  "buffer",
+  "cache",
+  "socket",
+  "porta",
+  "porte",
+  "protocollo",
+  "protocolli",
+  "richiesta",
+  "richieste",
+  "risposta",
+  "risposte",
+  "sessione",
+  "sessioni",
+  "autenticazione",
+  "autorizzazione",
+  "crittografia",
+  "decrittografia",
+  "hash",
+  "firma",
+  "certificato",
+  "certificati",
+  "ruolo",
+  "ruoli",
+  "permesso",
+  "permessi",
+  "chiave",
+  "chiavi",
+  "valore",
+  "valori",
+  "indice",
+  "indici",
+  "tabella",
+  "tabelle",
+  "cartella",
+  "cartelle",
+  "directory",
+  "percorso",
+  "percorsi",
+  "file",
+  "riga",
+  "righe",
+  "colonna",
+  "colonne",
+  "array",
+  "claim",
+  "clorofilliana",
+  "fotosintesi",
+  "mitocondrio",
+  "ribosoma",
+  "citoplasma",
+  "enzima",
+  "enzimi",
+  "proteina",
+  "proteine",
+  "peptide",
+  "peptidi",
+  "anticorpo",
+  "anticorpi",
+  "vaccinare",
+  "vaccino",
+  "vaccini",
+  "batterio",
+  "batteri",
+  "fungo",
+  "funghi",
+  "simbiosi",
+  "ecosistema",
+  "ecosistemi",
+  "biodiversit\xE0",
+  "endemismo",
+  // Common accented loanwords the English/Italian dicts drop.
+  "clich\xE9s",
+  "clich\xE9",
+  "na\xEFve",
+  "na\xEFvet\xE9",
+  "d\xE9j\xE0",
+  "fa\xE7ade",
+  "r\xE9sum\xE9",
+  "caf\xE9",
+  "fianc\xE9",
+  "fianc\xE9e",
+  "soir\xE9e",
+  "entr\xE9e",
+  "vis-\xE0-vis",
+  "\xE0"
 ]);
 function shouldSkipWord(word) {
   if (word.length <= 1) return true;
@@ -18243,7 +18375,32 @@ function shouldSkipWord(word) {
     "agi",
     "asi",
     "bert",
-    "rlhf"
+    "rlhf",
+    // Added after 250-prompt benchmark: common words / tech terms that the
+    // bundled dictionaries miss, producing trust-eroding spelling false
+    // positives ("Ok", "docstring", "middleware"…).
+    "ok",
+    "okay",
+    "docstring",
+    "changelog",
+    "middleware",
+    "runtime",
+    "stdout",
+    "stdin",
+    "stderr",
+    "frontend",
+    "backend",
+    "fullstack",
+    "regex",
+    "npm",
+    "env",
+    "async",
+    "await",
+    "webhook",
+    "endpoint",
+    "endpoints",
+    "dataset",
+    "datasets"
   ]);
   return ABBREV.has(lower);
 }
@@ -18413,7 +18570,41 @@ var EN_IMPERATIVE = /* @__PURE__ */ new Set([
   "draw",
   "map",
   "pick",
-  "choose"
+  "choose",
+  // Added after 250-prompt benchmark: these clear action verbs were missing,
+  // producing false "no task" (PL_001) flags on "Proofread: '…'", "Transcribe
+  // this audio", "Set up a CI/CD pipeline", "Paraphrase the intro".
+  "proofread",
+  "transcribe",
+  "set",
+  "paraphrase",
+  "annotate",
+  "shorten",
+  "expand",
+  "label",
+  "categorize",
+  "categorise",
+  "group",
+  "merge",
+  "split",
+  "reverse",
+  "count",
+  "estimate",
+  "critique",
+  "benchmark",
+  // Second round from 250-prompt benchmark: label-based prompts often use
+  // these as the top-level action verb.
+  "propose",
+  "suggest",
+  "apply",
+  "assign",
+  "answer",
+  "reply",
+  "respond",
+  "assemble",
+  "derive",
+  "formulate",
+  "sketch"
 ]);
 var IT_IRREGULAR_IMPERATIVES = /* @__PURE__ */ new Set(["fai", "dai", "vai", "sii", "abbi"]);
 function isItalianIrregularImperative(word) {
@@ -18514,6 +18705,14 @@ function extractTask(text, lang) {
   const refMatch = lead.match(REFERENCE_COLON);
   if (refMatch && /:\s*\S.{5,}/s.test(lead.slice(refMatch[0].length - 1))) {
     return { verb: null, object: lead.slice(refMatch[0].length).trim() || null, source: "elliptical", confidence: 0.65 };
+  }
+  const LABEL_TASK = /(?:^|\n)\s*(?:task|compito|istruzione|instruction|azione|action)\s*:\s*([A-Za-zÀ-ÿ]+)\b/i;
+  const labeled = text.match(LABEL_TASK);
+  if (labeled) {
+    const verbLower = labeled[1].toLowerCase();
+    if (EN_IMPERATIVE.has(verbLower) || isItalianImperative(labeled[1])) {
+      return { verb: verbLower, object: null, source: "imperative-lead", confidence: 0.85 };
+    }
   }
   const clauses = splitClauses(raw);
   for (const clause of clauses) {
@@ -18858,6 +19057,7 @@ function audienceToneConflict(audience, tone) {
 
 // src/slots/object.ts
 var PLACEHOLDER = /\b(qualcosa(?:\s+di\s+\w+)?|una cosa|delle cose|roba|something|anything|stuff|some\s+things?)\b/i;
+var STANDALONE_DEMONSTRATIVE = /^(it|this|that|these|those|lo|la|li|le|questo|questa|questi|queste|quello|quella|quelli|quelle|ciò|cio)$/i;
 var BARE_NOUNS = /\b(consigli[oa]?|idee|idea|informazioni|dati|numer[oi]|statistiche|cifre|percentuali|percentuale|dato|esempi|esempio|dettagli|opinion[ei]|suggeriment[oi]|riassunt[oi]|sintesi|spiegazion[ei]|analisi|revision[ei]|feedback|parer[ei]|risposta|advice|ideas?|information|numbers?|statistics|figures?|examples?|details|opinions?|suggestions?|summary|analysis|review|answer)\b/i;
 var BROAD_QUALIFIER_HEAD = /^(le |gli |i |il |la |l['’])?(azien[dt]e?|persone|gente|cose|mondo|vita|storia|tecnologia|scienza|societ[aà]|economia|politica|natura|arte|cultura|sport|musica|cinema|companies|business|people|world|life|history|technology|science|things?|society)\s*$/i;
 var QUALIFIER_PREP = /\b(consigli[oa]?|idee|idea|informazioni|dati|numer[oi]|statistiche|cifre|percentuali|percentuale|esempi|dettagli|opinion[ei]|suggeriment[oi]|riassunt[oi]|sintesi|spiegazion[ei]|analisi|revision[ei]|feedback|parer[ei]|risposta|advice|ideas?|information|numbers?|statistics|figures?|examples?|details|opinions?|suggestions?|summary|analysis|review|answer)\s+(su|sul|sulla|sui|sulle|di|del|della|riguardo|circa|per|about|on|of|for|regarding|to)\s+([^.!?,;\n]*)/i;
@@ -18883,6 +19083,9 @@ function extractObject(objectFragment, fullText) {
     return { presence: "none", text: null, fromInlineMaterial: false };
   }
   if (PLACEHOLDER.test(frag)) {
+    return { presence: "placeholder", text: frag, fromInlineMaterial: false };
+  }
+  if (STANDALONE_DEMONSTRATIVE.test(frag.replace(/[.!?,;:]+$/, "").trim())) {
     return { presence: "placeholder", text: frag, fromInlineMaterial: false };
   }
   const HEAD_BARE = new RegExp(
@@ -19399,7 +19602,8 @@ function looksLikeEnrichmentTurn(text, model) {
   const hasLength = model.length.cues.length > 0;
   const declarativeFrame = /\b(è un|è una|ho un|ho una|si tratta di|per (un|una|il|la|i|gli|le)|il target|la mia|il mio|riguarda|parla di|it'?s an?|i have an?|for an?|the target|about)\b/i.test(t);
   const finiteVerb = /\b(è|sono|ho|hai|ha|abbiamo|hanno|era|erano|sta|stanno|uso|usa|usano|usiamo|voglio|vuole|serve|servono|deve|devono|contiene|contengono|include|includono|funziona|funzionano|gira|girano|ho\s+\w+ato|ho\s+\w+ito|ho\s+\w+uto|è\s+\w+ato|sono\s+\w+ati|is|are|has|have|uses|contains|needs|runs|works|includes)\b/i.test(t);
-  return hasNumber || hasNamedObject || hasAudience || hasToneOrFormat || hasLength || declarativeFrame || finiteVerb;
+  const correctionPivot = /\b(non\s+(mi\s+)?(convince|piace|torna|va\s+bene)|non\s+è\s+(quello|questo|ciò)|non\s+intend\w+|no,?\s+(aspetta|non|cambia)|prov(a|iamo)\s+(un|con|di\s+nuovo)|cambia\s+(stile|approccio|tono|direzione)|riprov\w+|mmm|hm+|that'?s\s+not\s+(what|it)|not\s+quite|let\s+me\s+clarify|different\s+(approach|angle|style))\b/i.test(t);
+  return hasNumber || hasNamedObject || hasAudience || hasToneOrFormat || hasLength || declarativeFrame || finiteVerb || correctionPivot;
 }
 function runNoTask(text, detectedLang, model, conversationTurn, uiLocale = "it") {
   const trimmed = text.trim();
@@ -19583,21 +19787,24 @@ function runNegativeFraming(text, uiLocale = "it") {
 function runMissingReferencedMaterial(text, model, isExempt, uiLocale = "it") {
   if (model.task.confidence < 0.5) return [];
   if (model.object.fromInlineMaterial) return [];
-  if (wordCount(text) < 5) return [];
-  const EXTERNAL_REFERENCE = /\b(l[ao]\s+(mail|email|messaggio|file|documento|testo|articolo|allegato|proposta|contratto|report|codice|script|foglio|pdf|immagine|foto|screenshot|video|lista|tabella)\s+(di|che|che\s+ti|inviato|allegato|mandato)|il\s+(file|documento|testo|messaggio|report|codice|allegato|contratto)\s+(allegato|che\s+ti|di\s+ieri|che\s+ho\s+mandato|inviato\s+ieri)|che\s+(ti\s+ho\s+mandato|ho\s+inviato|ho\s+allegato|ti\s+ho\s+inviato)|the\s+(email|file|document|message|report|code|attachment|proposal|contract)\s+(from|i\s+sent|attached|i\s+shared|below)|i\s+(sent|shared|attached|uploaded)\b)/i;
+  if (wordCount(text) < 4) return [];
+  const EXTERNAL_REFERENCE = /\b(l[ao]\s+(mail|email|messaggio|file|documento|testo|articolo|allegato|proposta|contratto|report|codice|script|foglio|pdf|immagine|foto|screenshot|video|lista|tabella)\s+(di|che|che\s+ti|inviato|allegato|mandato)|il\s+(file|documento|testo|messaggio|report|codice|allegato|contratto)\s+(allegato|che\s+ti|di\s+ieri|che\s+ho\s+mandato|inviato\s+ieri)|che\s+(ti\s+ho\s+mandato|ho\s+inviato|ho\s+allegato|ti\s+ho\s+inviato)|the\s+(email|file|document|message|report|code|attachment|proposal|contract)\s+(from|i\s+sent|attached|i\s+shared|below)|i\s+(sent|shared|attached|uploaded)\b|continua\s+da\s+dove|riprend\w+\s+da\s+dove|da\s+dove\s+(eravamo|ci\s+eravamo)|come\s+(dicevamo|eravamo\s+rimasti|ti\s+dicevo\s+prima)|all['']?\s*(email|mail)\s+di\s+\w+|il\s+(file|documento|pdf|foglio|allegato)\s+allegato|the\s+attached\s+(file|document|pdf|spreadsheet|report))/i;
   const m = text.match(EXTERNAL_REFERENCE);
-  if (!m) return [];
+  const BINARY_MEDIA = /\b(quest[oa']?\s*(immagine|foto|screenshot|video|audio|registrazione|grafico)|this\s+(image|photo|screenshot|video|audio|recording|chart|graphic)|nello\s+screenshot|in\s+the\s+screenshot|\[screenshot\]|lo\s+screenshot\s+(qui\s+)?(sopra|sotto)|the\s+(image|screenshot)\s+(above|below))\b/i;
+  const mb = text.match(BINARY_MEDIA);
+  const hit = m ?? mb;
+  if (!hit) return [];
   if (/["'""''«»][^"'""''«»]{5,}["""''«»]|```[\s\S]*?```|:\s*\S.{10,}/s.test(text)) return [];
   return [obs(
     "no_context",
     "improvable",
     uiLocale === "it" ? "\u{1F7E1} Materiale mancante" : "\u{1F7E1} Missing material",
-    m[0],
-    text.indexOf(m[0]),
+    hit[0],
+    text.indexOf(hit[0]),
     text,
-    uiLocale === "it" ? `Il prompt fa riferimento a "${m[0]}" \u2014 un documento o messaggio specifico \u2014 ma non lo ha incollato nel prompt. Il modello non pu\xF2 vedere il materiale e dovr\xE0 inventarne il contenuto.` : `The prompt references "${m[0]}" \u2014 a specific document or message \u2014 but hasn't pasted it into the prompt. The model can't see the material and will have to invent its content.`,
+    uiLocale === "it" ? `Il prompt fa riferimento a "${hit[0]}" \u2014 un documento o messaggio specifico \u2014 ma non lo ha incollato nel prompt. Il modello non pu\xF2 vedere il materiale e dovr\xE0 inventarne il contenuto.` : `The prompt references "${hit[0]}" \u2014 a specific document or message \u2014 but hasn't pasted it into the prompt. The model can't see the material and will have to invent its content.`,
     uiLocale === "it" ? "Incolla il contenuto direttamente nel prompt (dopo i due punti, tra virgolette, o come blocco separato)." : "Paste the content directly into the prompt (after a colon, in quotes, or as a separate block).",
-    { before: `${m[0]}`, after: uiLocale === "it" ? `${m[0]}: [incolla qui il contenuto]` : `${m[0]}: [paste the content here]` },
+    { before: `${hit[0]}`, after: uiLocale === "it" ? `${hit[0]}: [incolla qui il contenuto]` : `${hit[0]}: [paste the content here]` },
     0,
     "REF_001"
   )];
@@ -19707,6 +19914,25 @@ function runScopeLengthContradiction(text, model, uiLocale = "it") {
       "CONTRA_001"
     )];
   }
+  const ADVERS = "(?:ma|per\xF2|pero|eppure|tuttavia|but|yet|however)";
+  const LONG = "(?:lungh?[oaie]|lunghissim[oa]|estes[oa]|dettagliat[oa]|approfondit[oa]|long|detailed|lengthy)";
+  const SHORTW = "(?:brev[ei]|cort[oaie]|concis[oa]|sintetic[oa]|stringat[oa]|short|brief|concise)";
+  const longShort = text.match(new RegExp(`\\b${LONG}\\b[^.!?]{0,25}\\b${ADVERS}\\b[^.!?]{0,25}\\b${SHORTW}\\b`, "i")) ?? text.match(new RegExp(`\\b${SHORTW}\\b[^.!?]{0,25}\\b${ADVERS}\\b[^.!?]{0,25}\\b${LONG}\\b`, "i"));
+  if (longShort) {
+    return [obs(
+      "contradiction",
+      "contradiction",
+      uiLocale === "it" ? "\u{1F534} Contraddizione" : "\u{1F534} Contradiction",
+      longShort[0],
+      text.indexOf(longShort[0]),
+      text,
+      uiLocale === "it" ? `"${longShort[0]}" si contraddice: chiedi qualcosa di lungo e breve allo stesso tempo. Il modello ne ignorer\xE0 uno.` : `"${longShort[0]}" contradicts itself: you're asking for something long and short at the same time. The model will ignore one.`,
+      uiLocale === "it" ? 'Scegli una lunghezza sola, oppure indicala in modo concreto (es. "circa 300 parole").' : 'Pick a single length, or state it concretely (e.g. "around 300 words").',
+      { before: longShort[0], after: uiLocale === "it" ? "(una lunghezza coerente)" : "(a single coherent length)" },
+      0,
+      "CONTRA_001"
+    )];
+  }
   const COMPLETE = /\b(completo|completa|esaustiv[oa]|esaurient[ei]|dettagliat[oa]|approfondit[oa]|dettagliatamente|molto lungo|estremamente|approfondisci|nei minimi dettagli|comprehensive|exhaustive|detailed|thorough|in-depth|in depth|extensive|elaborate)\b/i;
   const SHORT = /\b(in una frase|in 1 frase|in una riga|in 1 riga|una sola parola|in una parola|1 parola|massimo\s+([1-9]|[12]\d|30)\s+parole|max\s+([1-9]|[12]\d|30)\s+parole|in ([1-9]|1\d|20)\s+parole|molto breve|breve|brevemente|concis[oa]|in poche parole|una sola frase|in sintesi|one sentence|in \d\d? words|very short|briefly|in a word|single word)\b/i;
   const cm = text.match(COMPLETE);
@@ -19775,6 +20001,84 @@ var CONFLICT_PAIRS = [
     why: "neutralit\xE0 richiesta e verdetto assoluto incompatibili"
   }
 ];
+function runUnfilledTemplate(text, uiLocale = "it") {
+  const markers = [
+    /\{\{\s*[\w .\-]+\s*\}\}/,
+    /\[\s*(inseris\w*|insert|your|il\s+tuo|la\s+tua|testo\s+qui|text\s+here|todo|placeholder|x{3,}|nome|name|argomento|topic)\b[^\]]*\]/i,
+    /<\s*[A-ZÀ-Ö_]{3,}\s*>/,
+    /\blorem\s+ipsum\b/i
+  ];
+  let hit = null;
+  for (const re of markers) {
+    const m = text.match(re);
+    if (m && m.index != null) {
+      hit = { text: m[0], index: m.index };
+      break;
+    }
+  }
+  if (!hit) {
+    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    const bareLabel = /^[\wàèéìòùáéíóú' /()-]{1,30}:$/i;
+    if (lines.length >= 2 && lines.every((l) => bareLabel.test(l))) {
+      hit = { text: lines[0], index: 0 };
+    }
+  }
+  if (!hit) return [];
+  return [obs(
+    "ambiguity",
+    "contradiction",
+    uiLocale === "it" ? "\u{1F534} Template non compilato" : "\u{1F534} Unfilled template",
+    hit.text,
+    hit.index,
+    text,
+    uiLocale === "it" ? "Il prompt contiene segnaposto non compilati (variabili, campi vuoti o testo di riempimento). Il modello non ha nulla di concreto su cui lavorare." : "The prompt contains unfilled placeholders (template variables, empty fields, or filler text). The model has nothing concrete to work with.",
+    uiLocale === "it" ? "Sostituisci i segnaposto con il contenuto reale prima di inviare." : "Replace the placeholders with real content before sending.",
+    null,
+    0,
+    "TMPL_001"
+  )];
+}
+var LANG_CANON = {
+  inglese: "en",
+  english: "en",
+  italiano: "it",
+  italian: "it",
+  francese: "fr",
+  french: "fr",
+  spagnolo: "es",
+  spanish: "es",
+  tedesco: "de",
+  german: "de",
+  portoghese: "pt",
+  portuguese: "pt"
+};
+function runTranslateKeepContradiction(text, uiLocale = "it") {
+  const LANG = "(inglese|italiano|francese|spagnolo|tedesco|portoghese|english|italian|french|spanish|german|portuguese)";
+  const KEEP = "(?:lascia\\w*|lasciarl[oa]|mantien\\w*|mantenerl[oa]|tien\\w*|tenerl[oa]|tienil[oa]|resta\\w*|rest[ai]|rimang[ao]\\w*|keep\\w*|leav\\w*)";
+  const ADVERS = "(?:ma|per\xF2|pero|eppure|tuttavia|but|yet|however)";
+  const re = new RegExp(
+    `\\b(?:traduc\\w+|translate)\\b[^.!?]*?\\bin\\s+${LANG}\\b[^.!?]*?\\b${ADVERS}\\b[^.!?]*?\\b${KEEP}\\b[^.!?]*?\\bin\\s+${LANG}\\b`,
+    "i"
+  );
+  const m = text.match(re);
+  if (!m) return [];
+  const a = LANG_CANON[m[1].toLowerCase()] ?? m[1].toLowerCase();
+  const b = LANG_CANON[m[2].toLowerCase()] ?? m[2].toLowerCase();
+  if (a === b) return [];
+  return [obs(
+    "contradiction",
+    "contradiction",
+    uiLocale === "it" ? "\u{1F534} Istruzioni in conflitto" : "\u{1F534} Conflicting instructions",
+    m[0],
+    text.indexOf(m[0]),
+    text,
+    uiLocale === "it" ? `Chiedi di tradurre in ${m[1]} ma poi di lasciarlo in ${m[2]}: sono due lingue di output diverse. Il modello non pu\xF2 fare entrambe e ne sceglier\xE0 una.` : `You ask to translate into ${m[1]} but then to keep it in ${m[2]}: those are two different output languages. The model can't do both and will pick one.`,
+    uiLocale === "it" ? "Indica una sola lingua di destinazione." : "State a single target language.",
+    { before: m[0], after: uiLocale === "it" ? "(una sola lingua di output)" : "(a single output language)" },
+    0,
+    "CONTRA_002"
+  )];
+}
 function runConflictingInstructions(text, model, uiLocale = "it") {
   const results = [];
   const CONFLICT_LABEL = uiLocale === "it" ? "\u{1F534} Istruzioni in conflitto" : "\u{1F534} Conflicting instructions";
@@ -19949,7 +20253,8 @@ function runPassiveVoice(text, detectedLang, isExempt, uiLocale = "it") {
 function runAmbiguousPronoun(text, exemptRanges, uiLocale = "it") {
   const trimmed = text.trim();
   const re = /^(fix|update|change|improve|modify|rewrite|edit|correct|adjust|refactor|optimize|optimise|clean up|simplify|review|check|correggi|aggiorna|cambia|migliora|modifica|riscrivi|sistema|rivedi|controlla|riordina|semplifica)\s+(it|this|that|these|those|lo|la|li|le|questo|questa|questi|queste|quello|quella)\b/i;
-  const m = trimmed.match(re);
+  const reTerminal = /^(translate|traduci|traducimi|traduce|summarize|summarise|riassumi|riassumimi|explain|spiega|spiegami|describe|descrivi|analyze|analyse|analizza|analizzami|convert|converti|process|elabora)\s+(it|this|that|these|those|lo|la|questo|questa|questi|queste|quello|quella|ciò)\s*[.!?]*$/i;
+  const m = trimmed.match(re) ?? trimmed.match(reTerminal);
   if (!m) return [];
   if (exemptRanges.length > 0) return [];
   return [obs(
@@ -20119,6 +20424,8 @@ function runAllObservations(text, disabledRules = [], spell, inputPricePerMillio
     () => runVagueQualityPileup(text, uiLocale),
     () => runScopeLengthContradiction(text, model, uiLocale),
     () => runConflictingInstructions(text, model, uiLocale),
+    () => runTranslateKeepContradiction(text, uiLocale),
+    () => runUnfilledTemplate(text, uiLocale),
     () => runAmbiguousPronoun(text, exemptRanges, uiLocale),
     () => runVagueQuality(text, isExempt, uiLocale),
     () => runVaguePlaceholderNouns(text, uiLocale),
@@ -20260,7 +20567,8 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
   if (hasNamedObject) specPoints += 10;
   specPoints -= byType("weak_verb") * 6;
   specPoints = Math.max(0, specPoints);
-  const selfBounding = isSelfBoundingTask(text) || m.task.source === "elliptical" || m.object.fromInlineMaterial;
+  const selfBoundingObjectOk = m.object.presence !== "placeholder" && m.object.presence !== "none";
+  const selfBounding = isSelfBoundingTask(text) && selfBoundingObjectOk || m.task.source === "elliptical" || m.object.fromInlineMaterial;
   const isQuestionLike = m.task.source === "question" || /\?\s*$/.test(text.trim());
   let precisionRaw = 22 + (100 - 22) * (1 - Math.exp(-specPoints / 42));
   if (selfBounding) precisionRaw = Math.max(precisionRaw, 78);
@@ -20332,37 +20640,123 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
   let total = Math.round(
     clarityScore.score * 0.3 + precisionScore.score * 0.3 + lengthScore.score * 0.13 + redundancyScore.score * 0.14 + readabilityScore.score * 0.13
   );
+  const breakdown = [
+    { label: "clarity", effect: Math.round(clarityScore.score * 0.3), kind: "dimension" },
+    { label: "precision", effect: Math.round(precisionScore.score * 0.3), kind: "dimension" },
+    { label: "length", effect: Math.round(lengthScore.score * 0.13), kind: "dimension" },
+    { label: "redundancy", effect: Math.round(redundancyScore.score * 0.14), kind: "dimension" },
+    { label: "readability", effect: Math.round(readabilityScore.score * 0.13), kind: "dimension" }
+  ];
+  const cap = (ceiling, reason) => {
+    if (ceiling < total) breakdown.push({ label: reason, effect: ceiling, kind: "cap" });
+    total = Math.min(total, ceiling);
+  };
   const contradictions = byType("contradiction");
-  if (contradictions > 0) total = Math.min(total, 46 - Math.min(12, (contradictions - 1) * 6));
-  if (byCode("PL_001") > 0) total = Math.min(total, 50);
-  if (byCode("OBJ_001") > 0) total = Math.min(total, 40);
-  if (byCode("REF_001") > 0) total = Math.min(total, 45);
+  if (contradictions > 0) cap(35 - Math.min(12, (contradictions - 1) * 6), "contradiction");
+  if (byCode("PL_001") > 0) cap(50, "no_task");
+  if (byCode("OBJ_001") > 0) cap(40, "empty_object");
+  if (byCode("TMPL_001") > 0) cap(18, "unfilled_template");
+  const DELEGATION_RE = /\b(come (preferisci|vuoi|ritieni|credi|ti sembra|meglio credi)|nel formato (che (preferisci|ritieni|credi)|adeguato|giusto|opportuno)|della lunghezza (che (preferisci|ritieni)|appropriata|giusta|adeguata|opportuna)|whatever you (think|want|prefer|like)|as you (see fit|prefer|wish)|up to you|a tua (scelta|discrezione)|decidi tu|you decide|su[gl]l'argomento che (preferisci|vuoi|ritieni)|sorprendimi|surprise me)\b/i;
+  const TOPIC_DELEGATED = /\b(su\s+un\s+argomento\s+(che\s+)?(ritieni|preferisci|vuoi|credi|ti\s+sembra)|lungo\s+quanto\s+(vuoi|preferisci|ritieni)|about\s+(whatever|anything)\s+you\s+(want|like|prefer))\b/i;
+  const hasDelegation = DELEGATION_RE.test(text) || TOPIC_DELEGATED.test(text);
+  const DELEG_PHRASES = /\b(formato\s+(adeguat[oa]|giusto|opportuno|che\s+(ritieni|preferisci|vuoi))|lunghezza\s+(appropriat[oa]|adeguat[oa]|giust[oa]|che\s+(ritieni|preferisci|vuoi))|lungo\s+quanto\s+(vuoi|preferisci|serve)|tono\s+(che\s+ritieni|giusto|adatto|appropriat[oa]|opportuno)|pubblico\s+(che\s+(stimi|ritieni)|più\s+adatto|opportuno)|argomento\s+(che\s+(ritieni|preferisci)|interessante)|whatever|as\s+you\s+(see\s+fit|prefer|wish)|up\s+to\s+you|you\s+decide|decidi\s+tu)\b/gi;
+  const delegCount = (text.match(DELEG_PHRASES) ?? []).length;
+  if (hasDelegation || delegCount >= 3) {
+    const specCount = (m.format.formats.length > 0 ? 1 : 0) + (m.length.cues.length > 0 ? 1 : 0) + (m.audience.level !== null ? 1 : 0) + (m.tone.tones.length > 0 ? 1 : 0);
+    const objGuard = TOPIC_DELEGATED.test(text) || delegCount >= 3 ? true : m.object.presence !== "named";
+    if (objGuard && specCount <= 1) cap(22, "total_delegation");
+  }
+  const polCount = byType("politeness");
+  if (polCount >= 2 && (m.object.presence === "none" || m.object.presence === "placeholder" || m.object.presence === "bare")) {
+    cap(28, "polite_filler");
+  }
+  const words_lower = text.toLowerCase().match(/\b[a-zà-ÿ]+\b/g) ?? [];
+  if (words_lower.length >= 4) {
+    let maxRun = 1, run = 1;
+    for (let i = 1; i < words_lower.length; i++) {
+      if (words_lower[i] === words_lower[i - 1]) {
+        run++;
+        if (run > maxRun) maxRun = run;
+      } else run = 1;
+    }
+    if (maxRun >= 4) cap(12, "pure_repetition");
+  }
+  if (words <= 2 && !conversational && !m.object.fromInlineMaterial) {
+    const ACK_FIRST = /^\s*(ok|okay|va bene|d'accordo|alright|sure|yes|no|si|sì|\.{1,}|!{1,}|\?{1,})\s*[.!?]*\s*$/i;
+    if (ACK_FIRST.test(text)) cap(15, "bare_acknowledgment");
+  }
+  const ROLE_ASSIGN = /^(sei\s+un|agisci\s+come|comportati\s+come|fai\s+finta\s+di\s+essere|you\s+are\s+(a|an)|act\s+as)\b/i;
+  if (ROLE_ASSIGN.test(text.trim()) && m.task.source !== "imperative-lead") {
+    const ACTION_VERB = /\b(scrivi|crea|genera|analizza|spiega|elenca|dimmi|fammi|rispondi|traduci|correggi|ottimizza|confronta|write|create|explain|analyze|list|make|tell|give|find|help|review|debug|fix|compare|translate|summarize)\b/i;
+    const DECL_CONTEXT = /\b(il\s+(paziente|cliente|utente|candidato)|the\s+(patient|client|user|customer)|ti\s+(descrive|chiede|racconta|dice)|describes|asks|tells|says)\b/i;
+    const hasAction = ACTION_VERB.test(text) || DECL_CONTEXT.test(text);
+    const hasInlineMaterial2 = m.object.fromInlineMaterial || /```|`[^`]+`|["«»""]/.test(text);
+    if (!hasAction && !hasInlineMaterial2) cap(30, "role_without_task");
+  }
+  const COURTESY_HEAVY = /\b(scusami|scusa\s+se|non\s+voglio\s+disturbar|mi\s+dispiace\s+disturbar|saresti\s+così\s+gentile|potresti\s+gentilmente|per\s+favore\s+potresti|i\s+hope\s+this\s+isn'?t\s+too\s+much|sorry\s+to\s+bother|would\s+you\s+be\s+so\s+kind|could\s+you\s+possibly|if\s+it'?s\s+not\s+too\s+much\s+trouble|grazie\s+mille!?\s+(saresti|potresti))\b/i;
+  if (COURTESY_HEAVY.test(text) && !m.object.fromInlineMaterial) {
+    const realSpecs = (m.format.formats.length > 0 ? 1 : 0) + (m.length.cues.length > 0 ? 1 : 0) + (m.audience.level !== null ? 1 : 0);
+    if (realSpecs <= 1) cap(25, "courtesy_filler");
+  }
+  const SELF_BOUND_VERBS = /^(traduc\w+|translate|riassumi\w*|summarize|summarise|converti\w*|convert|trascrivi\w*|transcribe)\b/i;
+  const ANAPHORIC = /\b(it|this|that|them|these|those|quello|questa|questo|il\s+testo|the\s+text|the\s+above)\b/i;
+  const HAS_CONCRETE_MATERIAL = /\d/.test(text) || /["'«»""]/.test(text) || m.object.fromInlineMaterial || ANAPHORIC.test(text);
+  if (SELF_BOUND_VERBS.test(text.trim()) && !HAS_CONCRETE_MATERIAL && m.object.presence !== "named") {
+    cap(25, "self_bounding_no_object");
+  }
+  if (SELF_BOUND_VERBS.test(text.trim()) && !HAS_CONCRETE_MATERIAL && words <= 5) {
+    cap(28, "self_bounding_no_material");
+  }
+  const SYN_CLUSTERS = [
+    /\b(genera|crea|produci|inventa|fabbrica|scrivi|componi|make|create|generate|produce|write|compose)\b/gi,
+    /\b(sintetico|conciso|breve|corto|succinto|stringato|short|brief|concise|succinct|compact)\b/gi,
+    /\b(dettagliato|approfondito|esaustivo|completo|esauriente|comprehensive|detailed|thorough|exhaustive|extensive)\b/gi,
+    /\b(bello|carino|grazioso|attraente|piacevole|nice|beautiful|pretty|lovely|attractive)\b/gi,
+    /\b(utile|pratico|funzionale|useful|practical|helpful|handy)\b/gi
+  ];
+  for (const cluster of SYN_CLUSTERS) {
+    const matches = text.match(cluster);
+    if (matches && matches.length >= 3) {
+      cap(30, "synonymic_redundancy");
+      break;
+    }
+  }
+  const DETAIL_SHORT_EN = /\b(in\s+detail|detailed|thorough|comprehensive|exhaustive)\b[^.!?]{0,30}\b(but|yet|however)\b[^.!?]{0,30}\b(short|brief|concise|quick|succinct)\b/i;
+  const SHORT_DETAIL_EN = /\b(short|brief|concise|quick|succinct)\b[^.!?]{0,30}\b(but|yet|however)\b[^.!?]{0,30}\b(in\s+detail|detailed|thorough|comprehensive|exhaustive)\b/i;
+  if (DETAIL_SHORT_EN.test(text) || SHORT_DETAIL_EN.test(text)) {
+    cap(35, "contradiction");
+  }
+  const SAME_BUT_DIFF = /\b(same|stess[oa]|uguale|medesim[oa])\b[^.!?]{0,20}\b(but|yet|however|ma|però|pero)\b[^.!?]{0,20}\b(different|divers[oa]|altro)\b/i;
+  if (SAME_BUT_DIFF.test(text)) {
+    cap(20, "contradiction");
+  }
+  if (byCode("REF_001") > 0) cap(45, "missing_reference");
   if (byCode("VAGUE_002") > 0) {
     const hasAnyRealSpec = hasFormat || hasLength || hasRole || hasExamples || hasContext;
-    total = Math.min(total, hasAnyRealSpec ? 60 : 42);
+    cap(hasAnyRealSpec ? 60 : 42, "vague_adjectives");
   }
   const vague = conversational ? 0 : byType("ambiguity");
-  if (vague >= 2) total = Math.min(total, 48);
-  else if (vague === 1) total = Math.min(total, 58);
+  if (vague >= 2) cap(48, "ambiguity");
+  else if (vague === 1) cap(58, "ambiguity");
   const wellSpecifiedShort = hasTaskVerb && (hasFormat || hasLength || hasRole || hasExamples || selfBounding);
   if (!conversational && !enrichment && !selfBounding && !(isQuestionLike && questionHasContent)) {
     const objEmpty = m.object.presence === "none" || m.object.presence === "placeholder";
     const hasRealVerb = m.task.confidence >= 0.5;
     const hasAnyRealContent = /[\p{L}\p{N}]/u.test(text);
     if (words <= 3 && objEmpty && !selfBounding && !(isQuestionLike && hasAnyRealContent)) {
-      total = Math.min(total, hasRealVerb ? 20 : 12);
-    } else if (words < 4 && !hasTaskVerb) total = Math.min(total, 38);
-    else if (words < 4 && hasTaskVerb) total = Math.min(total, 55);
-    else if (words < 8 && !wellSpecifiedShort && hasNamedObject) total = Math.min(total, 74);
-    else if (words < 8 && !wellSpecifiedShort) total = Math.min(total, 54);
+      cap(hasRealVerb ? 20 : 12, "ultra_short");
+    } else if (words < 4 && !hasTaskVerb) cap(38, "very_short_no_task");
+    else if (words < 4 && hasTaskVerb) cap(55, "very_short_task");
+    else if (words < 8 && !wellSpecifiedShort && hasNamedObject) cap(74, "short_named_object");
+    else if (words < 8 && !wellSpecifiedShort) cap(54, "short_underspecified");
   }
   const realSpecCount = (hasRole ? 1 : 0) + (hasFormat ? 1 : 0) + (hasLength ? 1 : 0) + (hasExamples ? 1 : 0) + (hasConstraints ? 1 : 0) + (hasContext ? 1 : 0);
   if (!conversational && !enrichment && !selfBounding && !isQuestionLike && realSpecCount === 0 && words >= 4) {
     if (hasNamedObject) {
-      total = Math.min(total, words < 8 ? 68 : 74);
-    } else if (byType("ambiguity") > 0 || words < 8) total = Math.min(total, 48);
-    else if (words < 14) total = Math.min(total, 54);
-    else total = Math.min(total, 62);
+      cap(words < 8 ? 68 : 74, "underspecified_named");
+    } else if (byType("ambiguity") > 0 || words < 8) cap(48, "underspecified_vague");
+    else if (words < 14) cap(54, "underspecified_short");
+    else cap(62, "underspecified");
   }
   total = clamp(total);
   const lbl = label(total);
@@ -20381,6 +20775,7 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
   return {
     total,
     label: lbl,
+    breakdown,
     dimensions: {
       clarity: clarityScore,
       precision: precisionScore,

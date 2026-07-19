@@ -1,4 +1,6 @@
-/* promptlint-core/lite — Chrome extension build (zero external deps) */
+'use strict';
+
+/* promptlint-core/full — web/CLI/VSCode build */
 
 // src/types.ts
 var EMPTY_STRUCTURE = {
@@ -17510,6 +17512,9 @@ var WORD_LETTER = "a-zA-Z\xC0-\xD6\xD8-\xF6\xF8-\xFF";
 function wordRegex() {
   return new RegExp(`[${WORD_LETTER}][${WORD_LETTER}']*[${WORD_LETTER}]|[${WORD_LETTER}]`, "g");
 }
+function isWordChar(ch) {
+  return new RegExp(`[${WORD_LETTER}']`).test(ch);
+}
 function wholeWord(pattern, flags = "gi") {
   return new RegExp(`(?<![${WORD_LETTER}])(?:${pattern})(?![${WORD_LETTER}])`, flags);
 }
@@ -17644,6 +17649,7 @@ function isItalianElision(word, extraCheck) {
   if (rest.includes("'")) return false;
   if (rest.length <= 1) return true;
   if (isCorrect(rest, "it") || isCorrect(rest, "en")) return true;
+  if (extraCheck && extraCheck(rest)) return true;
   return false;
 }
 function damerauLevenshtein(a, b) {
@@ -17798,6 +17804,14 @@ var SUFFIX_RULES_IT = [
 ];
 var IZZARE_PATTERN_IT = /^[a-zà-ù]{3,}izz(are|ato|ata|ati|ate|ando|azione|azioni|abile|abili|o|i|a|iamo|ano)$/i;
 var ABILE_PATTERN_IT = /^[a-zà-ù]{3,}(abile|abili|ibile|ibili)$/i;
+function isItalianProductiveMorphology(word) {
+  const lower = word.toLowerCase();
+  if (IZZARE_PATTERN_IT.test(lower) || ABILE_PATTERN_IT.test(lower)) return true;
+  for (const root of deriveEncliticRootsIT(lower)) {
+    if (IZZARE_PATTERN_IT.test(root) || ABILE_PATTERN_IT.test(root)) return true;
+  }
+  return false;
+}
 var ENCLITICS_IT = [
   "gliela",
   "glieli",
@@ -20915,6 +20929,16 @@ function preserveCase(original, correction) {
   }
   return correction;
 }
+function getWordAtCursor(text, cursorOffset) {
+  let start = cursorOffset - 1;
+  while (start >= 0 && isWordChar(text[start])) start--;
+  start++;
+  let end = cursorOffset;
+  while (end < text.length && isWordChar(text[end])) end++;
+  const word = text.slice(start, end);
+  if (!word || word.length < 2) return null;
+  return { word, start, end };
+}
 function getAutocorrectSuggestions(text, spell, lang = "en") {
   if (!text?.trim()) return [];
   spell?.setLanguage?.(lang);
@@ -21013,10 +21037,332 @@ var LiteSpellAdapter = class {
     return getSuggestions(word, max, this.lang);
   }
 };
+
+// src/spell/bigItalian.ts
+var _set = null;
+var _buckets = null;
+var _lenBuckets = null;
+var _globalRank = null;
+var _loading = null;
+var _personal = /* @__PURE__ */ new Set();
+function isBigItalianReady() {
+  return _set !== null;
+}
+function loadBigItalian() {
+  if (_set) return Promise.resolve();
+  if (_loading) return _loading;
+  _loading = (async () => {
+    const { IT_BIG_RAW } = await import('./dictionary.it.big-K3AO2MBP.cjs');
+    const words = IT_BIG_RAW.split("\n");
+    const set = /* @__PURE__ */ new Set();
+    const buckets = /* @__PURE__ */ new Map();
+    const lenBuckets = /* @__PURE__ */ new Map();
+    const globalRank = /* @__PURE__ */ new Map();
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      if (!w) continue;
+      set.add(w);
+      if (!globalRank.has(w)) globalRank.set(w, i);
+      const key2 = w[0] + w.length;
+      let b = buckets.get(key2);
+      if (!b) {
+        b = [];
+        buckets.set(key2, b);
+      }
+      b.push(w);
+      let lb = lenBuckets.get(w.length);
+      if (!lb) {
+        lb = [];
+        lenBuckets.set(w.length, lb);
+      }
+      lb.push(w);
+    }
+    _set = set;
+    _buckets = buckets;
+    _lenBuckets = lenBuckets;
+    _globalRank = globalRank;
+  })();
+  return _loading;
+}
+function correctItBig(word) {
+  const w = word.toLowerCase();
+  if (_personal.has(w)) return true;
+  if (!_set) return null;
+  if (_set.has(w)) return true;
+  if (isLikelyRegularVerbForm(w, _set)) return true;
+  return false;
+}
+function isLikelyRegularVerbForm(w, dict) {
+  if (w.length < 6) return false;
+  const areEndings = [
+    "ino",
+    "ano",
+    "iamo",
+    "ate",
+    "ano",
+    "avo",
+    "avi",
+    "ava",
+    "avano",
+    "avate",
+    "er\xF2",
+    "erai",
+    "er\xE0",
+    "eremo",
+    "erete",
+    "eranno",
+    "assi",
+    "asse",
+    "assero",
+    "ato",
+    "ata",
+    "ati",
+    "ate",
+    "ando",
+    "i",
+    "a",
+    "o",
+    "iate"
+  ];
+  for (const end of areEndings) {
+    if (w.endsWith(end) && w.length - end.length >= 3) {
+      const stem = w.slice(0, w.length - end.length);
+      if (dict.has(stem + "are")) return true;
+    }
+  }
+  const ireEndings = ["iscano", "iscono", "iscano", "iamo", "ito", "ita", "iti", "ite", "endo", "ir\xF2", "irono", "issi"];
+  for (const end of ireEndings) {
+    if (w.endsWith(end) && w.length - end.length >= 3) {
+      const stem = w.slice(0, w.length - end.length).replace(/isc$/, "");
+      if (dict.has(stem + "ire")) return true;
+    }
+  }
+  return false;
+}
+function boundedLev(a, b, max) {
+  const la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > max) return max + 1;
+  let prev = new Array(lb + 1);
+  let curr = new Array(lb + 1);
+  for (let j = 0; j <= lb; j++) prev[j] = j;
+  for (let i = 1; i <= la; i++) {
+    curr[0] = i;
+    let rowMin = curr[0];
+    const ai = a.charCodeAt(i - 1);
+    for (let j = 1; j <= lb; j++) {
+      const cost = ai === b.charCodeAt(j - 1) ? 0 : 1;
+      const v = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+      curr[j] = v;
+      if (v < rowMin) rowMin = v;
+    }
+    if (rowMin > max) return max + 1;
+    const t = prev;
+    prev = curr;
+    curr = t;
+  }
+  return prev[lb];
+}
+function suggestItBig(word, max = 5) {
+  if (!_buckets || !_lenBuckets) return null;
+  const w = word.toLowerCase();
+  if (w.length < 3) return [];
+  const maxDist = w.length <= 4 ? 1 : 2;
+  const fc = w[0];
+  const found = [];
+  for (let len = w.length - maxDist; len <= w.length + maxDist; len++) {
+    if (len < 1) continue;
+    const bucket = _buckets.get(fc + len);
+    if (!bucket) continue;
+    for (let i = 0; i < bucket.length; i++) {
+      const cand = bucket[i];
+      if (cand === w) return [];
+      const d = boundedLev(w, cand, maxDist);
+      if (d <= maxDist) found.push({ word: cand, dist: d, rank: i });
+    }
+  }
+  const tier1Best = found.length > 0 ? Math.min(...found.map((f) => f.dist)) : Infinity;
+  if (found.length === 0 || tier1Best >= maxDist) {
+    for (let len = w.length - maxDist; len <= w.length + maxDist; len++) {
+      if (len < 1) continue;
+      const bucket = _lenBuckets.get(len);
+      if (!bucket) continue;
+      for (let i = 0; i < bucket.length; i++) {
+        const cand = bucket[i];
+        if (cand === w) return [];
+        if (cand[0] === fc) continue;
+        const d = boundedLev(w, cand, maxDist);
+        if (d <= maxDist) found.push({ word: cand, dist: d, rank: i });
+      }
+    }
+  }
+  const qlen = w.length;
+  const gr = _globalRank;
+  const rankOf = (word2) => gr?.get(word2) ?? Number.MAX_SAFE_INTEGER;
+  found.sort((a, b) => {
+    if (a.dist !== b.dist) return a.dist - b.dist;
+    const ra = rankOf(a.word), rb = rankOf(b.word);
+    if (ra !== rb) return ra - rb;
+    const aLenMatch = a.word.length === qlen ? 0 : 1;
+    const bLenMatch = b.word.length === qlen ? 0 : 1;
+    return aLenMatch - bLenMatch;
+  });
+  return found.slice(0, max).map((c) => c.word);
+}
+function addPersonalWord(word) {
+  const w = word.trim().toLowerCase();
+  if (w) _personal.add(w);
+}
+function removePersonalWord(word) {
+  _personal.delete(word.trim().toLowerCase());
+}
+function setPersonalWords(words) {
+  _personal.clear();
+  for (const w of words) {
+    const t = w.trim().toLowerCase();
+    if (t) _personal.add(t);
+  }
+}
+function getPersonalWords() {
+  return [..._personal];
+}
+
+// src/spell/adapters/NspellAdapter.ts
+var NspellAdapter = class {
+  constructor() {
+    this._spellEn = null;
+    this._liteFallback = new LiteSpellAdapter();
+    // handles Italian (and anything else nspell doesn't cover here)
+    this._activeLang = "en";
+    this._ready = false;
+    this._initPromise = this._init();
+  }
+  async _init() {
+    void loadBigItalian().catch((err) => {
+      console.warn("[promptlint] big Italian dictionary failed to load, staying on lite Italian:", err);
+    });
+    try {
+      const [{ default: nspell }, { default: dicEn }] = await Promise.all([
+        import('nspell'),
+        import('dictionary-en')
+      ]);
+      this._spellEn = nspell(dicEn.aff, dicEn.dic);
+      this._ready = true;
+    } catch (err) {
+      console.warn("[promptlint] English Hunspell dictionary failed to load, falling back to lite mode for English too:", err);
+    }
+  }
+  /** Wait for both dictionaries. English via nspell; Italian's big list via
+   *  bigItalian. Either can fail independently without rejecting — the
+   *  adapter degrades to optimistic/lite behavior, never throws here. */
+  async waitReady() {
+    await Promise.all([
+      this._initPromise,
+      loadBigItalian().catch(() => {
+      })
+    ]);
+  }
+  get ready() {
+    if (this._activeLang === "it") return isBigItalianReady();
+    return this._ready;
+  }
+  setLanguage(lang) {
+    this._activeLang = lang === "it" ? "it" : "en";
+    this._liteFallback.setLanguage(this._activeLang);
+  }
+  correct(word) {
+    if (isDomainTerm(word.toLowerCase())) return true;
+    if (this._activeLang === "it") {
+      const big = correctItBig(word);
+      if (big === null) return true;
+      if (big) return true;
+      if (isItalianProductiveMorphology(word) || isItalianElision(word, (w) => correctItBig(w) === true || (this._spellEn?.correct(w) ?? false))) return true;
+      if (this._spellEn && this._spellEn.correct(word)) return true;
+      return false;
+    }
+    if (!this._spellEn) return true;
+    return this._spellEn.correct(word);
+  }
+  suggest(word, max = 5) {
+    const dom = domainSuggestions(word, 3);
+    const take = (arr) => {
+      const out = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const w of [...dom, ...arr]) {
+        const k = w.toLowerCase();
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push(w);
+        if (out.length >= max) break;
+      }
+      return out;
+    };
+    if (this._activeLang === "it") {
+      const big = suggestItBig(word, max);
+      return take(big !== null ? big : this._liteFallback.suggest(word, max));
+    }
+    if (!this._spellEn) return take([]);
+    const raw = this._spellEn.suggest(word).slice(0, Math.max(max, 8));
+    const ranked = raw.map((w, i) => ({ w, i, f: freqRankEn(w) })).sort((a, b) => a.f - b.f || a.i - b.i).map((x) => x.w);
+    return take(ranked);
+  }
+  // ── Personal dictionary (Italian) ──
+  // Portable: promptlint-core keeps these in memory; the host app persists
+  // them. The single highest-value lever against residual false positives —
+  // any real word the big list happens to miss becomes a one-click fix that
+  // never recurs.
+  addWord(word) {
+    addPersonalWord(word);
+  }
+  removeWord(word) {
+    removePersonalWord(word);
+  }
+  setPersonalDictionary(words) {
+    setPersonalWords(words);
+  }
+  getPersonalDictionary() {
+    return getPersonalWords();
+  }
+};
 var _instance = null;
-function getLiteSpellAdapter() {
-  if (!_instance) _instance = new LiteSpellAdapter();
+function getNspellAdapter() {
+  if (!_instance) _instance = new NspellAdapter();
   return _instance;
+}
+
+// src/tokenizer/adapters/TiktokenAdapter.ts
+var TiktokenAdapter = class {
+  constructor(model = "gpt-4o") {
+    this._enc = null;
+    this._ready = false;
+    this.encoding = "cl100k_base";
+    this._initPromise = this._init(model);
+  }
+  async _init(model) {
+    try {
+      const { encodingForModel } = await import('js-tiktoken');
+      this._enc = encodingForModel(model);
+      this._ready = true;
+    } catch (err) {
+      console.warn("[promptlint] TiktokenAdapter failed, using lite estimator:", err);
+    }
+  }
+  async waitReady() {
+    return this._initPromise;
+  }
+  get ready() {
+    return this._ready;
+  }
+  count(text) {
+    if (!this._enc) {
+      return estimateTokens(text);
+    }
+    return this._enc.encode(text).length;
+  }
+};
+var _instance2 = null;
+function getTiktokenAdapter(model = "gpt-4o") {
+  if (!_instance2) _instance2 = new TiktokenAdapter(model);
+  return _instance2;
 }
 
 // src/completion/index.ts
@@ -21137,9 +21483,8 @@ function applyTabCompletion(text, suggestion) {
   return { text: cleaned, cursorPos };
 }
 
-// src/index.lite.ts
-var _spell = getLiteSpellAdapter();
-function analyze(text, options = {}) {
+// src/index.full.ts
+function buildResult(text, spell, tokenizer, langState, options = {}) {
   const start = Date.now();
   const {
     language,
@@ -21157,46 +21502,47 @@ function analyze(text, options = {}) {
       byLine: /* @__PURE__ */ new Map(),
       byType: /* @__PURE__ */ new Map(),
       tokens: analyzeTokens(""),
-      score: { total: 0, label: "poor", dimensions: {}, structure: EMPTY_STRUCTURE, summary: uiLocale === "it" ? "Prompt vuoto." : "Empty prompt." },
+      score: { total: 0, label: "poor", dimensions: {}, structure: EMPTY_STRUCTURE, summary: "Prompt vuoto." },
       costs: [],
       potentialSavings: 0,
       compressedText: "",
       autocorrect: [],
       analysisDurationMs: 0,
-      engineReady: true,
+      engineReady: spell.ready && tokenizer.ready,
       intent: "other",
       conversational: false
     };
   }
-  const cheapestInputRate = Math.min(...modelPrices.map((m) => m.inputPer1M));
-  const detectedLang = resolveLanguageForAnalysis(text, void 0, language);
+  const tokenCount = tokenizer.count(text);
+  const detectedLang = resolveLanguageForAnalysis(text, langState, language);
   const promptModel = buildPromptModel(text, detectedLang);
+  const cheapestInputRate = Math.min(...modelPrices.map((m) => m.inputPer1M));
   const observations = runAllObservations(
     text,
     disabledRules,
-    _spell,
+    spell,
     cheapestInputRate,
-    void 0,
+    langState,
     language,
     conversationTurn,
     { detected: detectedLang, model: promptModel },
     uiLocale
   );
   const tokens = analyzeTokens(text);
+  if (tokenizer.ready) tokens.tokenCount = tokenCount;
   const conversational = resolveConversational(text, conversationTurn);
   const enrichment = resolveEnrichment(text, promptModel, conversationTurn);
   const score = scorePrompt(text, observations, tokens, conversational, promptModel, enrichment, uiLocale);
-  const costs = estimateCosts(tokens.tokenCount, outputRatio, modelPrices);
-  const autocorrect = includeAutocorrect ? getAutocorrectSuggestions(text, void 0, detectedLang) : [];
+  const costs = estimateCosts(tokenCount, outputRatio, modelPrices);
+  const autocorrect = includeAutocorrect ? getAutocorrectSuggestions(text, spell, langState.lastLang) : [];
   const potentialSavings = observations.reduce((n, o) => n + o.impact.tokensSaved, 0);
   const byLine = /* @__PURE__ */ new Map();
   const byType = /* @__PURE__ */ new Map();
   for (const o of observations) {
     if (!byLine.has(o.line)) byLine.set(o.line, []);
     byLine.get(o.line).push(o);
-    const t = o.type;
-    if (!byType.has(t)) byType.set(t, []);
-    byType.get(t).push(o);
+    if (!byType.has(o.type)) byType.set(o.type, []);
+    byType.get(o.type).push(o);
   }
   return {
     text,
@@ -21207,14 +21553,73 @@ function analyze(text, options = {}) {
     score,
     costs,
     potentialSavings,
+    // Was hardcoded to `text` (no computation attempt at all) — this build
+    // never produced a compressed prompt. See src/compression/index.ts.
     compressedText: compressText(text, observations),
     autocorrect,
     analysisDurationMs: Date.now() - start,
-    // Lite build ships its dictionaries in-bundle (synchronous) — always ready.
-    engineReady: true,
+    engineReady: spell.ready && tokenizer.ready,
     intent: detectIntent(text),
     conversational
   };
 }
+function createAnalyzer(options) {
+  const spell = options?.spellAdapter ?? getNspellAdapter();
+  const tokenizer = getTiktokenAdapter();
+  const langState = makeLangState();
+  return {
+    async ready() {
+      await Promise.all([
+        spell.waitReady?.(),
+        tokenizer.waitReady?.()
+      ]);
+    },
+    get isReady() {
+      return spell.ready && tokenizer.ready;
+    },
+    analyze(text, options2) {
+      return buildResult(text, spell, tokenizer, langState, options2);
+    },
+    resetLanguage() {
+      langState.lastLang = "en";
+    }
+  };
+}
+var _default = createAnalyzer();
+function analyze(text, options) {
+  return _default.analyze(text, options);
+}
 
-export { DEFAULT_PRICES, analyze, analyzeTokens, applyAllAutoCorrections, applyAutocorrect, applyTabCompletion, detectIntent, detectLanguage, estimateCosts, estimateTokens, formatCost, getAutocorrectSuggestions, getSuggestions, getTabCompletion, isCorrect, makeLangState, resetLanguageState, resolveConversational, runAllObservations, scorePrompt, splitSentences };
+exports.DEFAULT_PRICES = DEFAULT_PRICES;
+exports.addPersonalWord = addPersonalWord;
+exports.analyze = analyze;
+exports.analyzeTokens = analyzeTokens;
+exports.applyAllAutoCorrections = applyAllAutoCorrections;
+exports.applyAutocorrect = applyAutocorrect;
+exports.applyTabCompletion = applyTabCompletion;
+exports.createAnalyzer = createAnalyzer;
+exports.detectIntent = detectIntent;
+exports.detectLanguage = detectLanguage;
+exports.estimateCosts = estimateCosts;
+exports.estimateTokens = estimateTokens;
+exports.formatCost = formatCost;
+exports.getAutocorrectSuggestions = getAutocorrectSuggestions;
+exports.getNspellAdapter = getNspellAdapter;
+exports.getPersonalWords = getPersonalWords;
+exports.getSuggestions = getSuggestions;
+exports.getTabCompletion = getTabCompletion;
+exports.getTiktokenAdapter = getTiktokenAdapter;
+exports.getWordAtCursor = getWordAtCursor;
+exports.isBigItalianReady = isBigItalianReady;
+exports.isCorrect = isCorrect;
+exports.loadBigItalian = loadBigItalian;
+exports.makeLangState = makeLangState;
+exports.removePersonalWord = removePersonalWord;
+exports.resetLanguageState = resetLanguageState;
+exports.resolveConversational = resolveConversational;
+exports.runAllObservations = runAllObservations;
+exports.scorePrompt = scorePrompt;
+exports.setPersonalWords = setPersonalWords;
+exports.splitSentences = splitSentences;
+//# sourceMappingURL=index.full.cjs.map
+//# sourceMappingURL=index.full.cjs.map

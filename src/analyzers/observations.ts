@@ -596,10 +596,17 @@ function looksLikeEnrichmentTurn(text: string, model: PromptModel): boolean {
   // ("boh non so") has no such content-bearing conjugated verb about the task.
   const finiteVerb =
     /\b(è|sono|ho|hai|ha|abbiamo|hanno|era|erano|sta|stanno|uso|usa|usano|usiamo|voglio|vuole|serve|servono|deve|devono|contiene|contengono|include|includono|funziona|funzionano|gira|girano|ho\s+\w+ato|ho\s+\w+ito|ho\s+\w+uto|è\s+\w+ato|sono\s+\w+ati|is|are|has|have|uses|contains|needs|runs|works|includes)\b/i.test(t);
+  // Followup CORRECTION / REDIRECTION signals: rejecting or pivoting the
+  // previous answer ("non mi convince", "that's not what I meant", "prova un
+  // altro approccio", "cambia stile"). These are legitimate conversational
+  // actions that carry the turn forward without a fresh imperative — flagging
+  // them PL_001 is a false positive. Found via the 250-prompt benchmark.
+  const correctionPivot =
+    /\b(non\s+(mi\s+)?(convince|piace|torna|va\s+bene)|non\s+è\s+(quello|questo|ciò)|non\s+intend\w+|no,?\s+(aspetta|non|cambia)|prov(a|iamo)\s+(un|con|di\s+nuovo)|cambia\s+(stile|approccio|tono|direzione)|riprov\w+|mmm|hm+|that'?s\s+not\s+(what|it)|not\s+quite|let\s+me\s+clarify|different\s+(approach|angle|style))\b/i.test(t);
 
   return (
     hasNumber || hasNamedObject || hasAudience || hasToneOrFormat || hasLength ||
-    declarativeFrame || finiteVerb
+    declarativeFrame || finiteVerb || correctionPivot
   );
 }
 
@@ -974,27 +981,44 @@ function runMissingReferencedMaterial(text: string, model: PromptModel, isExempt
   if (model.task.confidence < 0.5) return [];
   // Skip if the prompt already contains inline material
   if (model.object.fromInlineMaterial) return [];
-  // Skip if short (the model can still infer intent from context in chat)
-  if (wordCount(text) < 5) return [];
+  // Skip if very short (≤3 words — the model can infer from chat context)
+  if (wordCount(text) < 4) return [];
 
-  // Patterns that reference a SPECIFIC external artifact the model cannot see
+  // Patterns that reference a SPECIFIC external artifact the model cannot see.
+  // Extended (conservatively) after the 250-prompt benchmark to add ONE safe
+  // family: conversation-continuity references ("continua da dove eravamo
+  // rimasti", "come dicevamo") — in a first turn the referenced conversation
+  // genuinely isn't present. Demonstrative+document forms ("questo articolo",
+  // "questa immagine") were deliberately NOT added: the project treats those as
+  // content that is typically handed over/attached (see external_corpus tests),
+  // and the extension layer — which can see DOM attachments — is the right place
+  // to decide whether the file is actually missing.
   const EXTERNAL_REFERENCE =
-    /\b(l[ao]\s+(mail|email|messaggio|file|documento|testo|articolo|allegato|proposta|contratto|report|codice|script|foglio|pdf|immagine|foto|screenshot|video|lista|tabella)\s+(di|che|che\s+ti|inviato|allegato|mandato)|il\s+(file|documento|testo|messaggio|report|codice|allegato|contratto)\s+(allegato|che\s+ti|di\s+ieri|che\s+ho\s+mandato|inviato\s+ieri)|che\s+(ti\s+ho\s+mandato|ho\s+inviato|ho\s+allegato|ti\s+ho\s+inviato)|the\s+(email|file|document|message|report|code|attachment|proposal|contract)\s+(from|i\s+sent|attached|i\s+shared|below)|i\s+(sent|shared|attached|uploaded)\b)/i;
+    /\b(l[ao]\s+(mail|email|messaggio|file|documento|testo|articolo|allegato|proposta|contratto|report|codice|script|foglio|pdf|immagine|foto|screenshot|video|lista|tabella)\s+(di|che|che\s+ti|inviato|allegato|mandato)|il\s+(file|documento|testo|messaggio|report|codice|allegato|contratto)\s+(allegato|che\s+ti|di\s+ieri|che\s+ho\s+mandato|inviato\s+ieri)|che\s+(ti\s+ho\s+mandato|ho\s+inviato|ho\s+allegato|ti\s+ho\s+inviato)|the\s+(email|file|document|message|report|code|attachment|proposal|contract)\s+(from|i\s+sent|attached|i\s+shared|below)|i\s+(sent|shared|attached|uploaded)\b|continua\s+da\s+dove|riprend\w+\s+da\s+dove|da\s+dove\s+(eravamo|ci\s+eravamo)|come\s+(dicevamo|eravamo\s+rimasti|ti\s+dicevo\s+prima)|all['']?\s*(email|mail)\s+di\s+\w+|il\s+(file|documento|pdf|foglio|allegato)\s+allegato|the\s+attached\s+(file|document|pdf|spreadsheet|report))/i;
   const m = text.match(EXTERNAL_REFERENCE);
-  if (!m) return [];
+
+  // Binary media references: images, screenshots, audio, video can NEVER be
+  // pasted as inline text, unlike "questo articolo" which might be. So it's
+  // safe to flag them even in first turn. "[screenshot]" as a literal string
+  // in the prompt (p229: "Here's my code: [screenshot]") is covered too.
+  const BINARY_MEDIA =
+    /\b(quest[oa']?\s*(immagine|foto|screenshot|video|audio|registrazione|grafico)|this\s+(image|photo|screenshot|video|audio|recording|chart|graphic)|nello\s+screenshot|in\s+the\s+screenshot|\[screenshot\]|lo\s+screenshot\s+(qui\s+)?(sopra|sotto)|the\s+(image|screenshot)\s+(above|below))\b/i;
+  const mb = text.match(BINARY_MEDIA);
+  const hit = m ?? mb;
+  if (!hit) return [];
   // Double-check: no inline material anywhere in the text
   if (/["'""''«»][^"'""''«»]{5,}["""''«»]|```[\s\S]*?```|:\s*\S.{10,}/s.test(text)) return [];
 
   return [obs(
     'no_context', 'improvable', uiLocale === 'it' ? '🟡 Materiale mancante' : '🟡 Missing material',
-    m[0], text.indexOf(m[0]), text,
+    hit[0], text.indexOf(hit[0]), text,
     uiLocale === 'it'
-      ? `Il prompt fa riferimento a "${m[0]}" — un documento o messaggio specifico — ma non lo ha incollato nel prompt. Il modello non può vedere il materiale e dovrà inventarne il contenuto.`
-      : `The prompt references "${m[0]}" — a specific document or message — but hasn't pasted it into the prompt. The model can't see the material and will have to invent its content.`,
+      ? `Il prompt fa riferimento a "${hit[0]}" — un documento o messaggio specifico — ma non lo ha incollato nel prompt. Il modello non può vedere il materiale e dovrà inventarne il contenuto.`
+      : `The prompt references "${hit[0]}" — a specific document or message — but hasn't pasted it into the prompt. The model can't see the material and will have to invent its content.`,
     uiLocale === 'it'
       ? 'Incolla il contenuto direttamente nel prompt (dopo i due punti, tra virgolette, o come blocco separato).'
       : 'Paste the content directly into the prompt (after a colon, in quotes, or as a separate block).',
-    { before: `${m[0]}`, after: uiLocale === 'it' ? `${m[0]}: [incolla qui il contenuto]` : `${m[0]}: [paste the content here]` },
+    { before: `${hit[0]}`, after: uiLocale === 'it' ? `${hit[0]}: [incolla qui il contenuto]` : `${hit[0]}: [paste the content here]` },
     0, 'REF_001'
   )];
 }
@@ -1130,6 +1154,31 @@ function runScopeLengthContradiction(text: string, model: PromptModel, uiLocale:
     )];
   }
 
+  // Direct length antonym across an adversative conjunction ("un testo lungo
+  // ma breve", "detailed but short"). Requires the two opposite length words
+  // to be joined by ma/però/but/… within a short window, so "un breve
+  // riassunto di un lungo documento" (two different objects, no adversative)
+  // is NOT flagged. Found via the benchmark: "Scrivi un testo lungo ma breve"
+  // scored 87 with no contradiction, because "lungo" alone wasn't a COMPLETE
+  // cue and the adversative length clash had no dedicated rule.
+  const ADVERS = '(?:ma|però|pero|eppure|tuttavia|but|yet|however)';
+  const LONG = '(?:lungh?[oaie]|lunghissim[oa]|estes[oa]|dettagliat[oa]|approfondit[oa]|long|detailed|lengthy)';
+  const SHORTW = '(?:brev[ei]|cort[oaie]|concis[oa]|sintetic[oa]|stringat[oa]|short|brief|concise)';
+  const longShort = text.match(new RegExp(`\\b${LONG}\\b[^.!?]{0,25}\\b${ADVERS}\\b[^.!?]{0,25}\\b${SHORTW}\\b`, 'i'))
+    ?? text.match(new RegExp(`\\b${SHORTW}\\b[^.!?]{0,25}\\b${ADVERS}\\b[^.!?]{0,25}\\b${LONG}\\b`, 'i'));
+  if (longShort) {
+    return [obs(
+      'contradiction', 'contradiction', uiLocale === 'it' ? '🔴 Contraddizione' : '🔴 Contradiction',
+      longShort[0], text.indexOf(longShort[0]), text,
+      uiLocale === 'it'
+        ? `"${longShort[0]}" si contraddice: chiedi qualcosa di lungo e breve allo stesso tempo. Il modello ne ignorerà uno.`
+        : `"${longShort[0]}" contradicts itself: you're asking for something long and short at the same time. The model will ignore one.`,
+      uiLocale === 'it' ? 'Scegli una lunghezza sola, oppure indicala in modo concreto (es. "circa 300 parole").' : 'Pick a single length, or state it concretely (e.g. "around 300 words").',
+      { before: longShort[0], after: uiLocale === 'it' ? '(una lunghezza coerente)' : '(a single coherent length)' },
+      0, 'CONTRA_001'
+    )];
+  }
+
   const COMPLETE = /\b(completo|completa|esaustiv[oa]|esaurient[ei]|dettagliat[oa]|approfondit[oa]|dettagliatamente|molto lungo|estremamente|approfondisci|nei minimi dettagli|comprehensive|exhaustive|detailed|thorough|in-depth|in depth|extensive|elaborate)\b/i;
   const SHORT = /\b(in una frase|in 1 frase|in una riga|in 1 riga|una sola parola|in una parola|1 parola|massimo\s+([1-9]|[12]\d|30)\s+parole|max\s+([1-9]|[12]\d|30)\s+parole|in ([1-9]|1\d|20)\s+parole|molto breve|breve|brevemente|concis[oa]|in poche parole|una sola frase|in sintesi|one sentence|in \d\d? words|very short|briefly|in a word|single word)\b/i;
   const cm = text.match(COMPLETE);
@@ -1197,6 +1246,85 @@ const CONFLICT_PAIRS: Array<{ a: RegExp; b: RegExp; why: string; sameSentence?: 
     b: /\b(senza dubbio|indubbiamente|certamente|sicuramente il (migliore?|peggiore?|più)|definitivamente|è chiaramente|without (a )?doubt|definitely the best|clearly the best|objectively the best)\b/i,
     why: 'neutralità richiesta e verdetto assoluto incompatibili' },
 ];
+
+/** TMPL_001 — the prompt is an UNFILLED template/skeleton: placeholder
+ *  variables ({{topic}}, <NOME>), bracket placeholders ([INSERISCI QUI], [YOUR
+ *  TEXT]), classic "lorem ipsum" filler, or a label-only skeleton where every
+ *  line is a bare "Label:" with nothing after it. The model has nothing to act
+ *  on. Found via the 250-prompt benchmark: "[INSERISCI QUI IL TESTO]" scored 68
+ *  and "Titolo:\nDescrizione:\n…" scored 50. A FILLED label block ("Contesto:
+ *  azienda B2B\nTask: scrivi…") is well-structured and must NOT trigger. */
+function runUnfilledTemplate(text: string, uiLocale: UILocale = 'it'): Observation[] {
+  const markers: RegExp[] = [
+    /\{\{\s*[\w .\-]+\s*\}\}/,
+    /\[\s*(inseris\w*|insert|your|il\s+tuo|la\s+tua|testo\s+qui|text\s+here|todo|placeholder|x{3,}|nome|name|argomento|topic)\b[^\]]*\]/i,
+    /<\s*[A-ZÀ-Ö_]{3,}\s*>/,
+    /\blorem\s+ipsum\b/i,
+  ];
+  let hit: { text: string; index: number } | null = null;
+  for (const re of markers) {
+    const m = text.match(re);
+    if (m && m.index != null) { hit = { text: m[0], index: m.index }; break; }
+  }
+  if (!hit) {
+    // Label-only skeleton: every non-empty line is a bare "Label:" (nothing after).
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    const bareLabel = /^[\wàèéìòùáéíóú' /()-]{1,30}:$/i;
+    if (lines.length >= 2 && lines.every((l) => bareLabel.test(l))) {
+      hit = { text: lines[0], index: 0 };
+    }
+  }
+  if (!hit) return [];
+  return [obs(
+    'ambiguity', 'contradiction',
+    uiLocale === 'it' ? '🔴 Template non compilato' : '🔴 Unfilled template',
+    hit.text, hit.index, text,
+    uiLocale === 'it'
+      ? 'Il prompt contiene segnaposto non compilati (variabili, campi vuoti o testo di riempimento). Il modello non ha nulla di concreto su cui lavorare.'
+      : 'The prompt contains unfilled placeholders (template variables, empty fields, or filler text). The model has nothing concrete to work with.',
+    uiLocale === 'it'
+      ? 'Sostituisci i segnaposto con il contenuto reale prima di inviare.'
+      : 'Replace the placeholders with real content before sending.',
+    null, 0, 'TMPL_001'
+  )];
+}
+
+/** CONTRA_002b — "Translate to X but leave/keep it in Y" (Y ≠ X). The generic
+ *  language CONFLICT_PAIR above is English-anchored (side `a` requires English),
+ *  so a French↔Italian clash like "Traduci in francese ma lascialo in italiano"
+ *  was invisible — it scored 93. This detects a translate directive to one
+ *  language followed, across an adversative, by a "keep/leave it in" a DIFFERENT
+ *  language. Source→target phrasings ("dall'inglese all'italiano") don't match
+ *  because they lack the adversative + keep-verb structure. */
+const LANG_CANON: Record<string, string> = {
+  inglese: 'en', english: 'en', italiano: 'it', italian: 'it',
+  francese: 'fr', french: 'fr', spagnolo: 'es', spanish: 'es',
+  tedesco: 'de', german: 'de', portoghese: 'pt', portuguese: 'pt',
+};
+function runTranslateKeepContradiction(text: string, uiLocale: UILocale = 'it'): Observation[] {
+  const LANG = '(inglese|italiano|francese|spagnolo|tedesco|portoghese|english|italian|french|spanish|german|portuguese)';
+  const KEEP = '(?:lascia\\w*|lasciarl[oa]|mantien\\w*|mantenerl[oa]|tien\\w*|tenerl[oa]|tienil[oa]|resta\\w*|rest[ai]|rimang[ao]\\w*|keep\\w*|leav\\w*)';
+  const ADVERS = '(?:ma|però|pero|eppure|tuttavia|but|yet|however)';
+  const re = new RegExp(
+    `\\b(?:traduc\\w+|translate)\\b[^.!?]*?\\bin\\s+${LANG}\\b[^.!?]*?\\b${ADVERS}\\b[^.!?]*?\\b${KEEP}\\b[^.!?]*?\\bin\\s+${LANG}\\b`,
+    'i',
+  );
+  const m = text.match(re);
+  if (!m) return [];
+  const a = LANG_CANON[m[1].toLowerCase()] ?? m[1].toLowerCase();
+  const b = LANG_CANON[m[2].toLowerCase()] ?? m[2].toLowerCase();
+  if (a === b) return []; // "traduci in inglese ma tienilo in english" — same language, not a clash
+  return [obs(
+    'contradiction', 'contradiction', uiLocale === 'it' ? '🔴 Istruzioni in conflitto' : '🔴 Conflicting instructions',
+    m[0], text.indexOf(m[0]), text,
+    uiLocale === 'it'
+      ? `Chiedi di tradurre in ${m[1]} ma poi di lasciarlo in ${m[2]}: sono due lingue di output diverse. Il modello non può fare entrambe e ne sceglierà una.`
+      : `You ask to translate into ${m[1]} but then to keep it in ${m[2]}: those are two different output languages. The model can't do both and will pick one.`,
+    uiLocale === 'it' ? 'Indica una sola lingua di destinazione.' : 'State a single target language.',
+    { before: m[0], after: uiLocale === 'it' ? '(una sola lingua di output)' : '(a single output language)' },
+    0, 'CONTRA_002'
+  )];
+}
 
 function runConflictingInstructions(text: string, model: PromptModel, uiLocale: UILocale = 'it'): Observation[] {
   const results: Observation[] = [];
@@ -1385,7 +1513,15 @@ function runPassiveVoice(text: string, detectedLang: SupportedLanguage, isExempt
 function runAmbiguousPronoun(text: string, exemptRanges: Array<[number, number]>, uiLocale: UILocale = 'it'): Observation[] {
   const trimmed = text.trim();
   const re = /^(fix|update|change|improve|modify|rewrite|edit|correct|adjust|refactor|optimize|optimise|clean up|simplify|review|check|correggi|aggiorna|cambia|migliora|modifica|riscrivi|sistema|rivedi|controlla|riordina|semplifica)\s+(it|this|that|these|those|lo|la|li|le|questo|questa|questi|queste|quello|quella)\b/i;
-  const m = trimmed.match(re);
+  // Translate/summarize/explain-family verbs were absent from the list above,
+  // so "Translate this." / "Riassumi questo." emitted nothing at all — no
+  // antecedent, nothing provided, yet no observation (found via the benchmark:
+  // "Translate this." → 93 with zero obs). Fire the same ambiguous-reference
+  // flag for them, but ONLY when the demonstrative is TERMINAL (end of clause,
+  // optional trailing punctuation), so "Traduci questo documento in francese…"
+  // — where a real noun follows the demonstrative — is deliberately NOT hit.
+  const reTerminal = /^(translate|traduci|traducimi|traduce|summarize|summarise|riassumi|riassumimi|explain|spiega|spiegami|describe|descrivi|analyze|analyse|analizza|analizzami|convert|converti|process|elabora)\s+(it|this|that|these|those|lo|la|questo|questa|questi|queste|quello|quella|ciò)\s*[.!?]*$/i;
+  const m = trimmed.match(re) ?? trimmed.match(reTerminal);
   if (!m) return [];
   if (exemptRanges.length > 0) return [];
   return [obs(
@@ -1639,6 +1775,8 @@ export function runAllObservations(
     () => runVagueQualityPileup(text, uiLocale),
     () => runScopeLengthContradiction(text, model, uiLocale),
     () => runConflictingInstructions(text, model, uiLocale),
+    () => runTranslateKeepContradiction(text, uiLocale),
+    () => runUnfilledTemplate(text, uiLocale),
     () => runAmbiguousPronoun(text, exemptRanges, uiLocale),
     () => runVagueQuality(text, isExempt, uiLocale),
     () => runVaguePlaceholderNouns(text, uiLocale),

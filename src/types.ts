@@ -161,6 +161,24 @@ export interface ScoreDimension {
 }
 
 /**
+ * A single traceable contribution to the final score. Makes the total
+ * auditable instead of a black box: a `dimension` entry is the points that
+ * dimension added to the weighted core; a `cap` entry is a poison ceiling
+ * that actually bound the total (only binding caps are recorded). A host can
+ * render "34 because: precision +17, length +12, …, capped by 'contradiction'
+ * at 46" instead of only showing the number. Deterministic, no ML.
+ */
+export interface ScoreContribution {
+  /** Dimension name ('clarity', 'precision', …) or cap reason ('contradiction',
+   *  'empty_object', 'underspecified', …). Stable, host maps to UI copy. */
+  label: string;
+  /** For a `dimension`: the points it added to the weighted total. For a
+   *  `cap`: the ceiling it imposed on the total. */
+  effect: number;
+  kind: 'dimension' | 'cap';
+}
+
+/**
  * Structural checklist: which specification elements are present in the
  * prompt. These are the same signals the Precision dimension already computes
  * internally (hasRole, hasFormat, …) — exposed directly so a host can render
@@ -194,6 +212,10 @@ export interface PromptScore {
   dimensions: Record<string, ScoreDimension>;
   structure: PromptStructure;
   summary: string;
+  /** Traceable per-factor contributions to `total` (dimension points + any
+   *  binding poison caps). Optional: present on real analyses, omitted on the
+   *  empty-text short-circuit. Purely explanatory — does not affect `total`. */
+  breakdown?: ScoreContribution[];
 }
 
 /** All-false structure for the empty-text short-circuit path (nothing to detect). */
