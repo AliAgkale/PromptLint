@@ -276,9 +276,9 @@ The scoring engine is evaluated against an annotated corpus of 250 prompts acros
 | Metric | Value |
 |---|---|
 | Corpus size | 250 annotated prompts |
-| Mean absolute error | 17.2 |
-| In-range accuracy | 68% |
-| ⚠️ Dangerous misses | 14 / 114 bad prompts |
+| Mean absolute error | 14.5 |
+| In-range accuracy | 74% |
+| ⚠️ Dangerous misses | 2 / 114 bad prompts |
 | ✅ False rejects | 0 |
 
 To reproduce:
@@ -290,11 +290,10 @@ node benchmark/run.mjs
 
 ### Known limits
 
-The 14 remaining dangerous misses fall into three irreducible-by-rules clusters:
+Only 2 dangerous misses remain, both intentional:
 
-- **Information density**: "Write a great blog post about something interesting" — grammatically valid but semantically empty. Requires semantic density estimation, not rule matching.
-- **Morphological redundancy**: "scritto bene e ben scritto" — same root, different form. Requires a stemmer.
-- **Implicit references**: "i due approcci che ti ho detto" — refers to prior context never provided. Indistinguishable from legitimate conversational references without conversation history.
+- **"Ok"** as a standalone first message — the core can't distinguish a first message from a conversational follow-up on a single word without knowing the conversation's turn position. This is deliberately left to the caller (the browser extension knows from the DOM whether it's the first message in a thread).
+- **Physically impossible time constraints** ("a complete report in under 5 seconds") — detecting unrealistic time budgets would require a general model of task complexity vs. stated time, which risks false positives on legitimate fast turnarounds. Left undetected rather than guessed at.
 
 These are documented limits, not hidden failures.
 

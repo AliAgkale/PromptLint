@@ -28,13 +28,19 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dir, '..');
 
 // ── Load engine ─────────────────────────────────────────────────────────────
-let analyze;
+// Uses the async createAnalyzer() + ready() path — same one the extension
+// uses in production — so the full IT/EN dictionaries are loaded and spell
+// checking is actually active during the benchmark.
+let analyzer;
 try {
-  ({ analyze } = await import(join(ROOT, 'dist', 'index.full.js')));
+  const { createAnalyzer } = await import(join(ROOT, 'dist', 'index.full.js'));
+  analyzer = createAnalyzer();
+  await analyzer.ready();
 } catch {
   console.error('Build not found. Run `npm run build` first.');
   process.exit(1);
 }
+const analyze = (text, opts) => analyzer.analyze(text, opts);
 
 // ── Load corpus ──────────────────────────────────────────────────────────────
 const corpus = readFileSync(join(__dir, 'corpus.jsonl'), 'utf8')

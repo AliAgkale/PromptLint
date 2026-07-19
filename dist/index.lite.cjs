@@ -17640,9 +17640,9 @@ function isItalianElision(word, extraCheck) {
   const lower = word.toLowerCase();
   const apo = lower.indexOf("'");
   if (apo <= 0 || apo >= lower.length - 1) return false;
-  const stem = lower.slice(0, apo);
+  const stem2 = lower.slice(0, apo);
   const rest = lower.slice(apo + 1);
-  if (!ELIDABLE_STEMS_IT.has(stem)) return false;
+  if (!ELIDABLE_STEMS_IT.has(stem2)) return false;
   if (rest.includes("'")) return false;
   if (rest.length <= 1) return true;
   if (isCorrect(rest, "it") || isCorrect(rest, "en")) return true;
@@ -20491,6 +20491,329 @@ function compressText(text, observations) {
   return compressed.replace(/ {2,}/g, " ").replace(/ +([.,!?;:])/g, "$1").trim();
 }
 
+// src/spell/engine/stemmer.ts
+var IT_STOPWORDS = /* @__PURE__ */ new Set([
+  "il",
+  "lo",
+  "la",
+  "i",
+  "gli",
+  "le",
+  "un",
+  "uno",
+  "una",
+  "di",
+  "a",
+  "da",
+  "in",
+  "con",
+  "su",
+  "per",
+  "tra",
+  "fra",
+  "e",
+  "ed",
+  "o",
+  "ma",
+  "che",
+  "chi",
+  "cui",
+  "non",
+  "si",
+  "ci",
+  "ti",
+  "mi",
+  "vi",
+  "ne",
+  "del",
+  "dello",
+  "della",
+  "dei",
+  "degli",
+  "delle",
+  "al",
+  "allo",
+  "alla",
+  "ai",
+  "agli",
+  "alle",
+  "dal",
+  "dallo",
+  "dalla",
+  "dai",
+  "dagli",
+  "dalle",
+  "nel",
+  "nello",
+  "nella",
+  "nei",
+  "negli",
+  "nelle",
+  "sul",
+  "sullo",
+  "sulla",
+  "sui",
+  "sugli",
+  "sulle",
+  "tuo",
+  "tua",
+  "tuoi",
+  "tue",
+  "mio",
+  "mia",
+  "miei",
+  "mie",
+  "suo",
+  "sua",
+  "suoi",
+  "sue",
+  "questo",
+  "questa",
+  "quello",
+  "quella",
+  "come",
+  "anche",
+  "pi\xF9",
+  "molto",
+  "poco",
+  "tutto",
+  "tutti",
+  "sono",
+  "\xE8",
+  "ho",
+  "hai",
+  "ha"
+]);
+var EN_STOPWORDS = /* @__PURE__ */ new Set([
+  "the",
+  "a",
+  "an",
+  "of",
+  "to",
+  "in",
+  "on",
+  "at",
+  "for",
+  "with",
+  "and",
+  "or",
+  "but",
+  "not",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+  "this",
+  "that",
+  "these",
+  "those",
+  "my",
+  "your",
+  "his",
+  "her",
+  "its",
+  "our",
+  "their",
+  "i",
+  "you",
+  "he",
+  "she",
+  "it",
+  "we",
+  "they",
+  "as",
+  "if",
+  "so",
+  "do",
+  "does",
+  "did",
+  "have",
+  "has",
+  "had",
+  "will",
+  "would",
+  "can",
+  "could",
+  "should"
+]);
+var IT_SUFFIXES = [
+  // verb infinitives / gerunds / past participles
+  "izzazione",
+  "mente",
+  "issimo",
+  "issima",
+  "issimi",
+  "issime",
+  "zione",
+  "zioni",
+  "atore",
+  "atrice",
+  "ando",
+  "endo",
+  "ato",
+  "ata",
+  "ati",
+  "ate",
+  "uto",
+  "uta",
+  "uti",
+  "ute",
+  "ito",
+  "ita",
+  "iti",
+  "ite",
+  "are",
+  "ere",
+  "ire",
+  "iamo",
+  "ate2".slice(0, -1),
+  // placeholder guard, removed below
+  "ando",
+  "endo",
+  // adjective / noun plural + gender
+  "issimo",
+  "oso",
+  "osa",
+  "osi",
+  "ose",
+  "ivo",
+  "iva",
+  "ivi",
+  "ive",
+  "ale",
+  "ali",
+  "ico",
+  "ica",
+  "ici",
+  "iche",
+  "o",
+  "a",
+  "i",
+  "e"
+];
+var IT_SUFFIX_LIST = Array.from(new Set(IT_SUFFIXES)).sort((a, b) => b.length - a.length);
+function stemIt(word) {
+  const w = word.toLowerCase();
+  if (w.length <= 4) return w;
+  for (const suf of IT_SUFFIX_LIST) {
+    if (w.length - suf.length >= 3 && w.endsWith(suf)) {
+      return w.slice(0, w.length - suf.length);
+    }
+  }
+  return w;
+}
+var EN_SUFFIXES = [
+  "ational",
+  "ization",
+  "iveness",
+  "fulness",
+  "ousness",
+  "ing",
+  "edly",
+  "ed",
+  "es",
+  "er",
+  "est",
+  "ers",
+  "ten",
+  "en",
+  "ly",
+  "ion",
+  "ions",
+  "tion",
+  "tions",
+  "ive",
+  "ful",
+  "ous",
+  "able",
+  "ible",
+  "al",
+  "ance",
+  "ence",
+  "s"
+];
+var EN_SUFFIX_LIST = Array.from(new Set(EN_SUFFIXES)).sort((a, b) => b.length - a.length);
+function stemEn(word) {
+  const w = word.toLowerCase();
+  if (w.length <= 4) return w;
+  for (const suf of EN_SUFFIX_LIST) {
+    if (w.length - suf.length >= 3 && w.endsWith(suf)) {
+      return w.slice(0, w.length - suf.length);
+    }
+  }
+  return w;
+}
+function stem(word, lang) {
+  return lang === "it" ? stemIt(word) : stemEn(word);
+}
+function isStopword(word, lang) {
+  const w = word.toLowerCase();
+  return lang === "it" ? IT_STOPWORDS.has(w) : EN_STOPWORDS.has(w);
+}
+function findMorphologicalRedundancy(text, lang) {
+  const clean = text.replace(/`[^`]*`|\{[^}]*\}|<[^>]+>/g, " ");
+  const words = clean.match(/[\p{L}\p{M}]+/gu) ?? [];
+  if (words.length > 18) return [];
+  const stemToPositions = /* @__PURE__ */ new Map();
+  words.forEach((raw, i) => {
+    const w = raw.toLowerCase();
+    if (w.length <= 3 || isStopword(w, lang)) return;
+    const s = stem(w, lang);
+    if (s.length <= 2) return;
+    if (!stemToPositions.has(s)) stemToPositions.set(s, []);
+    stemToPositions.get(s).push({ word: w, pos: i });
+  });
+  const redundant = [];
+  const PROXIMITY_WINDOW = 5;
+  for (const [s, occs] of stemToPositions) {
+    if (occs.length < 2) continue;
+    const distinctForms = new Set(occs.map((o) => o.word));
+    if (distinctForms.size < 2) continue;
+    let close = false;
+    for (let i = 0; i < occs.length && !close; i++) {
+      for (let j = i + 1; j < occs.length; j++) {
+        if (occs[j].pos - occs[i].pos <= PROXIMITY_WINDOW) {
+          close = true;
+          break;
+        }
+      }
+    }
+    if (close) redundant.push(s);
+  }
+  return redundant;
+}
+function findRepeatedContentWords(text, lang) {
+  const clean = text.replace(/`[^`]*`|\{[^}]*\}|<[^>]+>/g, " ");
+  const words = clean.match(/[\p{L}\p{M}]+/gu) ?? [];
+  if (words.length > 18) return [];
+  const positions = /* @__PURE__ */ new Map();
+  words.forEach((raw, i) => {
+    const w = raw.toLowerCase();
+    if (w.length <= 3 || isStopword(w, lang)) return;
+    if (!positions.has(w)) positions.set(w, []);
+    positions.get(w).push(i);
+  });
+  const PROXIMITY_WINDOW = 8;
+  const repeated = [];
+  for (const [w, occs] of positions) {
+    if (occs.length < 2) continue;
+    let close = false;
+    for (let i = 0; i < occs.length && !close; i++) {
+      for (let j = i + 1; j < occs.length; j++) {
+        if (occs[j] - occs[i] <= PROXIMITY_WINDOW) {
+          close = true;
+          break;
+        }
+      }
+    }
+    if (close) repeated.push(w);
+  }
+  return repeated;
+}
+
 // src/scoring/index.ts
 function label(score) {
   if (score >= 82) return "excellent";
@@ -20709,6 +21032,79 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
     if (matches && matches.length >= 3) {
       cap(30, "synonymic_redundancy");
       break;
+    }
+  }
+  {
+    const morphHits = findMorphologicalRedundancy(text, "en").length > 0 || findMorphologicalRedundancy(text, "it").length > 0;
+    if (morphHits) cap(35, "morphological_redundancy");
+    const repeatHits = findRepeatedContentWords(text, "en").length > 0 || findRepeatedContentWords(text, "it").length > 0;
+    if (repeatHits && words <= 20) cap(35, "repeated_content_word");
+  }
+  const SEMANTIC_PAIRS = [
+    [/\bopinione\s+personale\b/i, /\b(pensi|pensa|credi|ritieni)\b/i],
+    [/\bpersonal\s+opinion\b/i, /\b(think|believe|feel)\b/i]
+  ];
+  for (const [a, b] of SEMANTIC_PAIRS) {
+    if (a.test(text) && b.test(text)) {
+      cap(35, "semantic_pair_redundancy");
+      break;
+    }
+  }
+  const VAGUE_FILLERS = /\b(great|good|nice|interesting|something|somethings|stuff|thing|things|amazing|cool|awesome|comprehensive|complete|esperto|tutto|argomento|consigli|migliorare|cosa|qualcosa|roba|bello|belle|interessante|qualsiasi|pratici|affidabili)\b/gi;
+  if (words >= 6 && words <= 25) {
+    const contentWords = text.match(/[\p{L}\p{M}]{3,}/gu) ?? [];
+    const vagueMatches = text.match(VAGUE_FILLERS) ?? [];
+    const vagueRatio = contentWords.length > 0 ? vagueMatches.length / contentWords.length : 0;
+    const hasConcreteAnchor = /\d/.test(text) || /["«»""]/.test(text) || m.object.fromInlineMaterial || m.object.presence === "named" && !VAGUE_FILLERS.test(m.object.text ?? "");
+    if (vagueRatio >= 0.28 && !hasConcreteAnchor) {
+      cap(35, "low_information_density");
+    }
+  }
+  const NEGATED_IMPERATIVE = /\b(don'?t|do\s+not|never|non)\s+\w+/gi;
+  const negMatches = text.match(NEGATED_IMPERATIVE) ?? [];
+  if (negMatches.length >= 2) {
+    const hasConcreteSpec = hasFormat || hasLength || hasExamples || hasAudienceSpec || /\d/.test(text);
+    if (!hasConcreteSpec) {
+      cap(40, "negative_only_constraints");
+    }
+  }
+  const EXCLUSIVE_FORMAT_PAIRS = [
+    [/\bpoem\b/i, /\b(bulleted?\s+list|bullet\s+points?|list)\b/i],
+    [/\btable\b/i, /\bpoem\b/i],
+    [/\bpoesia\b/i, /\b(elenco\s+puntato|lista\s+puntata)\b/i],
+    [/\bhaiku\b/i, /\bparagraph|table|list\b/i]
+  ];
+  const BOTH_MARKER = /\bboth\b|\bentrambi\b|\bsia\b.*\bche\b/i;
+  if (BOTH_MARKER.test(text)) {
+    for (const [a, b] of EXCLUSIVE_FORMAT_PAIRS) {
+      if (a.test(text) && b.test(text)) {
+        cap(40, "mutually_exclusive_format");
+        break;
+      }
+    }
+  }
+  if (/\[\s*(screenshot|image|immagine|foto|photo|allegato|attachment)\s*\]/i.test(text)) {
+    cap(35, "literal_media_placeholder");
+  }
+  const IMPLICIT_PRIOR_REF = /\b(quello\s+che\s+hai\s+(fatto|detto|scritto)\s+prima|come\s+prima|come\s+l'ultima\s+volta|i\s+\w+(\s+\w+){0,2}\s+che\s+ti\s+ho\s+(detto|mostrato|dato)|what\s+you\s+did\s+(before|last\s+time)|like\s+(before|last\s+time)|the\s+\w+(\s+\w+){0,2}\s+i\s+(told|showed|gave)\s+you)\b/i;
+  if (IMPLICIT_PRIOR_REF.test(text) && !conversational) {
+    cap(35, "implicit_prior_reference");
+  }
+  const quotedRanges = [];
+  {
+    const qRe = /["'«»""]([^"'«»""]*)["'«»""]/g;
+    let qm;
+    while (qm = qRe.exec(text)) quotedRanges.push([qm.index, qm.index + qm[0].length]);
+  }
+  const inQuote = (offset) => quotedRanges.some(([s, e]) => offset >= s && offset < e);
+  const hasSubstantialQuote = quotedRanges.some(([s, e]) => e - s >= 15);
+  const spellErrors = hasSubstantialQuote ? 0 : observations.filter(
+    (o) => o.type === "spelling" && /forse intendevi|did you mean/i.test(o.suggestion ?? "") && !inQuote(o.offset ?? -1)
+  ).length;
+  if (spellErrors >= 2) {
+    const contentWordCount = (text.match(/[\p{L}\p{M}]{4,}/gu) ?? []).length;
+    if (contentWordCount > 0 && spellErrors / contentWordCount >= 0.3) {
+      cap(38, "core_vocabulary_misspelled");
     }
   }
   const DETAIL_SHORT_EN = /\b(in\s+detail|detailed|thorough|comprehensive|exhaustive)\b[^.!?]{0,30}\b(but|yet|however)\b[^.!?]{0,30}\b(short|brief|concise|quick|succinct)\b/i;

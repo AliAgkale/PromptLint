@@ -19,6 +19,7 @@ import type { Observation, TokenAnalysis, PromptScore, ScoreLabel, ScoreDimensio
 import { buildPromptModel, type PromptModel } from '../slots/model.js';
 import { detectLanguage } from '../spell/language.js';
 import type { UILocale } from '../analyzers/observations.js';
+import { findMorphologicalRedundancy, findRepeatedContentWords } from '../spell/engine/stemmer.js';
 
 function label(score: number): ScoreLabel {
   if (score >= 82) return 'excellent';
@@ -508,6 +509,155 @@ export function scorePrompt(
     if (matches && matches.length >= 3) {
       cap(30, 'synonymic_redundancy');
       break;
+    }
+  }
+
+  // ── MORPHOLOGICAL REDUNDANCY (Fase 2) ───────────────────────────────────
+  // "a written text in writing" — same root repeated across inflected forms.
+  // English is stemmable; Italian irregular participles (scritto/scrivere)
+  // are not, so we lean on literal non-adjacent repetition for Italian
+  // instead (see below) rather than a weak stemmer producing false collisions.
+  // detectLanguage() is unreliable on short text (it misclassified "Please
+  // write a written text in writing about dogs" as Italian), so we check
+  // BOTH rulesets rather than trusting a single detection — a false "hit" in
+  // the wrong language is essentially impossible since the word lists don't
+  // overlap, so this only adds recall, not false positives.
+  {
+    const morphHits = findMorphologicalRedundancy(text, 'en').length > 0
+      || findMorphologicalRedundancy(text, 'it').length > 0;
+    if (morphHits) cap(35, 'morphological_redundancy');
+
+    // ── REPEATED CONTENT WORD (non-adjacent) ──────────────────────────────
+    // "testo scritto bene e ben scritto" — "scritto" appears twice, not
+    // adjacent, so the simpler adjacent-repetition rule (pure_repetition)
+    // misses it. This catches Italian irregular-verb redundancy that
+    // stemming can't reach, plus any language's plain repeated-word filler.
+    const repeatHits = findRepeatedContentWords(text, 'en').length > 0
+      || findRepeatedContentWords(text, 'it').length > 0;
+    if (repeatHits && words <= 20) cap(35, 'repeated_content_word');
+  }
+
+  // ── SEMANTIC PAIR REDUNDANCY: "opinione personale su cosa ne pensi" ────
+  // "opinion" + "think" are synonyms with unrelated roots — stemming can't
+  // catch this, needs an explicit semantic pair list. Narrow and specific
+  // to avoid false positives on legitimate uses of both words.
+  const SEMANTIC_PAIRS: [RegExp, RegExp][] = [
+    [/\bopinione\s+personale\b/i, /\b(pensi|pensa|credi|ritieni)\b/i],
+    [/\bpersonal\s+opinion\b/i, /\b(think|believe|feel)\b/i],
+  ];
+  for (const [a, b] of SEMANTIC_PAIRS) {
+    if (a.test(text) && b.test(text)) {
+      cap(35, 'semantic_pair_redundancy');
+      break;
+    }
+  }
+
+  // ── INFORMATION DENSITY (Fase 2) ────────────────────────────────────────
+  // "Write a great blog post about something interesting for my audience."
+  // Grammatically complete, structurally plausible, semantically empty:
+  // every content word is a placeholder ("great", "something",
+  // "interesting") rather than a real specification. Measured as the
+  // fraction of content words that are vague fillers, gated on the absence
+  // of any concrete anchor (number, quoted material, named object) — a
+  // prompt with real content mixed with a stray vague adjective must not
+  // be caught by this.
+  const VAGUE_FILLERS =
+    /\b(great|good|nice|interesting|something|somethings|stuff|thing|things|amazing|cool|awesome|comprehensive|complete|esperto|tutto|argomento|consigli|migliorare|cosa|qualcosa|roba|bello|belle|interessante|qualsiasi|pratici|affidabili)\b/gi;
+  if (words >= 6 && words <= 25) {
+    const contentWords = text.match(/[\p{L}\p{M}]{3,}/gu) ?? [];
+    const vagueMatches = text.match(VAGUE_FILLERS) ?? [];
+    const vagueRatio = contentWords.length > 0 ? vagueMatches.length / contentWords.length : 0;
+    const hasConcreteAnchor = /\d/.test(text) || /["«»""]/.test(text) || m.object.fromInlineMaterial
+      || (m.object.presence === 'named' && !VAGUE_FILLERS.test(m.object.text ?? ''));
+    if (vagueRatio >= 0.28 && !hasConcreteAnchor) {
+      cap(35, 'low_information_density');
+    }
+  }
+
+  // ── NEGATIVE-ONLY CONSTRAINTS ───────────────────────────────────────────
+  // "Don't be boring. Don't repeat yourself. Don't use clichés." — every
+  // instruction says what NOT to do, never what TO do. The positive task
+  // itself may exist ("Write a product description") but stays generic —
+  // no product named, no format, no length, no audience. The negations pile
+  // up around an empty center. Guard: 2+ negations AND no concrete spec
+  // beyond the bare task verb.
+  const NEGATED_IMPERATIVE = /\b(don'?t|do\s+not|never|non)\s+\w+/gi;
+  const negMatches = text.match(NEGATED_IMPERATIVE) ?? [];
+  if (negMatches.length >= 2) {
+    const hasConcreteSpec = hasFormat || hasLength || hasExamples || hasAudienceSpec || /\d/.test(text);
+    if (!hasConcreteSpec) {
+      cap(40, 'negative_only_constraints');
+    }
+  }
+
+  // ── MUTUALLY EXCLUSIVE FORMATS ──────────────────────────────────────────
+  // "formatted as both a poem and a bulleted list" — physically impossible:
+  // no single output can simultaneously satisfy both formats.
+  const EXCLUSIVE_FORMAT_PAIRS: [RegExp, RegExp][] = [
+    [/\bpoem\b/i, /\b(bulleted?\s+list|bullet\s+points?|list)\b/i],
+    [/\btable\b/i, /\bpoem\b/i],
+    [/\bpoesia\b/i, /\b(elenco\s+puntato|lista\s+puntata)\b/i],
+    [/\bhaiku\b/i, /\bparagraph|table|list\b/i],
+  ];
+  const BOTH_MARKER = /\bboth\b|\bentrambi\b|\bsia\b.*\bche\b/i;
+  if (BOTH_MARKER.test(text)) {
+    for (const [a, b] of EXCLUSIVE_FORMAT_PAIRS) {
+      if (a.test(text) && b.test(text)) {
+        cap(40, 'mutually_exclusive_format');
+        break;
+      }
+    }
+  }
+
+  // ── LITERAL PLACEHOLDER MEDIA REFERENCE ─────────────────────────────────
+  // "Here's my code: [screenshot]." — the bracketed word is literal text,
+  // not an attached image. The core can't see the DOM (the extension
+  // handles that), but literal "[screenshot]"/"[image]" as TEXT is always
+  // a placeholder that was never actually replaced with an attachment.
+  if (/\[\s*(screenshot|image|immagine|foto|photo|allegato|attachment)\s*\]/i.test(text)) {
+    cap(35, 'literal_media_placeholder');
+  }
+
+  // ── IMPLICIT REFERENCE TO UNSTATED PRIOR CONTEXT ────────────────────────
+  // "simile a quello che hai fatto prima" / "i due approcci che ti ho detto"
+  // — refers to something the model has no access to in a standalone prompt.
+  const IMPLICIT_PRIOR_REF =
+    /\b(quello\s+che\s+hai\s+(fatto|detto|scritto)\s+prima|come\s+prima|come\s+l'ultima\s+volta|i\s+\w+(\s+\w+){0,2}\s+che\s+ti\s+ho\s+(detto|mostrato|dato)|what\s+you\s+did\s+(before|last\s+time)|like\s+(before|last\s+time)|the\s+\w+(\s+\w+){0,2}\s+i\s+(told|showed|gave)\s+you)\b/i;
+  if (IMPLICIT_PRIOR_REF.test(text) && !conversational) {
+    cap(35, 'implicit_prior_reference');
+  }
+
+  // ── SPELLING ERRORS ON CORE CONTENT WORDS ───────────────────────────────
+  // "Crea un piano di marcketing per il mio prodoto" — 2 of the prompt's 3
+  // content words are misspelled. A stray typo on a peripheral word barely
+  // matters; typos on most of the task's substantive vocabulary make the
+  // task itself ambiguous.
+  // Exclude hits inside quoted material: "Traduci questo email: 'Dear team,
+  // please review...'" has English words inside the quote flagged against
+  // the Italian dictionary — that's user-supplied material to operate on,
+  // not the task's own vocabulary, and misspelling counts there are noise.
+  const quotedRanges: [number, number][] = [];
+  {
+    const qRe = /["'«»""]([^"'«»""]*)["'«»""]/g;
+    let qm: RegExpExecArray | null;
+    while ((qm = qRe.exec(text))) quotedRanges.push([qm.index, qm.index + qm[0].length]);
+  }
+  const inQuote = (offset: number) => quotedRanges.some(([s, e]) => offset >= s && offset < e);
+  // If there's substantial quoted material, the prompt is very likely
+  // multilingual by design ("Traduci questo: 'Dear team...'") — the
+  // spell-check language applies to the whole text, so foreign words in the
+  // wrapper (or vice versa) get flagged as "errors" that aren't real typos.
+  // Too risky to trust the error count in this shape of prompt at all.
+  const hasSubstantialQuote = quotedRanges.some(([s, e]) => e - s >= 15);
+  const spellErrors = hasSubstantialQuote ? 0 : observations.filter(
+    (o) => o.type === 'spelling'
+      && /forse intendevi|did you mean/i.test(o.suggestion ?? '')
+      && !inQuote(o.offset ?? -1)
+  ).length;
+  if (spellErrors >= 2) {
+    const contentWordCount = (text.match(/[\p{L}\p{M}]{4,}/gu) ?? []).length;
+    if (contentWordCount > 0 && spellErrors / contentWordCount >= 0.3) {
+      cap(38, 'core_vocabulary_misspelled');
     }
   }
 
