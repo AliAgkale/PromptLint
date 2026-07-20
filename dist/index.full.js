@@ -18767,10 +18767,10 @@ function objectAfter(clause, verb) {
 // src/slots/tone.ts
 var TONE_CUES = [
   { re: /\b(formale|professionale|istituzionale|ufficiale|accademic[oaie]|aulic[oaie]|forbito|formal|professional|corporate|business-like|academic|scholarly)\b/i, tone: "formal" },
-  { re: /\b(informale|colloquiale|casual|rilassat[oaie]|easy-?going|disinvolt[oaie]|alla mano|amichevol[ei]|friendly|laid-?back|con emoji|con emoticon|usa (le )?emoji|emoji|emoticon)\b/i, tone: "casual" },
+  { re: /\b(informale|colloquiale|casual|rilassat[oaie]|easy-?going|disinvolt[oaie]|alla mano|amichevol[ei]|laid-?back|con emoji|con emoticon|usa (le )?emoji|emoji|emoticon)\b/i, tone: "casual" },
   { re: /\b(scherzos[oaie]|divertent[ei]|spiritos[oaie]|ironic[oaie]|giocos[oaie]|playful|funny|humorous|witty|lighthearted|legger[oaie])\b/i, tone: "playful" },
   { re: /\b(serio|serie?s[oaie]|grave|sobri[oaie]|formale e serio|serious|solemn|grave)\b/i, tone: "serious" },
-  { re: /\b(tecnic[oaie]|specialistic[oaie]|avanzat[oaie]|per esperti|dettaglio tecnico|technical|advanced|for experts|in-?depth technical)\b/i, tone: "technical" },
+  { re: /\b(tecnic[oaie]|specialistic[oaie]|avanzat[oaie]|per esperti|dettaglio tecnico|(?<!non-?)technical|advanced|for experts|in-?depth technical)\b/i, tone: "technical" },
   { re: /\b(semplic[ei]|semplificat[oaie]|semplicissim[oaie]|accessibil[ei]|per principianti|per (un )?bambin[oi]|come se avessi \d+ anni|divulgativ[oaie]|simple|beginner-?friendly|for beginners|like i'?m \d+|plain language|easy to understand)\b/i, tone: "simple" },
   { re: /\b(cald[oaie]|accogliente|empatic[oaie]|personale|umano|warm|welcoming|empathetic|personable|heartfelt)\b/i, tone: "warm" },
   { re: /\b(dettagliat(?:issim)?[oaie]|approfondit[oaie]|esaustiv[oaie]|completo|completissim[oaie]|minuzios[oaie]|verbos[oaie]|estes[oaie]|in profondità|nel dettaglio|nei dettagli|tutti i dettagli|ogni dettaglio|punto per punto|detailed|thorough|exhaustive|comprehensive|in-?depth|verbose|elaborate|every detail|in full detail)(?![a-zà-ù])/i, tone: "detailed" },
@@ -18800,6 +18800,11 @@ function extractTone(text) {
     const g = new RegExp(re.source, "gi");
     let m;
     while ((m = g.exec(text)) !== null) {
+      const after = text.slice(m.index + m[0].length, m.index + m[0].length + 3);
+      if (/^\s*:/.test(after)) {
+        if (m.index === g.lastIndex) g.lastIndex++;
+        continue;
+      }
       cues.push({ tone, match: m[0], index: m.index });
       if (m.index === g.lastIndex) g.lastIndex++;
     }
@@ -20819,7 +20824,14 @@ function findRepeatedContentWords(text, lang) {
         }
       }
     }
-    if (close) repeated.push(w);
+    if (!close) continue;
+    const followers = occs.map((pos) => words.slice(pos + 1, pos + 3).join(" ").toLowerCase());
+    const nonEmptyFollowers = followers.filter((f) => f.length > 0);
+    const distinctFollowers = new Set(nonEmptyFollowers);
+    if (nonEmptyFollowers.length === occs.length && distinctFollowers.size === occs.length) {
+      continue;
+    }
+    repeated.push(w);
   }
   return repeated;
 }
@@ -20979,7 +20991,7 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
   if (byCode("PL_001") > 0) cap(50, "no_task");
   if (byCode("OBJ_001") > 0) cap(40, "empty_object");
   if (byCode("TMPL_001") > 0) cap(18, "unfilled_template");
-  const DELEGATION_RE = /\b(come (preferisci|vuoi|ritieni|credi|ti sembra|meglio credi)|nel formato (che (preferisci|ritieni|credi)|adeguato|giusto|opportuno)|della lunghezza (che (preferisci|ritieni)|appropriata|giusta|adeguata|opportuna)|whatever you (think|want|prefer|like)|as you (see fit|prefer|wish)|up to you|a tua (scelta|discrezione)|decidi tu|you decide|su[gl]l'argomento che (preferisci|vuoi|ritieni)|sorprendimi|surprise me)\b/i;
+  const DELEGATION_RE = /\b(come (preferisci|vuoi|ritieni|credi|ti sembra|meglio credi)|nel formato (che (preferisci|ritieni|credi)|adeguato|giusto|opportuno)|della lunghezza (che (preferisci|ritieni)|appropriata|giusta|adeguata|opportuna)|whatever you (think|want|prefer|like)|as you (see fit|prefer|wish)|up to you|a tua (scelta|discrezione)|decidi tu|you decide|su[gl]l'argomento che (preferisci|vuoi|ritieni)|sorprendimi|surprise me|fai\s+pure\s+tu|non\s+ho\s+preferenze|feel\s+free\s+to\s+write|i\s+have\s+no\s+preferences?|scegli\s+tu)\b/i;
   const TOPIC_DELEGATED = /\b(su\s+un\s+argomento\s+(che\s+)?(ritieni|preferisci|vuoi|credi|ti\s+sembra)|lungo\s+quanto\s+(vuoi|preferisci|ritieni)|about\s+(whatever|anything)\s+you\s+(want|like|prefer))\b/i;
   const hasDelegation = DELEGATION_RE.test(text) || TOPIC_DELEGATED.test(text);
   const DELEG_PHRASES = /\b(formato\s+(adeguat[oa]|giusto|opportuno|che\s+(ritieni|preferisci|vuoi))|lunghezza\s+(appropriat[oa]|adeguat[oa]|giust[oa]|che\s+(ritieni|preferisci|vuoi))|lungo\s+quanto\s+(vuoi|preferisci|serve)|tono\s+(che\s+ritieni|giusto|adatto|appropriat[oa]|opportuno)|pubblico\s+(che\s+(stimi|ritieni)|più\s+adatto|opportuno)|argomento\s+(che\s+(ritieni|preferisci)|interessante)|whatever|as\s+you\s+(see\s+fit|prefer|wish)|up\s+to\s+you|you\s+decide|decidi\s+tu)\b/gi;
@@ -21016,7 +21028,7 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
     const hasInlineMaterial2 = m.object.fromInlineMaterial || /```|`[^`]+`|["«»""]/.test(text);
     if (!hasAction && !hasInlineMaterial2) cap(30, "role_without_task");
   }
-  const COURTESY_HEAVY = /\b(scusami|scusa\s+se|non\s+voglio\s+disturbar|mi\s+dispiace\s+disturbar|saresti\s+così\s+gentile|potresti\s+gentilmente|per\s+favore\s+potresti|i\s+hope\s+this\s+isn'?t\s+too\s+much|sorry\s+to\s+bother|would\s+you\s+be\s+so\s+kind|could\s+you\s+possibly|if\s+it'?s\s+not\s+too\s+much\s+trouble|grazie\s+mille!?\s+(saresti|potresti))\b/i;
+  const COURTESY_HEAVY = /\b(scusami|scusa\s+se|non\s+voglio\s+disturbar|mi\s+dispiace\s+disturbar|saresti\s+così\s+gentile|potresti\s+gentilmente|per\s+favore\s+potresti|i\s+hope\s+this\s+isn'?t\s+too\s+much|sorry\s+to\s+bother|would\s+you\s+be\s+so\s+kind|could\s+you\s+possibly|if\s+it'?s\s+not\s+too\s+much\s+trouble|grazie\s+mille!?\s+(saresti|potresti)|i\s+hate\s+to\s+ask|would\s+you\s+mind\s+help|if\s+you\s+have\s+a\s+moment|if\s+possible.*assist|sarebbe\s+possibile\s+avere|spero\s+di\s+non\s+darti\s+fastidio|se\s+fosse\s+possibile)\b/i;
   if (COURTESY_HEAVY.test(text) && !m.object.fromInlineMaterial) {
     const realSpecs = (m.format.formats.length > 0 ? 1 : 0) + (m.length.cues.length > 0 ? 1 : 0) + (m.audience.level !== null ? 1 : 0);
     if (realSpecs <= 1) cap(25, "courtesy_filler");
@@ -21047,7 +21059,8 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
   {
     const morphHits = findMorphologicalRedundancy(text, "en").length > 0 || findMorphologicalRedundancy(text, "it").length > 0;
     if (morphHits) cap(35, "morphological_redundancy");
-    const repeatHits = findRepeatedContentWords(text, "en").length > 0 || findRepeatedContentWords(text, "it").length > 0;
+    const hasInlineCode = /```|`[^`]+`|\bdef\s+\w+\s*\(|\bfunction\s+\w+\s*\(|\breturn\b.*\breturn\b|\bprint\s*\(|\bprint\s+['"]|\bimport\s+\w|\bconst\s+\w+\s*=|\blet\s+\w+\s*=|\bvar\s+\w+\s*=|\bclass\s+\w+|raw_input\s*\(|console\.log/.test(text);
+    const repeatHits = !hasInlineCode && (findRepeatedContentWords(text, "en").length > 0 || findRepeatedContentWords(text, "it").length > 0);
     if (repeatHits && words <= 20) cap(35, "repeated_content_word");
   }
   const SEMANTIC_PAIRS = [
@@ -21060,7 +21073,7 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
       break;
     }
   }
-  const VAGUE_FILLERS = /\b(great|good|nice|interesting|something|somethings|stuff|thing|things|amazing|cool|awesome|comprehensive|complete|esperto|tutto|argomento|consigli|migliorare|cosa|qualcosa|roba|bello|belle|interessante|qualsiasi|pratici|affidabili)\b/gi;
+  const VAGUE_FILLERS = /\b(great|good|nice|interesting|something|somethings|stuff|thing|things|amazing|cool|awesome|comprehensive|complete|esperto|tutto|argomento|consigli|migliorare|cosa|qualcosa|roba|bello|belle|interessante|qualsiasi|pratici|affidabili|cose)\b/gi;
   if (words >= 6 && words <= 25) {
     const contentWords = text.match(/[\p{L}\p{M}]{3,}/gu) ?? [];
     const vagueMatches = text.match(VAGUE_FILLERS) ?? [];
@@ -21069,6 +21082,10 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
     if (vagueRatio >= 0.28 && !hasConcreteAnchor) {
       cap(35, "low_information_density");
     }
+  }
+  const META_USAGE = /\b(come\s+(posso\s+)?(usarti|farti\s+lavorare|sfruttarti|utilizzarti)|come\s+dovrei\s+(usarti|strutturare\s+le\s+mie)|how\s+(can\s+i|should\s+i)\s+(use\s+you|make\s+you\s+work|get\s+the\s+best|structure\s+my)|what\s+are\s+you\s+(best\s+at|good\s+at|capable\s+of)|cos[aà]\s+(sai|riesci)\s+a\s+fare|cosa\s+sai\s+fare\s+meglio)\b/i;
+  if (META_USAGE.test(text) && words <= 20 && !m.object.fromInlineMaterial) {
+    cap(25, "meta_usage_unclear");
   }
   const NEGATED_IMPERATIVE = /\b(don'?t|do\s+not|never|non)\s+\w+/gi;
   const negMatches = text.match(NEGATED_IMPERATIVE) ?? [];
@@ -21096,8 +21113,14 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
   if (/\[\s*(screenshot|image|immagine|foto|photo|allegato|attachment)\s*\]/i.test(text)) {
     cap(35, "literal_media_placeholder");
   }
-  const IMPLICIT_PRIOR_REF = /\b(quello\s+che\s+hai\s+(fatto|detto|scritto)\s+prima|come\s+prima|come\s+l'ultima\s+volta|i\s+\w+(\s+\w+){0,2}\s+che\s+ti\s+ho\s+(detto|mostrato|dato)|what\s+you\s+did\s+(before|last\s+time)|like\s+(before|last\s+time)|the\s+\w+(\s+\w+){0,2}\s+i\s+(told|showed|gave)\s+you)\b/i;
+  const IMPLICIT_PRIOR_REF = /\b(quello\s+che\s+hai\s+(fatto|detto|scritto)\s+prima|come\s+prima|come\s+l'ultima\s+volta|i\s+\w+(\s+\w+){0,2}\s+che\s+ti\s+ho\s+(detto|mostrato|dato)|what\s+you\s+did\s+(before|last\s+time)|like\s+(before|last\s+time)|the\s+\w+(\s+\w+){0,2}\s+i\s+(told|showed|gave)\s+you|as\s+we\s+(discussed|agreed)|come\s+abbiamo\s+discusso)\b/i;
+  const USE_PRIOR_MATERIAL = /\b(usa|segui|applica|use|follow|apply)\s+(il|lo|la|i|gli|le|the)?\s*\w+(\s+\w+){0,2}\s+(che\s+ti\s+ho\s+(mandato|dato|mostrato|inviato)|you\s+(sent|gave|showed)\s+me)\b/i;
+  const CONTINUE_PRIOR_WORK = /\b(continua|prosegui|riprendi|continue|resume)\s+(il|lo|la|i|gli|le|the)?\s*\w+(\s+\w+){0,2}\s+(che\s+stavamo\s+(scrivendo|facendo|discutendo)|we\s+were\s+(writing|working\s+on|discussing))\b/i;
+  const EXPLICIT_VERB_PRIOR_REF = /\b(continue\s+from\s+where\s+we\s+left\s+off|continua\s+da\s+dove\s+eravamo|do\s+it\s+like\s+the\s+previous\s+(example|one)|fai\s+come\s+nell'esempio\s+precedente)\b/i;
   if (IMPLICIT_PRIOR_REF.test(text) && !conversational) {
+    cap(35, "implicit_prior_reference");
+  }
+  if (USE_PRIOR_MATERIAL.test(text) || CONTINUE_PRIOR_WORK.test(text) || EXPLICIT_VERB_PRIOR_REF.test(text)) {
     cap(35, "implicit_prior_reference");
   }
   const quotedRanges = [];
@@ -21139,7 +21162,9 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
     const objEmpty = m.object.presence === "none" || m.object.presence === "placeholder";
     const hasRealVerb = m.task.confidence >= 0.5;
     const hasAnyRealContent = /[\p{L}\p{N}]/u.test(text);
-    if (words <= 3 && objEmpty && !selfBounding && !(isQuestionLike && hasAnyRealContent)) {
+    const CONCRETE_REF = /\b(dell'italia|della francia|italiano|inglese|francese|tedesco|spagnolo|italian|english|french|german|spanish)\b/i;
+    const hasConcreteRef = CONCRETE_REF.test(text);
+    if (words <= 3 && objEmpty && !selfBounding && !(isQuestionLike && hasAnyRealContent) && !conversational && !hasConcreteRef) {
       cap(hasRealVerb ? 20 : 12, "ultra_short");
     } else if (words < 4 && !hasTaskVerb) cap(38, "very_short_no_task");
     else if (words < 4 && hasTaskVerb) cap(55, "very_short_task");

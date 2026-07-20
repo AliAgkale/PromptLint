@@ -71,10 +71,10 @@ export interface ToneSlot {
 // gender/number variants collapse to one concept without separate entries.
 const TONE_CUES: Array<{ re: RegExp; tone: ToneValue }> = [
   { re: /\b(formale|professionale|istituzionale|ufficiale|accademic[oaie]|aulic[oaie]|forbito|formal|professional|corporate|business-like|academic|scholarly)\b/i, tone: 'formal' },
-  { re: /\b(informale|colloquiale|casual|rilassat[oaie]|easy-?going|disinvolt[oaie]|alla mano|amichevol[ei]|friendly|laid-?back|con emoji|con emoticon|usa (le )?emoji|emoji|emoticon)\b/i, tone: 'casual' },
+  { re: /\b(informale|colloquiale|casual|rilassat[oaie]|easy-?going|disinvolt[oaie]|alla mano|amichevol[ei]|laid-?back|con emoji|con emoticon|usa (le )?emoji|emoji|emoticon)\b/i, tone: 'casual' },
   { re: /\b(scherzos[oaie]|divertent[ei]|spiritos[oaie]|ironic[oaie]|giocos[oaie]|playful|funny|humorous|witty|lighthearted|legger[oaie])\b/i, tone: 'playful' },
   { re: /\b(serio|serie?s[oaie]|grave|sobri[oaie]|formale e serio|serious|solemn|grave)\b/i, tone: 'serious' },
-  { re: /\b(tecnic[oaie]|specialistic[oaie]|avanzat[oaie]|per esperti|dettaglio tecnico|technical|advanced|for experts|in-?depth technical)\b/i, tone: 'technical' },
+  { re: /\b(tecnic[oaie]|specialistic[oaie]|avanzat[oaie]|per esperti|dettaglio tecnico|(?<!non-?)technical|advanced|for experts|in-?depth technical)\b/i, tone: 'technical' },
   { re: /\b(semplic[ei]|semplificat[oaie]|semplicissim[oaie]|accessibil[ei]|per principianti|per (un )?bambin[oi]|come se avessi \d+ anni|divulgativ[oaie]|simple|beginner-?friendly|for beginners|like i'?m \d+|plain language|easy to understand)\b/i, tone: 'simple' },
   { re: /\b(cald[oaie]|accogliente|empatic[oaie]|personale|umano|warm|welcoming|empathetic|personable|heartfelt)\b/i, tone: 'warm' },
   { re: /\b(dettagliat(?:issim)?[oaie]|approfondit[oaie]|esaustiv[oaie]|completo|completissim[oaie]|minuzios[oaie]|verbos[oaie]|estes[oaie]|in profondità|nel dettaglio|nei dettagli|tutti i dettagli|ogni dettaglio|punto per punto|detailed|thorough|exhaustive|comprehensive|in-?depth|verbose|elaborate|every detail|in full detail)(?![a-zà-ù])/i, tone: 'detailed' },
@@ -114,6 +114,15 @@ export function extractTone(text: string): ToneSlot {
     const g = new RegExp(re.source, 'gi');
     let m: RegExpExecArray | null;
     while ((m = g.exec(text)) !== null) {
+      // Skip occurrences immediately followed by ":" (optionally after
+      // whitespace) — "Informale: 'Dai!' → Formale: 'Procederei.'" uses
+      // these words as FEW-SHOT EXAMPLE LABELS, not instructions to the
+      // model. A real instruction never reads "formal: <example text>".
+      const after = text.slice(m.index + m[0].length, m.index + m[0].length + 3);
+      if (/^\s*:/.test(after)) {
+        if (m.index === g.lastIndex) g.lastIndex++;
+        continue;
+      }
       cues.push({ tone, match: m[0], index: m.index });
       if (m.index === g.lastIndex) g.lastIndex++; // guard against zero-width
     }

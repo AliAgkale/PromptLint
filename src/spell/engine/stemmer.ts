@@ -186,7 +186,26 @@ export function findRepeatedContentWords(text: string, lang: 'it' | 'en'): strin
         if (occs[j] - occs[i] <= PROXIMITY_WINDOW) { close = true; break; }
       }
     }
-    if (close) repeated.push(w);
+    if (!close) continue;
+    // Enumeration guard: "terapia cognitivo-comportamentale e terapia
+    // psicodinamica" / "one in first person, one in third person, one
+    // omniscient" repeat a head noun across a genuine list of DIFFERENT
+    // items — each occurrence is followed by different content. That's
+    // normal enumeration, not stylistic filler ("scritto...scritto" where
+    // nothing new follows). Check: for each occurrence, look at the next
+    // 1-2 words; if they differ across occurrences, it's enumeration.
+    const followers = occs.map((pos) => words.slice(pos + 1, pos + 3).join(' ').toLowerCase());
+    const nonEmptyFollowers = followers.filter((f) => f.length > 0);
+    const distinctFollowers = new Set(nonEmptyFollowers);
+    // Enumeration requires EVERY occurrence to introduce genuinely different
+    // new content — if any occurrence has no follower (e.g. it's the last
+    // word in the sentence, as in "…ben scritto") or followers repeat, it's
+    // not a clean enumeration and the redundancy signal should stand.
+    if (nonEmptyFollowers.length === occs.length && distinctFollowers.size === occs.length) {
+      // Most/all occurrences are followed by different content = enumeration.
+      continue;
+    }
+    repeated.push(w);
   }
   return repeated;
 }

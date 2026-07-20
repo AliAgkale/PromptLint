@@ -387,7 +387,7 @@ export function scorePrompt(
   // Task verb present but ALL parameters explicitly delegated to the model.
   // Conjunction: delegation phrase + no named object + ≤1 real spec.
   const DELEGATION_RE =
-    /\b(come (preferisci|vuoi|ritieni|credi|ti sembra|meglio credi)|nel formato (che (preferisci|ritieni|credi)|adeguato|giusto|opportuno)|della lunghezza (che (preferisci|ritieni)|appropriata|giusta|adeguata|opportuna)|whatever you (think|want|prefer|like)|as you (see fit|prefer|wish)|up to you|a tua (scelta|discrezione)|decidi tu|you decide|su[gl]l'argomento che (preferisci|vuoi|ritieni)|sorprendimi|surprise me)\b/i;
+    /\b(come (preferisci|vuoi|ritieni|credi|ti sembra|meglio credi)|nel formato (che (preferisci|ritieni|credi)|adeguato|giusto|opportuno)|della lunghezza (che (preferisci|ritieni)|appropriata|giusta|adeguata|opportuna)|whatever you (think|want|prefer|like)|as you (see fit|prefer|wish)|up to you|a tua (scelta|discrezione)|decidi tu|you decide|su[gl]l'argomento che (preferisci|vuoi|ritieni)|sorprendimi|surprise me|fai\s+pure\s+tu|non\s+ho\s+preferenze|feel\s+free\s+to\s+write|i\s+have\s+no\s+preferences?|scegli\s+tu)\b/i;
   // Also detect delegation of the TOPIC itself ("su un argomento che ritieni
   // interessante", "lungo quanto vuoi"): these turn even a named generic
   // object ("un articolo") into a full delegation because the model must
@@ -464,7 +464,7 @@ export function scorePrompt(
   // extending the detector (fragile), detect the PATTERN directly: hedging
   // phrases + no concrete object/spec. The conjunction makes it safe.
   const COURTESY_HEAVY =
-    /\b(scusami|scusa\s+se|non\s+voglio\s+disturbar|mi\s+dispiace\s+disturbar|saresti\s+così\s+gentile|potresti\s+gentilmente|per\s+favore\s+potresti|i\s+hope\s+this\s+isn'?t\s+too\s+much|sorry\s+to\s+bother|would\s+you\s+be\s+so\s+kind|could\s+you\s+possibly|if\s+it'?s\s+not\s+too\s+much\s+trouble|grazie\s+mille!?\s+(saresti|potresti))\b/i;
+    /\b(scusami|scusa\s+se|non\s+voglio\s+disturbar|mi\s+dispiace\s+disturbar|saresti\s+così\s+gentile|potresti\s+gentilmente|per\s+favore\s+potresti|i\s+hope\s+this\s+isn'?t\s+too\s+much|sorry\s+to\s+bother|would\s+you\s+be\s+so\s+kind|could\s+you\s+possibly|if\s+it'?s\s+not\s+too\s+much\s+trouble|grazie\s+mille!?\s+(saresti|potresti)|i\s+hate\s+to\s+ask|would\s+you\s+mind\s+help|if\s+you\s+have\s+a\s+moment|if\s+possible.*assist|sarebbe\s+possibile\s+avere|spero\s+di\s+non\s+darti\s+fastidio|se\s+fosse\s+possibile)\b/i;
   if (COURTESY_HEAVY.test(text) && !m.object.fromInlineMaterial) {
     // Only fire if there's no real, concrete spec beyond the courtesy
     const realSpecs = (m.format.formats.length > 0 ? 1 : 0) + (m.length.cues.length > 0 ? 1 : 0) + (m.audience.level !== null ? 1 : 0);
@@ -530,10 +530,13 @@ export function scorePrompt(
     // ── REPEATED CONTENT WORD (non-adjacent) ──────────────────────────────
     // "testo scritto bene e ben scritto" — "scritto" appears twice, not
     // adjacent, so the simpler adjacent-repetition rule (pure_repetition)
-    // misses it. This catches Italian irregular-verb redundancy that
-    // stemming can't reach, plus any language's plain repeated-word filler.
-    const repeatHits = findRepeatedContentWords(text, 'en').length > 0
-      || findRepeatedContentWords(text, 'it').length > 0;
+    // misses it. Guard: don't fire if there's inline code (repeated tokens
+    // like 'return', 'function', 'def' are code, not prose redundancy).
+    const hasInlineCode = /```|`[^`]+`|\bdef\s+\w+\s*\(|\bfunction\s+\w+\s*\(|\breturn\b.*\breturn\b|\bprint\s*\(|\bprint\s+['"]|\bimport\s+\w|\bconst\s+\w+\s*=|\blet\s+\w+\s*=|\bvar\s+\w+\s*=|\bclass\s+\w+|raw_input\s*\(|console\.log/.test(text);
+    const repeatHits = !hasInlineCode && (
+      findRepeatedContentWords(text, 'en').length > 0
+      || findRepeatedContentWords(text, 'it').length > 0
+    );
     if (repeatHits && words <= 20) cap(35, 'repeated_content_word');
   }
 
@@ -562,7 +565,7 @@ export function scorePrompt(
   // prompt with real content mixed with a stray vague adjective must not
   // be caught by this.
   const VAGUE_FILLERS =
-    /\b(great|good|nice|interesting|something|somethings|stuff|thing|things|amazing|cool|awesome|comprehensive|complete|esperto|tutto|argomento|consigli|migliorare|cosa|qualcosa|roba|bello|belle|interessante|qualsiasi|pratici|affidabili)\b/gi;
+    /\b(great|good|nice|interesting|something|somethings|stuff|thing|things|amazing|cool|awesome|comprehensive|complete|esperto|tutto|argomento|consigli|migliorare|cosa|qualcosa|roba|bello|belle|interessante|qualsiasi|pratici|affidabili|cose)\b/gi;
   if (words >= 6 && words <= 25) {
     const contentWords = text.match(/[\p{L}\p{M}]{3,}/gu) ?? [];
     const vagueMatches = text.match(VAGUE_FILLERS) ?? [];
@@ -572,6 +575,16 @@ export function scorePrompt(
     if (vagueRatio >= 0.28 && !hasConcreteAnchor) {
       cap(35, 'low_information_density');
     }
+  }
+
+  // ── META-UNCLEAR: prompts about how to use the AI, no task ──────────────
+  // "Come posso farti lavorare meglio?", "What are you best at?" — these ask
+  // about the model's capabilities or usage rather than giving a task. They
+  // have no concrete deliverable: the model can't produce anything actionable.
+  const META_USAGE =
+    /\b(come\s+(posso\s+)?(usarti|farti\s+lavorare|sfruttarti|utilizzarti)|come\s+dovrei\s+(usarti|strutturare\s+le\s+mie)|how\s+(can\s+i|should\s+i)\s+(use\s+you|make\s+you\s+work|get\s+the\s+best|structure\s+my)|what\s+are\s+you\s+(best\s+at|good\s+at|capable\s+of)|cos[aà]\s+(sai|riesci)\s+a\s+fare|cosa\s+sai\s+fare\s+meglio)\b/i;
+  if (META_USAGE.test(text) && words <= 20 && !m.object.fromInlineMaterial) {
+    cap(25, 'meta_usage_unclear');
   }
 
   // ── NEGATIVE-ONLY CONSTRAINTS ───────────────────────────────────────────
@@ -622,8 +635,32 @@ export function scorePrompt(
   // "simile a quello che hai fatto prima" / "i due approcci che ti ho detto"
   // — refers to something the model has no access to in a standalone prompt.
   const IMPLICIT_PRIOR_REF =
-    /\b(quello\s+che\s+hai\s+(fatto|detto|scritto)\s+prima|come\s+prima|come\s+l'ultima\s+volta|i\s+\w+(\s+\w+){0,2}\s+che\s+ti\s+ho\s+(detto|mostrato|dato)|what\s+you\s+did\s+(before|last\s+time)|like\s+(before|last\s+time)|the\s+\w+(\s+\w+){0,2}\s+i\s+(told|showed|gave)\s+you)\b/i;
+    /\b(quello\s+che\s+hai\s+(fatto|detto|scritto)\s+prima|come\s+prima|come\s+l'ultima\s+volta|i\s+\w+(\s+\w+){0,2}\s+che\s+ti\s+ho\s+(detto|mostrato|dato)|what\s+you\s+did\s+(before|last\s+time)|like\s+(before|last\s+time)|the\s+\w+(\s+\w+){0,2}\s+i\s+(told|showed|gave)\s+you|as\s+we\s+(discussed|agreed)|come\s+abbiamo\s+discusso)\b/i;
+  // Structural pattern (generalizes beyond enumerated phrases): a verb that
+  // implies USING externally-supplied material ("usa/segui/applica"/"use/
+  // follow/apply") + any noun + a relative clause saying it was given/sent/
+  // shown earlier ("che ti ho mandato"/"you sent me") — the referent is
+  // never actually present in the prompt, regardless of what the material is
+  // called (template, style, format, example, guide...).
+  const USE_PRIOR_MATERIAL =
+    /\b(usa|segui|applica|use|follow|apply)\s+(il|lo|la|i|gli|le|the)?\s*\w+(\s+\w+){0,2}\s+(che\s+ti\s+ho\s+(mandato|dato|mostrato|inviato)|you\s+(sent|gave|showed)\s+me)\b/i;
+  // "continua/prosegui/riprendi" + noun + "che stavamo scrivendo/facendo" —
+  // same idea for continuation verbs referring to unavailable prior work.
+  const CONTINUE_PRIOR_WORK =
+    /\b(continua|prosegui|riprendi|continue|resume)\s+(il|lo|la|i|gli|le|the)?\s*\w+(\s+\w+){0,2}\s+(che\s+stavamo\s+(scrivendo|facendo|discutendo)|we\s+were\s+(writing|working\s+on|discussing))\b/i;
+  // "Continue from where we left off" / "Do it like the previous example" —
+  // explicit task verbs (continue/do) referencing unavailable prior state.
+  const EXPLICIT_VERB_PRIOR_REF =
+    /\b(continue\s+from\s+where\s+we\s+left\s+off|continua\s+da\s+dove\s+eravamo|do\s+it\s+like\s+the\s+previous\s+(example|one)|fai\s+come\s+nell'esempio\s+precedente)\b/i;
   if (IMPLICIT_PRIOR_REF.test(text) && !conversational) {
+    cap(35, 'implicit_prior_reference');
+  }
+  // These two patterns have an explicit task verb (usa/continua) unlike the
+  // bare-acknowledgment style of IMPLICIT_PRIOR_REF, so they don't need the
+  // `!conversational` guard — the existing conversational detector
+  // misclassifies short imperatives referencing "che ti ho mandato" as
+  // conversational replies, which would otherwise suppress this cap entirely.
+  if (USE_PRIOR_MATERIAL.test(text) || CONTINUE_PRIOR_WORK.test(text) || EXPLICIT_VERB_PRIOR_REF.test(text)) {
     cap(35, 'implicit_prior_reference');
   }
 
@@ -743,7 +780,17 @@ export function scorePrompt(
     // meant for "Quanto fa 18 × 27?"). Require actual alphanumeric content
     // for a text to count as a real question worth exempting.
     const hasAnyRealContent = /[\p{L}\p{N}]/u.test(text);
-    if (words <= 3 && objEmpty && !selfBounding && !(isQuestionLike && hasAnyRealContent)) {
+    // A short prompt with a concrete proper-noun reference ("dell'Italia",
+    // "in italiano") IS specific content, not emptiness — "Codice ISO
+    // dell'Italia" names an exact country; "Ora in italiano" (as a followup)
+    // names an exact target language. Also respect `conversational`: a
+    // short followup reply ("Now in French") has its object in the prior
+    // turn, which the standalone scorer can't see — that's the caller's
+    // context to resolve, not a defect.
+    const CONCRETE_REF = /\b(dell'italia|della francia|italiano|inglese|francese|tedesco|spagnolo|italian|english|french|german|spanish)\b/i;
+    const hasConcreteRef = CONCRETE_REF.test(text);
+    if (words <= 3 && objEmpty && !selfBounding && !(isQuestionLike && hasAnyRealContent)
+        && !conversational && !hasConcreteRef) {
       cap(hasRealVerb ? 20 : 12, 'ultra_short');
     }
     // A terse prompt with a real, actionable task verb ("Analizza questo
