@@ -280,7 +280,6 @@ The scoring engine is evaluated against an annotated corpus of 250 prompts acros
 | In-range accuracy | 68% |
 | ⚠️ Dangerous misses | 14 / 114 bad prompts |
 | ✅ False rejects | 0 |
-| Benchmark corpus | 863 annotated prompts (250 real-world + 613 adversarial) |
 
 To reproduce:
 

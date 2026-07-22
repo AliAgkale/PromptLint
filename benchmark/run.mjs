@@ -51,6 +51,7 @@ for (const entry of corpus) {
   const opts = { uiLocale: 'en' };
   if (entry.lang) opts.language = entry.lang;
   if (entry.turn === 'followup') opts.conversationTurn = 'followup';
+  else if (entry.turn === 'first') opts.conversationTurn = 'first';
 
   const r = analyze(entry.text, opts);
   const got = r.score.total;

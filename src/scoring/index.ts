@@ -19,7 +19,8 @@ import type { Observation, TokenAnalysis, PromptScore, ScoreLabel, ScoreDimensio
 import { buildPromptModel, type PromptModel } from '../slots/model.js';
 import { detectLanguage } from '../spell/language.js';
 import type { UILocale } from '../analyzers/observations.js';
-import { findMorphologicalRedundancy, findRepeatedContentWords } from '../spell/engine/stemmer.js';
+import { findMorphologicalRedundancy, findRepeatedContentWords, stem } from '../spell/engine/stemmer.js';
+import { CAP_REASON_TEXT, CAP_TO_DIM } from './caps_data.js';
 
 function label(score: number): ScoreLabel {
   if (score >= 82) return 'excellent';
@@ -34,6 +35,7 @@ function dim(name: string, score: number, why: string, tips: string[]): ScoreDim
   const s = clamp(Math.round(score));
   return { name, score: s, label: label(s), why, tips };
 }
+
 
 function isSelfBoundingTask(text: string): boolean {
   // Kept in sync with `isSelfBounding` in analyzers/observations.ts — these
@@ -431,15 +433,39 @@ export function scorePrompt(
     if (maxRun >= 4) cap(12, 'pure_repetition');
   }
 
-  // ── BARE ACKNOWLEDGMENT as first turn ───────────────────────────────────
+  // ── BARE ACKNOWLEDGMENT / EMPTY REQUEST as first turn ───────────────────
   // "Ok" alone as a first message is not a real prompt. But the core can't
   // distinguish first-turn from followup on single words (the conversational
   // detector correctly marks them true for followup scenarios). The
   // extension, which sees the DOM, handles first-turn capping. The core only
   // caps when it's sure it's NOT conversational.
+  //
+  // v2.23: split into two families.
+  //  - ACK_FIRST: bare acknowledgment, ≤2 words ("Ok", "sì", "…").
+  //  - EMPTY_REQUEST: 3-5 word "go" signals with no content ("ok vai",
+  //    "go ahead", "vai avanti", "procedi pure") or empty question forms
+  //    ("puoi fare una cosa?", "can you do something?"). The first family
+  //    is caught by ACK_FIRST + words<=2; the second slipped through
+  //    because it's 3+ words. Both are functionally identical: the user
+  //    handed over the turn with no actual task.
   if (words <= 2 && !conversational && !m.object.fromInlineMaterial) {
     const ACK_FIRST = /^\s*(ok|okay|va bene|d'accordo|alright|sure|yes|no|si|sì|\.{1,}|!{1,}|\?{1,})\s*[.!?]*\s*$/i;
     if (ACK_FIRST.test(text)) cap(15, 'bare_acknowledgment');
+  }
+  if (words >= 2 && words <= 6 && !conversational && !m.object.fromInlineMaterial) {
+    // Content-free continuation signals ("ok vai", "go ahead", "procedi
+    // pure"). Distinguished from real short imperatives ("scrivi qualcosa")
+    // by having no content verb + no object — just "go/proceed/continue".
+    const EMPTY_GO = /^\s*(ok\s+)?(vai|procedi|continua|dai|forza|go\s+ahead|proceed|carry\s+on|continue|go\s+for\s+it|go\s+on)(\s+(pure|avanti|adesso|ora|now|then))?\s*[.!?]*\s*$/i;
+    if (EMPTY_GO.test(text)) cap(15, 'bare_acknowledgment');
+    // Content-free question shape: "puoi fare una cosa?", "can you do
+    // something?" — a task verb reduced to "fare/do" with a placeholder
+    // noun ("cosa/thing/something") and no material. Distinguished from
+    // real vague prompts ("fammi qualcosa") — those have imperative form;
+    // these use the "puoi ...?" indirect-question envelope, plus the
+    // placeholder noun is what makes them meaningless.
+    const EMPTY_QUESTION = /^\s*(puoi|potresti|riusciresti|sapresti|can\s+you|could\s+you|would\s+you)\s+(fare|far|do|make)\s+(una\s+)?(cosa|robe?|thing|something)\s*\??\s*$/i;
+    if (EMPTY_QUESTION.test(text)) cap(15, 'bare_acknowledgment');
   }
 
   // ── ROLE-ONLY: prompt assigns a persona but never gives a task ──────────
@@ -463,8 +489,20 @@ export function scorePrompt(
   // The POL_* detector misses many Italian/English courtesy forms. Instead of
   // extending the detector (fragile), detect the PATTERN directly: hedging
   // phrases + no concrete object/spec. The conjunction makes it safe.
+  // Extended in v2.23 with the benchmark misses (were all scoring 92 or 100):
+  //  - "Scusa il disturbo, ma potresti aiutarmi con una cosa?"
+  //  - "Mi dispiace disturbarti, ma potresti darmi una mano?"
+  //  - "Se non è un problema, potresti magari aiutarmi?"
+  //  - "Could you perhaps, if you don't mind, help me a little?"
+  // NOTE ON WORD BOUNDARIES (v2.23): the closing \b removed. Italian
+  // enclitics attach directly to verbs ("disturbar" + "ti" = "disturbarti"),
+  // so a \b between "r" and "t" doesn't exist and the pattern
+  // "mi\s+dispiace\s+disturbar\b" silently failed on the exact form users
+  // actually type. Verb-prefix patterns end in a letter so they still won't
+  // false-match: "disturbar" won't hit unless the token starts with those
+  // exact letters.
   const COURTESY_HEAVY =
-    /\b(scusami|scusa\s+se|non\s+voglio\s+disturbar|mi\s+dispiace\s+disturbar|saresti\s+così\s+gentile|potresti\s+gentilmente|per\s+favore\s+potresti|i\s+hope\s+this\s+isn'?t\s+too\s+much|sorry\s+to\s+bother|would\s+you\s+be\s+so\s+kind|could\s+you\s+possibly|if\s+it'?s\s+not\s+too\s+much\s+trouble|grazie\s+mille!?\s+(saresti|potresti)|i\s+hate\s+to\s+ask|would\s+you\s+mind\s+help|if\s+you\s+have\s+a\s+moment|if\s+possible.*assist|sarebbe\s+possibile\s+avere|spero\s+di\s+non\s+darti\s+fastidio|se\s+fosse\s+possibile)\b/i;
+    /\b(scusami|scusa\s+se|scusa\s+il\s+disturbo|non\s+voglio\s+disturbar|mi\s+dispiace\s+disturbar|se\s+non\s+è\s+un\s+problema|saresti\s+così\s+gentile|potresti\s+gentilmente|per\s+favore\s+potresti|potresti\s+magari|i\s+hope\s+this\s+isn'?t\s+too\s+much|sorry\s+to\s+bother|would\s+you\s+be\s+so\s+kind|could\s+you\s+possibly|could\s+you\s+perhaps|if\s+it'?s\s+not\s+too\s+much\s+trouble|if\s+you\s+don'?t\s+mind|grazie\s+mille!?\s+(saresti|potresti)|i\s+hate\s+to\s+ask|would\s+you\s+mind\s+help|if\s+you\s+have\s+a\s+moment|if\s+possible.*assist|sarebbe\s+possibile\s+avere|spero\s+di\s+non\s+darti\s+fastidio|se\s+fosse\s+possibile)/i;
   if (COURTESY_HEAVY.test(text) && !m.object.fromInlineMaterial) {
     // Only fire if there's no real, concrete spec beyond the courtesy
     const realSpecs = (m.format.formats.length > 0 ? 1 : 0) + (m.length.cues.length > 0 ? 1 : 0) + (m.audience.level !== null ? 1 : 0);
@@ -581,10 +619,47 @@ export function scorePrompt(
   // "Come posso farti lavorare meglio?", "What are you best at?" — these ask
   // about the model's capabilities or usage rather than giving a task. They
   // have no concrete deliverable: the model can't produce anything actionable.
+  // Extended in v2.23 with the four benchmark misses:
+  //  - "Cos'è che sai fare meglio?"     (was scoring 92)
+  //  - "Puoi suggerirmi una buona domanda da farti?"
+  //  - "What should I ask you?"
+  //  - "Can you suggest a good question for me to ask?"
+  // Also: "cosa dovrei chiederti" / "che domanda dovrei farti" family.
   const META_USAGE =
-    /\b(come\s+(posso\s+)?(usarti|farti\s+lavorare|sfruttarti|utilizzarti)|come\s+dovrei\s+(usarti|strutturare\s+le\s+mie)|how\s+(can\s+i|should\s+i)\s+(use\s+you|make\s+you\s+work|get\s+the\s+best|structure\s+my)|what\s+are\s+you\s+(best\s+at|good\s+at|capable\s+of)|cos[aà]\s+(sai|riesci)\s+a\s+fare|cosa\s+sai\s+fare\s+meglio)\b/i;
-  if (META_USAGE.test(text) && words <= 20 && !m.object.fromInlineMaterial) {
+    /\b(come\s+(posso\s+)?(usarti|farti\s+lavorare|sfruttarti|utilizzarti)|come\s+dovrei\s+(usarti|strutturare\s+le\s+mie)|how\s+(can\s+i|should\s+i)\s+(use\s+you|make\s+you\s+work|get\s+the\s+best|structure\s+my)|what\s+are\s+you\s+(best\s+at|good\s+at|capable\s+of)|cos[aà]\s+(sai|riesci)\s+a\s+fare|cosa\s+sai\s+fare\s+meglio|cos['’]è\s+che\s+sai\s+fare|cosa\s+dovrei\s+(chiederti|farti|domandarti)|che\s+(domanda|cosa)\s+dovrei\s+(farti|chiederti)|puoi\s+suggerir(mi|ti)\s+una\s+(buona\s+)?domanda|potresti\s+suggerir(mi|ti)\s+(una\s+)?(buona\s+)?domanda|what\s+should\s+i\s+ask\s+you|can\s+you\s+suggest\s+a\s+(good\s+)?question\s+(for\s+me\s+)?to\s+ask|what\s+questions?\s+should\s+i\s+ask)\b/i;
+  if (META_USAGE.test(text) && words <= 25 && !m.object.fromInlineMaterial) {
     cap(25, 'meta_usage_unclear');
+  }
+
+  // ── VAGUE TOPIC QUESTIONS (v2.23) ───────────────────────────────────────
+  // "cosa sai sulla cucina italiana" / "what do you know about cooking" /
+  // "tell me about cooking" — these are LEGITIMATE questions to a search
+  // engine but very poor prompts to an LLM: no deliverable, no specificity,
+  // the model will produce a generic wall of text that could be about
+  // anything. Distinct from META_USAGE (which asks about the model), and
+  // distinct from a real information question ("what year was X built?")
+  // which has a concrete factual answer.
+  //
+  // The isQuestionLike floor above already gives 72 to a well-formed
+  // question with content — that floor is the reason these prompts land in
+  // "good". We CAP HERE only when it's the specific vague-topic shape.
+  //
+  // Deliberately does NOT include bare "what is X?" — that pattern includes
+  // both vague topics ("what is cloud computing") AND concrete concept
+  // questions ("what is consciousness", "what is the main cause of
+  // inflation"), and there's no clean regex-only way to tell them apart.
+  // The dangerous-miss on "what is cloud computing" is left to a future
+  // information-density improvement rather than firing here at the cost of
+  // two false rejects on legitimate concept questions.
+  const VAGUE_TOPIC_QUESTION =
+    /^(cosa\s+(sai|conosci)\s+(su|di|sull[ae]|sulla|sull'|dell[oa]|del)\s+|what\s+do\s+you\s+know\s+about\s+|tell\s+me\s+(everything\s+)?about\s+|(?:mi\s+)?parlami\s+d[eiaou]l?\s+|(?:mi\s+)?parlami\s+dell[eaoi]\s+)/i;
+  if (VAGUE_TOPIC_QUESTION.test(text.trim()) && words <= 20) {
+    const hasConcreteContent =
+      /\d/.test(text) || /["'«»""]/.test(text)
+      || hasFormat || hasLength || hasExamples;
+    if (!hasConcreteContent) {
+      cap(38, 'vague_topic_question');
+    }
   }
 
   // ── NEGATIVE-ONLY CONSTRAINTS ───────────────────────────────────────────
@@ -594,12 +669,44 @@ export function scorePrompt(
   // no product named, no format, no length, no audience. The negations pile
   // up around an empty center. Guard: 2+ negations AND no concrete spec
   // beyond the bare task verb.
-  const NEGATED_IMPERATIVE = /\b(don'?t|do\s+not|never|non)\s+\w+/gi;
+  const NEGATED_IMPERATIVE = /\b(don'?t|do\s+not|never|non)\s+(?:essere|sembrare|fare|includ|usare|be|make|include|use|write|scrivere|repeat|ripetere)\w*/gi;
   const negMatches = text.match(NEGATED_IMPERATIVE) ?? [];
   if (negMatches.length >= 2) {
-    const hasConcreteSpec = hasFormat || hasLength || hasExamples || hasAudienceSpec || /\d/.test(text);
+    // v2.23: strip the negated clauses from the text BEFORE testing for
+    // positive specs — otherwise "bullet point" inside "Non usare bullet
+    // point" is matched as hasFormat, "long" inside "Don't make it too
+    // long" is matched as hasLength, and the cap silently fails. The
+    // stripped text keeps only what the user ACTUALLY asked for
+    // positively; the specs found there are the ones that count as
+    // rescuing the prompt from being negative-only.
+    //
+    // Strip generously: entire clauses from the negation verb up to the
+    // next sentence terminator, so the qualifier ("too long") comes out
+    // with its negated verb.
+    const stripped = text.replace(
+      /\b(don'?t|do\s+not|never|non)\s+[^.!?]+(?=[.!?]|$)/gi,
+      ' ',
+    );
+    const has_ = (re: RegExp) => re.test(stripped);
+    const hasExplicitFormat =
+      has_(/\b(json|markdown|html|xml|yaml|csv|diff|in formato|come (una )?lista|elenco puntato|numerat[oa]|tabell[ae]|in \d+ paragraf|bullet|schema|in una tabella|formato)\b/i);
+    const hasExplicitLength =
+      has_(/\b(\d+\s*(?:word|parole|parola|frasi|frase|paragraf|righe|riga|bullet|punti|caratteri)|brevemente|concis[oa]|sintetic[oa]|in \d+ parole|max\w*\s*\d+|al massimo \d+|no more than|at most)\b/i);
+    const hasExplicitExamples =
+      has_(/(esempi?o?\s*:|per esempio|ad esempio|e\.g\.|example\s*:|for example|→)/i)
+      || has_(/\b(con\s+(un\s+)?esempi[oi]|usando\s+(degli\s+)?esempi|con\s+esempi|includi\s+esempi|with\s+(an?\s+)?examples?|using\s+examples?|include\s+examples?)\b/i);
+    const hasConcreteSpec =
+      hasExplicitFormat || hasExplicitLength || hasExplicitExamples || hasAudienceSpec || /\d/.test(stripped);
     if (!hasConcreteSpec) {
       cap(40, 'negative_only_constraints');
+    }
+    // A pile-up of ≥3 negated imperatives with no positive spec is
+    // essentially a request expressed entirely in prohibitions ("Crea una
+    // email. Non sembrare disperato. Non essere troppo formale. Non usare…").
+    // Even a named object ("una email") doesn't rescue it: the model still
+    // has no positive direction. Found via benchmark: 5 prompts scored 93.
+    else if (negMatches.length >= 3) {
+      cap(38, 'negative_only_constraints');
     }
   }
 
@@ -622,6 +729,113 @@ export function scorePrompt(
     }
   }
 
+  // ── MUTUALLY EXCLUSIVE GENRES (v2.23) ───────────────────────────────────
+  // "Write a haiku that is also a detailed technical manual" — one output
+  // cannot simultaneously be a 5-7-5 poem AND a comprehensive reference
+  // document. Found via the 250-corpus benchmark: q0263/q0264/q0273/q0274
+  // scored 74 despite being definitional impossibilities. Distinct from the
+  // format pairs above because these are *genre*/*depth* incompatibilities
+  // (form is fine, the requested content shape is contradictory), and they
+  // typically use "that is also"/"but also"/"che sia anche"/"ma anche"
+  // instead of a "both" marker.
+  const GENRE_INCOMPAT: [RegExp, RegExp][] = [
+    // short poetic form + long-form technical
+    [/\b(haiku|limerick|poesia|poem|sonetto)\b/i,
+      /\b(detailed|comprehensive|thorough|exhaustive|manual|manuale|documentation|documentazione|technical\s+manual|manuale\s+tecnico|guide\s+d[ei]tta|deep\s+dive)\b/i],
+    // one-word / minimal answer + detailed explanation
+    [/\b(one[-\s]?word|una\s+parola\s+sola|in\s+una\s+parola|single[-\s]?word|risposta\s+di\s+una\s+parola)\b/i,
+      /\b(explain\s+everything|in\s+detail|detailed|thorough|dettagliat|approfondit|nei\s+dettagli|tutto\s+in\s+dettaglio|spiega\s+tutto)\b/i],
+    // haiku / haiku + explain
+    [/\b(haiku|limerick|verso|verse)\b/i,
+      /\bspiega\s+tutto|explain\s+(all|everything)/i],
+  ];
+  const ALSO_MARKER = /\b(that\s+is\s+also|but\s+also|and\s+also|which\s+is\s+also|che\s+sia\s+anche|ma\s+(che\s+sia\s+)?anche|però\s+anche|ma\s+includ\w+)\b/i;
+  // Fire when the two ideas coexist AND there's an "also"/"anche" marker.
+  // Without the marker two topics can legitimately share a text
+  // ("summarize the haiku and explain its meaning") — no contradiction.
+  if (ALSO_MARKER.test(text)) {
+    for (const [a, b] of GENRE_INCOMPAT) {
+      if (a.test(text) && b.test(text)) {
+        cap(22, 'mutually_exclusive_format');
+        break;
+      }
+    }
+  }
+
+  // ── IMPOSSIBLE TEMPORAL CONSTRAINTS (v2.23) ─────────────────────────────
+  // "Translate this in under 2 seconds", "Traduci in 2 secondi" — an LLM
+  // has no user-controllable execution-time budget. This isn't a user error
+  // in a normal sense (the wall-clock isn't specifiable to the model), so
+  // the constraint is either wishful thinking or the user thinks the model
+  // has a stopwatch. Either way the constraint carries no meaning and just
+  // creates the illusion of a spec. Found via benchmark: q0261/q0272 scored
+  // 93 despite being unsatisfiable in the intended sense.
+  //
+  // Deliberately narrow: bounded seconds/milliseconds only. Larger units
+  // (minutes, hours, days) can be legitimate scheduling context ("respond
+  // by tomorrow") and must not be captured here.
+  const TEMPORAL_IMPOSSIBLE =
+    /\bin\s+(under\s+|meno\s+di\s+|less\s+than\s+)?\d+\s*(second[oi]?s?|sec\b|ms\b|millisecond[oi]?s?|millisec[oi]?)\b/i;
+  if (TEMPORAL_IMPOSSIBLE.test(text)) {
+    cap(25, 'impossible_temporal');
+  }
+
+  // ── BUDGET CONTRADICTION (v2.23) ────────────────────────────────────────
+  // "Write 10 words maximum but include: introduction, 5 examples,
+  // conclusion, and a table." — the length constraint is TIGHT (10 words)
+  // and the enumerated deliverables (introduction + 5 examples +
+  // conclusion + table) each need many more than 2 words. The prompt is
+  // arithmetically unsatisfiable.
+  //
+  // Approach:
+  //   1. Detect a tight length constraint: "N parole"/"N words"/"max N"/
+  //      "one sentence"/"una frase"/"one paragraph"/"un paragrafo".
+  //   2. Count enumerated deliverable NOUNS ("introduzione", "esempi",
+  //      "conclusione", "tabella", "riassunto", "spiegazione", …) plus
+  //      any "N examples" mentions.
+  //   3. Fire when count ≥ 3 AND the length budget is very tight (single
+  //      digits for words / "one sentence" / "one paragraph").
+  //
+  // Chosen conservatively: the point is contradiction detection, not
+  // style advice. A budget of 200 words with 3 sections is fine.
+  // TIGHT_LENGTH: either "one/una/un + sentence/word/paragraph" OR a small
+  // numeric word/parole budget (≤15). Split into two independent tests so
+  // there's no operator-precedence pitfall between `||` and `&&`.
+  // NOTE: "word[s]?" matters — the initial version omitted the plural and
+  // "10 words maximum" never matched.
+  const TIGHT_LENGTH_ONE =
+    /\b(?:in\s+)?(?:one|una|un|1)\s+(?:sentence|frase|word|parola|paragraph|paragrafo)\b/i.test(text);
+  // Lookbehind/lookahead against \d so "200 words" doesn't get partial-
+  // matched to "20 words" (found: false positive on
+  // "Write a summary in 200 words including introduction, three examples,
+  // and a conclusion" — a perfectly reasonable prompt was flagged as
+  // budget-impossible because the regex chopped off the first digit).
+  const numericLengthMatch = text.match(/(?<!\d)(\d{1,2})(?!\d)\s*(?:words?|parol[ae])\b/i);
+  const TIGHT_LENGTH_N =
+    !!numericLengthMatch && parseInt(numericLengthMatch[1]!, 10) <= 15;
+  const TIGHT_LENGTH = TIGHT_LENGTH_ONE || TIGHT_LENGTH_N;
+  const DELIVERABLE_NOUNS =
+    /\b(introduzione|introduction|conclusione|conclusion|riassunto|summary|sinossi|synopsis|tabella|table|grafico|chart|elenco|list|spiegazione|explanation|analisi|analysis|esempio|esempi|example|examples|casi\s+d'?uso|use\s+cases?|vantaggi|pros?|contro|cons?|glossario|glossary|bibliografia|bibliography|paragrafo|paragraph|sezione|section|capitolo|chapter)\b/gi;
+  const numericMentions = text.match(/\b\d+\s+(esempi|examples|paragraf|sezion|section|casi|use\s+case|elementi|item)/gi) ?? [];
+  if (TIGHT_LENGTH) {
+    const deliverables = (text.match(DELIVERABLE_NOUNS) ?? []);
+    // Dedupe by lowercase form so "esempi + esempi" doesn't double-count.
+    const uniqueDeliv = new Set(deliverables.map((d) => d.toLowerCase()));
+    const totalItems = uniqueDeliv.size + numericMentions.length;
+    if (totalItems >= 3) {
+      cap(20, 'impossible_budget');
+    }
+  }
+  // "Give me a one-word answer but explain everything in detail" —
+  // arithmetically the same shape as budget contradiction but expressed as
+  // depth vs brevity rather than as an enumerated list.
+  const ONE_WORD = /\b(one[-\s]?word|una\s+parola\s+sola|in\s+una\s+parola|single[-\s]?word|risposta\s+di\s+una\s+parola)\b/i;
+  const EXPLAIN_ALL = /\b(explain\s+(all|everything)|spiega\s+tutto|in\s+dettaglio|in\s+detail|dettagliatamente|nei\s+dettagli)\b/i;
+  const BUT_MARKER = /\bbut\b|\bma\b|\byet\b|\bhowever\b|\btuttavia\b|\bperò\b/i;
+  if (ONE_WORD.test(text) && EXPLAIN_ALL.test(text) && BUT_MARKER.test(text)) {
+    cap(20, 'impossible_budget');
+  }
+
   // ── LITERAL PLACEHOLDER MEDIA REFERENCE ─────────────────────────────────
   // "Here's my code: [screenshot]." — the bracketed word is literal text,
   // not an attached image. The core can't see the DOM (the extension
@@ -629,6 +843,37 @@ export function scorePrompt(
   // a placeholder that was never actually replaced with an attachment.
   if (/\[\s*(screenshot|image|immagine|foto|photo|allegato|attachment)\s*\]/i.test(text)) {
     cap(35, 'literal_media_placeholder');
+  }
+
+  // ── UNFILLED TEMPLATE PLACEHOLDER (general, v2.23) ─────────────────────
+  // "Analizza il documento: [DOCUMENTO DA INSERIRE]" and
+  // "Summarize this article: [PASTE ARTICLE HERE]" and
+  // "Crea contenuti per il pubblico [TARGET AUDIENCE]".
+  // All were scoring 74–93 despite the fact that the entire target content
+  // is missing. Distinct from the media-placeholder case above (which is
+  // specifically about an "attach the file" pattern): here the pattern is
+  // ALL-CAPS bracketed text of 2+ words, or all-caps single word ≥ 5 chars.
+  // Deliberately requires ALL-CAPS to avoid firing on legitimate uses of
+  // brackets like "[John]" (a name) or "[a, b]" (a tuple).
+  //
+  // NOTE: no `!m.object.fromInlineMaterial` guard here (v2.23 fix): the
+  // colon-plus-bracket shape ("documento: [DOCUMENTO DA INSERIRE]") makes
+  // the object slot report `fromInlineMaterial = true` — because from a
+  // pure-shape point of view it looks like "here's the material" — which
+  // silently disabled this rule on exactly the prompts it's meant for.
+  // The uppercase pattern itself is the guard: real inline material is
+  // essentially never all-caps, so false positives are near-zero without
+  // needing the extra check.
+  {
+    const UNFILLED_TEMPLATE = /\[\s*(?:[A-ZÀ-Ù][A-ZÀ-Ù\s]{3,60})\s*\]/;
+    const match = text.match(UNFILLED_TEMPLATE);
+    if (match) {
+      const inside = match[0].slice(1, -1).trim();
+      const wordCount = (inside.match(/\S+/g) ?? []).length;
+      if (wordCount >= 2 || (wordCount === 1 && inside.length >= 5)) {
+        cap(18, 'unfilled_template');
+      }
+    }
   }
 
   // ── IMPLICIT REFERENCE TO UNSTATED PRIOR CONTEXT ────────────────────────
@@ -709,11 +954,72 @@ export function scorePrompt(
     cap(35, 'contradiction');
   }
 
+  // v2.23: "one sentence but cover everything" / "una frase ma coprendo
+  // tutti gli aspetti" — same shape as DETAIL_SHORT but with "cover all/
+  // everything" as the depth signal instead of "detailed/thorough".
+  // Deliberately keeps the adversative marker so "in one sentence and
+  // cover the basics" (no adversative) doesn't fire.
+  const SENTENCE_COVER_ALL =
+    /\b(one\s+sentence|in\s+one\s+sentence|una\s+(sola\s+)?frase|in\s+una\s+(sola\s+)?frase)\b[^.!?]{0,40}\b(but|yet|however|ma|però)\b[^.!?]{0,40}\b(cover(?:ing|s)?\s+(everything|all|every\s+(aspect|angle|detail))|copr(?:endo|ire|i)\s+tutt[oi]\s+(gli\s+)?aspett[oi]|tutti\s+gli\s+aspetti|every\s+aspect|all\s+aspects)\b/i;
+  if (SENTENCE_COVER_ALL.test(text)) {
+    cap(22, 'contradiction');
+  }
+
+  // v2.23: "long detailed summary" / "riassunto lungo dettagliato" — a
+  // summary is by definition compressed, so "long + detailed + summary" is
+  // internally contradictory even without an adversative. Only fires when
+  // "summary/riassunto" is preceded by a length AND a depth signal in the
+  // same short span (≤ 12 words apart), so it doesn't misfire on
+  // "give me a summary" + separate "and add detail" later.
+  const LONG_DETAILED_SUMMARY =
+    /\b(long|lengthy|extensive|lung[oa]|est[eé]s[oa])\b\s+(and\s+|e\s+)?(detailed|comprehensive|thorough|exhaustive|dettagliat[oa]|approfondit[oa]|esaustiv[oa]|completo|completa)\s+(summary|riassunto|sintesi|synopsis|sinossi)\b/i;
+  const SUMMARY_LONG_DETAIL =
+    /\b(summary|riassunto|sintesi|synopsis|sinossi)\b[^.!?]{0,30}\b(long\s+and\s+detailed|detailed\s+and\s+long|lung[oa]\s+e\s+dettagliat[oa]|dettagliat[oa]\s+e\s+lung[oa]|completo\s+e\s+dettagliato)\b/i;
+  if (LONG_DETAILED_SUMMARY.test(text) || SUMMARY_LONG_DETAIL.test(text)) {
+    cap(30, 'contradiction');
+  }
+
+  // v2.23: "preciso ma approssimativo" / "precise but approximate" — bare
+  // antonym pair separated by adversative. Different lexical field from
+  // DETAIL_SHORT (which is size/depth); this is precision vs vagueness.
+  const PRECISE_APPROX =
+    /\b(preciso|precisa|accurato|accurata|esatto|esatta|precise|accurate|exact)\b[^.!?]{0,30}\b(ma|però|but|yet)\b[^.!?]{0,30}\b(approssimativo|approssimativa|impreciso|imprecisa|vago|vaga|approximate|rough|imprecise|vague)\b/i;
+  const APPROX_PRECISE =
+    /\b(approssimativo|approssimativa|impreciso|imprecisa|vago|vaga|approximate|rough|imprecise|vague)\b[^.!?]{0,30}\b(ma|però|but|yet)\b[^.!?]{0,30}\b(preciso|precisa|accurato|accurata|esatto|esatta|precise|accurate|exact)\b/i;
+  if (PRECISE_APPROX.test(text) || APPROX_PRECISE.test(text)) {
+    cap(20, 'contradiction');
+  }
+
   // ── "Do the same thing but different" — contradiction ──────────────────
   const SAME_BUT_DIFF =
     /\b(same|stess[oa]|uguale|medesim[oa])\b[^.!?]{0,20}\b(but|yet|however|ma|però|pero)\b[^.!?]{0,20}\b(different|divers[oa]|altro)\b/i;
   if (SAME_BUT_DIFF.test(text)) {
     cap(20, 'contradiction');
+  }
+
+  // GENRE SELF-EXCLUSION: "please everyone except fans of [the genre you're
+  // creating]" - a logical contradiction distinct from lexical antonym
+  // pairs: the target audience explicitly EXCLUDES the natural audience for
+  // the thing being created. Detected structurally: find "a tutti tranne/
+  // eccetto chi piace/piacciono/ama/amano X" (or EN equivalent), then check
+  // whether X shares a stem with a content word appearing earlier in the
+  // prompt (the task's own topic/genre).
+  const AUDIENCE_EXCLUSION_IT =
+    /a\s+tutti\s+(tranne|eccetto|escluso)\s+(a\s+)?(chi|quelli\s+che|cui)\s+(piace|piacciono|ama|amano)\s+(?:le\s+|il\s+|la\s+|i\s+|gli\s+)?([\p{L}\p{M}'\s]{2,30}?)(?:[.!?]|$)/iu;
+  const AUDIENCE_EXCLUSION_EN =
+    /everyone[^.!?]{0,20}\bexcept\s+(those\s+who|people\s+who|fans\s+of)\s+(?:like|love|enjoy)?\s*(?:the\s+)?([\p{L}\p{M}'\s]{2,30}?)(?:[.!?]|$)/iu;
+  const excMatch = text.match(AUDIENCE_EXCLUSION_IT) || text.match(AUDIENCE_EXCLUSION_EN);
+  if (excMatch) {
+    const excludedGroup = excMatch[excMatch.length - 1] || '';
+    const excludedWords = (excludedGroup.match(/[\p{L}]{4,}/gu) ?? []).map((w) => w.toLowerCase());
+    const beforeExclusion = text.slice(0, excMatch.index ?? 0);
+    const priorWords = (beforeExclusion.match(/[\p{L}]{4,}/gu) ?? []).map((w) => w.toLowerCase());
+    const excLang: 'it' | 'en' = /[àèéìòù]/i.test(text) ? 'it' : 'en';
+    const overlap = excludedWords.some((ew) => {
+      const ewStem = stem(ew, excLang);
+      return priorWords.some((pw) => stem(pw, excLang) === ewStem);
+    });
+    if (overlap) cap(22, 'genre_self_exclusion');
   }
 
   // ("l'email di Marco", "il file allegato") that was never provided. The
@@ -852,32 +1158,99 @@ export function scorePrompt(
   total = clamp(total);
 
   const lbl = label(total);
-  const worst = [clarityScore, precisionScore, lengthScore, redundancyScore, readabilityScore]
+
+  // ── COERENCE PROJECTION (v2.23) ─────────────────────────────────────────
+  // A poison cap can pin the total at a low value (e.g. 22 on
+  // "scrivi una canzone d'amore che piaccia a tutti tranne a chi piacciono
+  // le canzoni d'amore" — a genre self-exclusion contradiction) while the
+  // per-dimension breakdown above still reads clarity:100 precision:78
+  // length:100 redundancy:100 readability:100. Each dimension is measuring
+  // exactly what it's designed to (there's no misspelling, no vague verb,
+  // etc.), but to a user reading the panel it looks like a bug: "why is
+  // the total poor if every bar is green?".
+  //
+  // So when a DECISIVE cap (the one whose ceiling actually bound the
+  // total) has a natural dimension owner, we floor that dim to a level
+  // coherent with the cap. Contradiction/reference-failure caps → clarity;
+  // delegation/spec-empty caps → precision; redundancy-family caps →
+  // redundancy. Deliberately not exact-match: `total + 15` leaves a small
+  // gap so the dim doesn't literally equal the cap number, preserving
+  // that a dimension measures more than one cap can express. Only the
+  // decisive cap projects — non-binding caps don't touch dims, otherwise a
+  // barely-triggered ceiling would silently rewrite green dims.
+  //
+  // `total` is not modified. `breakdown` is not modified (audit trail
+  // stays intact). Only the returned `dimensions` change — the visible UI
+  // now agrees with the number the user sees.
+  // CAP_TO_DIM imported from ./caps_data.js;
+
+  const decisiveCapForDim = [...breakdown].reverse().find((b) => b.kind === 'cap' && b.effect === total);
+  const dims = {
+    clarity:     clarityScore,
+    precision:   precisionScore,
+    length:      lengthScore,
+    redundancy:  redundancyScore,
+    readability: readabilityScore,
+  };
+  if (decisiveCapForDim) {
+    const target = CAP_TO_DIM[decisiveCapForDim.label];
+    if (target) {
+      const ceiling = Math.min(100, total + 15);
+      const currentDim = dims[target];
+      if (currentDim.score > ceiling) {
+        const capText = CAP_REASON_TEXT[decisiveCapForDim.label];
+        // Update `why` too, otherwise a dim floored to 37 still reads
+        // "Task chiaro, nessuna ambiguità o conflitto" — the user sees the
+        // low bar but no explanation. Falls back to the original `why` if
+        // the cap has no reason string mapped (shouldn't happen for caps
+        // in CAP_TO_DIM, but defensive).
+        const newWhy = capText
+          ? (uiLocale === 'it' ? capText.it : capText.en)
+          : currentDim.why;
+        dims[target] = {
+          ...currentDim,
+          score: ceiling,
+          label: label(ceiling),
+          why: newWhy,
+        };
+      }
+    }
+  }
+
+  // Worst is computed AFTER the coherence projection — if the cap just
+  // dropped clarity from 100 to 37, the summary should now correctly cite
+  // clarity as the focus (the CAP_REASON_TEXT path still takes precedence
+  // below when the cap has an explicit reason string).
+  const worst = [dims.clarity, dims.precision, dims.length, dims.redundancy, dims.readability]
     .sort((a, b) => a.score - b.score)[0];
+
+  // The CAP_REASON_TEXT map lives at module scope (top of file). When a
+  // decisive cap has an explicit reason string there, the summary cites
+  // that reason directly — otherwise it falls back to the worst dimension
+  // name.
+  const decisiveCap = [...breakdown].reverse().find((b) => b.kind === 'cap' && b.effect === total);
+  const capReason = decisiveCap ? CAP_REASON_TEXT[decisiveCap.label] : undefined;
+  const focusText = capReason
+    ? (uiLocale === 'it' ? capReason.it : capReason.en)
+    : worst.name.toLowerCase();
 
   const summaries: Record<ScoreLabel, string> = uiLocale === 'it' ? {
     excellent: 'Ottimo prompt: ben strutturato e specificato.',
-    good: `Buon prompt, migliorabile. Focus: ${worst.name.toLowerCase()}.`,
-    fair: `Prompt discreto. Problema principale: ${worst.name.toLowerCase()}.`,
-    poor: `Prompt debole. Inizia da: ${worst.name.toLowerCase()}.`,
+    good: `Buon prompt, migliorabile. Focus: ${focusText}.`,
+    fair: `Prompt discreto. Problema principale: ${focusText}.`,
+    poor: `Prompt debole. Inizia da: ${focusText}.`,
   } : {
     excellent: 'Great prompt: well structured and specified.',
-    good: `Good prompt, room to improve. Focus: ${worst.name.toLowerCase()}.`,
-    fair: `Decent prompt. Main issue: ${worst.name.toLowerCase()}.`,
-    poor: `Weak prompt. Start with: ${worst.name.toLowerCase()}.`,
+    good: `Good prompt, room to improve. Focus: ${focusText}.`,
+    fair: `Decent prompt. Main issue: ${focusText}.`,
+    poor: `Weak prompt. Start with: ${focusText}.`,
   };
 
   return {
     total,
     label: lbl,
     breakdown,
-    dimensions: {
-      clarity: clarityScore,
-      precision: precisionScore,
-      length: lengthScore,
-      redundancy: redundancyScore,
-      readability: readabilityScore,
-    },
+    dimensions: dims,
     structure: {
       task: hasTaskVerb,
       role: hasRole,

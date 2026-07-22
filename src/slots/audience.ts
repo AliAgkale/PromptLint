@@ -68,6 +68,26 @@ export function extractAudience(text: string): AudienceSlot {
     const g = new RegExp(re.source, 'gi');
     let m: RegExpExecArray | null;
     while ((m = g.exec(text)) !== null) {
+      // v2.23: "non tecnico" preceded by "tono:" / "stile:" / "tone:" /
+      // "style:" is describing the TONE, not the audience. Found via
+      // false-reject on q0425: "Tono: chiaro, non tecnico." was being
+      // read as "beginner audience" AND was then flagged as conflicting
+      // with the (implicit) "tecnico" tone appearing elsewhere in the same
+      // prompt. Skip when the cue lives in an unambiguously tone-scoped
+      // clause.
+      const matchText = m[0].toLowerCase();
+      const isNonTechnical =
+        /^non tecnic[oi]$/i.test(matchText.trim()) ||
+        /non\s+tecnic[oi]/i.test(matchText);
+      if (isNonTechnical) {
+        // Look back up to 40 chars for a "tono:"/"stile:"/"tone:"/"style:"
+        // label — that means this is tone description, not audience.
+        const before = text.slice(Math.max(0, m.index - 40), m.index);
+        if (/\b(tono|stile|tone|style|register)\s*:/i.test(before)) {
+          if (m.index === g.lastIndex) g.lastIndex++;
+          continue;
+        }
+      }
       audiences.push({ level, match: m[0], index: m.index });
       if (m.index === g.lastIndex) g.lastIndex++;
     }

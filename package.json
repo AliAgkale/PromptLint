@@ -1,6 +1,6 @@
 {
   "name": "promptlint-core",
-  "version": "2.22.0",
+  "version": "2.23.0",
   "description": "Deterministic prompt linter for LLMs — offline, provider-agnostic, ESLint for prompts",
   "keywords": [
     "prompt",

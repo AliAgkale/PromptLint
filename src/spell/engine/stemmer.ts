@@ -123,7 +123,7 @@ export function findMorphologicalRedundancy(text: string, lang: 'it' | 'en'): st
   // — that's normal writing, not stylistic filler. This detector is only
   // reliable on SHORT prompts where the redundant pair is a large fraction
   // of the entire content ("Scrivi un testo scritto bene e ben scritto").
-  if (words.length > 18) return [];
+  if (words.length > 25) return [];
   const stemToPositions = new Map<string, { word: string; pos: number }[]>();
   words.forEach((raw, i) => {
     const w = raw.toLowerCase();
@@ -168,7 +168,7 @@ export function findRepeatedContentWords(text: string, lang: 'it' | 'en'): strin
   const words = clean.match(/[\p{L}\p{M}]+/gu) ?? [];
   // Same rationale as findMorphologicalRedundancy: only reliable signal on
   // short prompts where a repeated word is a large fraction of the content.
-  if (words.length > 18) return [];
+  if (words.length > 25) return [];
   const positions = new Map<string, number[]>();
   words.forEach((raw, i) => {
     const w = raw.toLowerCase();

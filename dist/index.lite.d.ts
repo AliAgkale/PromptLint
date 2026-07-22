@@ -430,6 +430,17 @@ declare function applyTabCompletion(text: string, suggestion: CompletionSuggesti
 };
 
 /**
+ * promptlint-core — Rule utilities (shared)
+ *
+ * Everything every rule module needs: the `obs()` factory, `UILocale`,
+ * `impact()`, `getLineCol()`, `nextId()`, and the sticky price state that
+ * `runAllObservations` sets once per call. Kept here so every rule file
+ * imports from one place and the primitives can't silently drift.
+ */
+
+type UILocale = 'it' | 'en';
+
+/**
  * promptlint-core — Spell Engine v3
  * Multi-language: detects EN vs IT and checks against the matching dictionary.
  * Root derivation handles morphological variants per language.
@@ -791,62 +802,36 @@ interface PromptModel {
 }
 
 /**
- * UI locale — the language EXPLANATIONS/suggestions are shown in. This is a
- * SEPARATE axis from `detectedLang`/`SupportedLanguage` (the language of the
- * PROMPT TEXT itself). Before this was introduced, a few rules (SPELL_001,
- * PL_001, OBJ_001) conflated the two — branching their explanation language
- * on the PROMPT's detected language instead of the user's actual UI/browser
- * language. That meant an English-speaking user writing an Italian prompt
- * got Italian explanations regardless of their own language, and vice versa.
- * `uiLocale` is meant to come from the host's OWN locale (e.g. Chrome's
- * `chrome.i18n.getUILanguage()` in the extension), not from the text being
- * analyzed. Defaults to 'it' — this project's original language — so any
- * caller that doesn't pass it explicitly keeps today's behavior unchanged.
+ * promptlint-core — Observations Engine (orchestrator)
+ *
+ * This file is the SINGLE ENTRY POINT for the rule engine. It:
+ *   1. Manages sticky language state (per-instance and global fallback).
+ *   2. Builds the PromptModel and exempt-material ranges once per call.
+ *   3. Runs every rule module in a fixed order.
+ *   4. Deduplicates overlapping observations by type.
+ *
+ * Rule logic lives in src/rules/:
+ *   spelling.ts      — SPELL_001, GRAM_001-004
+ *   filler.ts        — FILL_*, VERB_*, SYN_*, POL_*
+ *   structure.ts     — PL_*, OBJ_001, EX_001, CTX_001, NEG_001, REF_001
+ *   vagueness.ts     — AMB_002/003, WEAK_001, VAGUE_002
+ *   contradiction.ts — CONTRA_001-003, TMPL_001
+ *   readability.ts   — passive voice, long sentence
+ *   ambiguity.ts     — AMB_001
+ *
+ * To add a new rule: create it in the appropriate rules/ file, export it,
+ * import it here, add one line to the runners array.
  */
-type UILocale = 'it' | 'en';
-/** Opaque holder for the sticky language of one analysis stream.
- *  Create with makeLangState(), pass to runAllObservations to keep
- *  language detection isolated per analyzer/conversation. */
+
 interface LangState {
     lastLang: SupportedLanguage;
 }
 declare function makeLangState(): LangState;
-declare function runAllObservations(text: string, disabledRules?: string[], spell?: SpellAdapter, inputPricePerMillion?: number, langState?: LangState, forcedLang?: SupportedLanguage, conversationTurn?: 'first' | 'followup', 
-/** Pre-resolved language and model from the pipeline. When provided,
- *  runAllObservations skips its own language resolution and model build —
- *  this is the fix for C1 (model built 3× per analyze). */
-preResolved?: {
+declare function runAllObservations(text: string, disabledRules?: string[], spell?: SpellAdapter, inputPricePerMillion?: number, langState?: LangState, forcedLang?: SupportedLanguage, conversationTurn?: 'first' | 'followup', preResolved?: {
     detected: SupportedLanguage;
     model: PromptModel;
-}, 
-/** Language for EXPLANATIONS (why/suggestion text), independent of the
- *  prompt's own detected language. Defaults to 'it'. Pass the host's real
- *  UI language here (e.g. Chrome's UI locale in the extension). */
-uiLocale?: UILocale): Observation[];
-/**
- * Resolve whether a message should be treated as a conversational reply,
- * combining the host's turn-position hint with the message content.
- *
- * KEY INSIGHT (found via conversation-flow testing): `conversationTurn:
- * 'followup'` from the extension means "this isn't the first message in the
- * chat" — it does NOT mean "this is a trivial reply". A follow-up turn can
- * perfectly well be a big new task ("adesso genera un report finanziario
- * completo con analisi trimestrale in JSON"). Blindly treating every
- * follow-up as conversational made the tool go silent for the rest of a
- * conversation and let complex tasks score 100 with no feedback.
- *
- * So even when the host says 'followup', the message must still LOOK like a
- * reply (short, reply-shaped, no task payload) via isConversationalReply.
- * The 'first' hint is absolute (an opening message is never a reply). With no
- * hint, we fall back to pure content detection.
- */
+}, uiLocale?: 'it' | 'en'): Observation[];
 declare function resolveConversational(text: string, conversationTurn?: 'first' | 'followup'): boolean;
-/**
- * Reset the sticky language detection state.
- * Call this when starting a brand-new, unrelated text (e.g. switching
- * conversations) so the previous language doesn't leak in as a sticky
- * fallback for completely different content.
- */
 declare function resetLanguageState(): void;
 
 /**

@@ -226,6 +226,51 @@ function formatCost(cost) {
   return fmt(cost);
 }
 
+// src/rules/shared.ts
+var _inputPricePerMillion = 2.5;
+function setInputPrice(p) {
+  _inputPricePerMillion = p;
+}
+function impact(tokensSaved) {
+  const costPer1k = tokensSaved / 1e6 * _inputPricePerMillion * 1e3;
+  return {
+    tokensSaved,
+    impact: tokensSaved >= 10 ? "high" : tokensSaved >= 3 ? "medium" : tokensSaved >= 1 ? "low" : "none",
+    costSavedPer1kCalls: Math.round(costPer1k * 1e5) / 1e5
+  };
+}
+function getLineCol(text, offset) {
+  const before = text.slice(0, offset);
+  const lines = before.split("\n");
+  return { line: lines.length, column: lines[lines.length - 1].length + 1 };
+}
+function nextId() {
+  try {
+    return globalThis.crypto.randomUUID();
+  } catch {
+    return `obs_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  }
+}
+function obs(type, level, label2, matchText, offset, text, why, suggestion, example, tokensSaved, code) {
+  const { line, column } = getLineCol(text, offset);
+  return {
+    id: nextId(),
+    type,
+    level,
+    label: label2,
+    matchText,
+    offset,
+    length: matchText.length,
+    line,
+    column,
+    why,
+    suggestion,
+    example,
+    impact: impact(tokensSaved),
+    code
+  };
+}
+
 // src/spell/dictionary.ts
 var DICTIONARY_WORDS = [
   // Extra short words that contractions map to (must be explicit since length <= 2 check)
@@ -17972,427 +18017,6 @@ function getSuggestions(word, max = 5, lang = "en") {
   ).slice(0, max).map((c) => c.word);
 }
 
-// src/spell/adapters/SpellAdapter.ts
-var ALWAYS_SKIP = /^([A-Z]{2,}|\d|https?:\/\/)/;
-var TECH_TERMS = /* @__PURE__ */ new Set([
-  "async",
-  "await",
-  "const",
-  "let",
-  "var",
-  "func",
-  "def",
-  "lambda",
-  "enum",
-  "struct",
-  "null",
-  "undefined",
-  "nan",
-  "void",
-  "bool",
-  "boolean",
-  "int",
-  "float",
-  "string",
-  "array",
-  "object",
-  "promise",
-  "callback",
-  "closure",
-  "middleware",
-  "endpoint",
-  "backend",
-  "frontend",
-  "fullstack",
-  "runtime",
-  "compiler",
-  "linter",
-  "bundler",
-  "dataset",
-  "pipeline",
-  "filtering",
-  "mapping",
-  "parsing",
-  "caching",
-  "logging",
-  "debugging",
-  "refactoring",
-  "deployment",
-  "commit",
-  "merge",
-  "rebase",
-  "branch",
-  "repo",
-  "repository",
-  "fetch",
-  "render",
-  "props",
-  "state",
-  "hook",
-  "hooks",
-  "component",
-  "template",
-  "schema",
-  "query",
-  "mutation",
-  "subscription",
-  "regex",
-  "boolean",
-  "timestamp",
-  "uuid",
-  "token",
-  "payload",
-  "webhook",
-  "cron",
-  "stdout",
-  "stdin",
-  "stderr",
-  "env",
-  "config",
-  "localhost",
-  "wildcard",
-  "namespace",
-  "iterator",
-  "generator",
-  "decorator",
-  "annotation",
-  "serialization",
-  "deserialization",
-  "react",
-  "vue",
-  "svelte",
-  "angular",
-  "node",
-  "deno",
-  "bun",
-  "webpack",
-  "vite",
-  "docker",
-  "kubernetes",
-  "nginx",
-  "redis",
-  "postgres",
-  "mongodb",
-  "graphql",
-  "typescript",
-  "javascript",
-  "python",
-  "golang",
-  "rust",
-  "kotlin",
-  "swift",
-  "conversion",
-  "wishlist",
-  "workflow",
-  "changelog",
-  "readme",
-  "gitignore",
-  "serverless",
-  "stateless",
-  "stateful",
-  "serverside",
-  "clientside",
-  "microservice",
-  "microservices",
-  "devops",
-  "sysadmin",
-  "oauth",
-  "websocket",
-  "graphql",
-  "nosql",
-  "frontend",
-  "backend",
-  "fullstack",
-  "middleware",
-  "codebase",
-  "boilerplate",
-  "linting",
-  "formatter",
-  "transpiler",
-  "polyfill",
-  "shim",
-  "monorepo",
-  "changeset",
-  // Brand / product names commonly typed lowercase in prompts. Flagging these
-  // as typos is the single most trust-eroding false positive an always-on
-  // linter can produce (found via external corpus: shopify→SPELL_001).
-  "shopify",
-  "klaviyo",
-  "loox",
-  "pagespeed",
-  "wordpress",
-  "woocommerce",
-  "stripe",
-  "paypal",
-  "instagram",
-  "facebook",
-  "linkedin",
-  "youtube",
-  "tiktok",
-  "whatsapp",
-  "telegram",
-  "twitter",
-  "netflix",
-  "spotify",
-  "airbnb",
-  "uber",
-  "figma",
-  "notion",
-  "slack",
-  "discord",
-  "zoom",
-  "trello",
-  "asana",
-  "hubspot",
-  "mailchimp",
-  "zapier",
-  "salesforce",
-  "shopware",
-  "prestashop",
-  "magento",
-  "squarespace",
-  "wix",
-  "canva",
-  "chatgpt",
-  "claude",
-  "gemini",
-  "copilot",
-  "perplexity",
-  "openai",
-  "anthropic",
-  "gmail",
-  "outlook",
-  "excel",
-  "powerpoint",
-  "sheets",
-  "drive",
-  "dropbox",
-  "icloud",
-  // ── Italian common technical & scientific vocabulary. The Italian dictionary
-  // ── is derived from a general-purpose frequency corpus that under-covers
-  //    domain terms: probing surfaced ~40 legitimate Italian words missing
-  //    (grafo, nodo, arco, vertice, matrice, vettore, stringa, cache, hash,
-  //    fotosintesi, clorofilliana, enzima, proteina…). These are the most
-  //    trust-eroding kind of false positive because they hit every technical
-  //    or scientific prompt. Lowercased at check time. Additions are lemmas
-  //    only when the dictionary has enough coverage for morphology to work;
-  //    otherwise both singular and plural are listed.
-  "grafo",
-  "grafi",
-  "nodo",
-  "nodi",
-  "arco",
-  "archi",
-  "vertice",
-  "vertici",
-  "matrice",
-  "matrici",
-  "vettore",
-  "vettori",
-  "stringa",
-  "stringhe",
-  "pila",
-  "pile",
-  "coda",
-  "code",
-  "elemento",
-  "elementi",
-  "oggetto",
-  "oggetti",
-  "istanza",
-  "istanze",
-  "ereditariet\xE0",
-  "interfaccia",
-  "interfacce",
-  "modulo",
-  "moduli",
-  "pacchetto",
-  "pacchetti",
-  "libreria",
-  "librerie",
-  "ambiente",
-  "ambienti",
-  "processo",
-  "processi",
-  "memoria",
-  "buffer",
-  "cache",
-  "socket",
-  "porta",
-  "porte",
-  "protocollo",
-  "protocolli",
-  "richiesta",
-  "richieste",
-  "risposta",
-  "risposte",
-  "sessione",
-  "sessioni",
-  "autenticazione",
-  "autorizzazione",
-  "crittografia",
-  "decrittografia",
-  "hash",
-  "firma",
-  "certificato",
-  "certificati",
-  "ruolo",
-  "ruoli",
-  "permesso",
-  "permessi",
-  "chiave",
-  "chiavi",
-  "valore",
-  "valori",
-  "indice",
-  "indici",
-  "tabella",
-  "tabelle",
-  "cartella",
-  "cartelle",
-  "directory",
-  "percorso",
-  "percorsi",
-  "file",
-  "riga",
-  "righe",
-  "colonna",
-  "colonne",
-  "array",
-  "claim",
-  "clorofilliana",
-  "fotosintesi",
-  "mitocondrio",
-  "ribosoma",
-  "citoplasma",
-  "enzima",
-  "enzimi",
-  "proteina",
-  "proteine",
-  "peptide",
-  "peptidi",
-  "anticorpo",
-  "anticorpi",
-  "vaccinare",
-  "vaccino",
-  "vaccini",
-  "batterio",
-  "batteri",
-  "fungo",
-  "funghi",
-  "simbiosi",
-  "ecosistema",
-  "ecosistemi",
-  "biodiversit\xE0",
-  "endemismo",
-  // Common accented loanwords the English/Italian dicts drop.
-  "clich\xE9s",
-  "clich\xE9",
-  "na\xEFve",
-  "na\xEFvet\xE9",
-  "d\xE9j\xE0",
-  "fa\xE7ade",
-  "r\xE9sum\xE9",
-  "caf\xE9",
-  "fianc\xE9",
-  "fianc\xE9e",
-  "soir\xE9e",
-  "entr\xE9e",
-  "vis-\xE0-vis",
-  "\xE0"
-]);
-function shouldSkipWord(word) {
-  if (word.length <= 1) return true;
-  if (ALWAYS_SKIP.test(word)) return true;
-  if (/[A-ZÀ-Ö]/.test(word.slice(1))) return true;
-  const lower = word.toLowerCase();
-  if (TECH_TERMS.has(lower)) return true;
-  const ABBREV = /* @__PURE__ */ new Set([
-    "api",
-    "url",
-    "http",
-    "https",
-    "html",
-    "css",
-    "js",
-    "ts",
-    "jsx",
-    "tsx",
-    "sql",
-    "json",
-    "xml",
-    "yaml",
-    "csv",
-    "pdf",
-    "ai",
-    "ml",
-    "llm",
-    "gpt",
-    "rag",
-    "gpu",
-    "cpu",
-    "sdk",
-    "ide",
-    "cli",
-    "gui",
-    "ui",
-    "ux",
-    "db",
-    "orm",
-    "ci",
-    "cd",
-    "jwt",
-    "uuid",
-    "id",
-    "nb",
-    "aka",
-    "etc",
-    "vs",
-    "eg",
-    "ie",
-    "lol",
-    "asap",
-    "fyi",
-    "tbd",
-    "imo",
-    "imho",
-    "afaik",
-    "btw",
-    "faq",
-    "kpi",
-    "agi",
-    "asi",
-    "bert",
-    "rlhf",
-    // Added after 250-prompt benchmark: common words / tech terms that the
-    // bundled dictionaries miss, producing trust-eroding spelling false
-    // positives ("Ok", "docstring", "middleware"…).
-    "ok",
-    "okay",
-    "docstring",
-    "changelog",
-    "middleware",
-    "runtime",
-    "stdout",
-    "stdin",
-    "stderr",
-    "frontend",
-    "backend",
-    "fullstack",
-    "regex",
-    "npm",
-    "env",
-    "async",
-    "await",
-    "webhook",
-    "endpoint",
-    "endpoints",
-    "dataset",
-    "datasets"
-  ]);
-  return ABBREV.has(lower);
-}
-
 // src/slots/task.ts
 var LEADING_NOISE = /^[^\p{L}\d]+/u;
 var POLITENESS = /^(please|kindly|could you( please)?|would you( please)?|can you|per favore,?|per cortesia,?|gentilmente,?|potresti|potrebbe|puoi|vorrei che( tu)?|mi piacerebbe che|ti chiederei di)\s+/i;
@@ -18995,6 +18619,15 @@ function extractAudience(text) {
     const g = new RegExp(re.source, "gi");
     let m;
     while ((m = g.exec(text)) !== null) {
+      const matchText = m[0].toLowerCase();
+      const isNonTechnical = /^non tecnic[oi]$/i.test(matchText.trim()) || /non\s+tecnic[oi]/i.test(matchText);
+      if (isNonTechnical) {
+        const before = text.slice(Math.max(0, m.index - 40), m.index);
+        if (/\b(tono|stile|tone|style|register)\s*:/i.test(before)) {
+          if (m.index === g.lastIndex) g.lastIndex++;
+          continue;
+        }
+      }
       audiences.push({ level: level2, match: m[0], index: m.index });
       if (m.index === g.lastIndex) g.lastIndex++;
     }
@@ -19156,47 +18789,428 @@ function classifyTurnRole(text, lang) {
   return { role: "standalone", cue: null };
 }
 
-// src/analyzers/observations.ts
-function nextId() {
-  try {
-    return globalThis.crypto.randomUUID();
-  } catch {
-    return `obs_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-  }
+// src/spell/adapters/SpellAdapter.ts
+var ALWAYS_SKIP = /^([A-Z]{2,}|\d|https?:\/\/)/;
+var TECH_TERMS = /* @__PURE__ */ new Set([
+  "async",
+  "await",
+  "const",
+  "let",
+  "var",
+  "func",
+  "def",
+  "lambda",
+  "enum",
+  "struct",
+  "null",
+  "undefined",
+  "nan",
+  "void",
+  "bool",
+  "boolean",
+  "int",
+  "float",
+  "string",
+  "array",
+  "object",
+  "promise",
+  "callback",
+  "closure",
+  "middleware",
+  "endpoint",
+  "backend",
+  "frontend",
+  "fullstack",
+  "runtime",
+  "compiler",
+  "linter",
+  "bundler",
+  "dataset",
+  "pipeline",
+  "filtering",
+  "mapping",
+  "parsing",
+  "caching",
+  "logging",
+  "debugging",
+  "refactoring",
+  "deployment",
+  "commit",
+  "merge",
+  "rebase",
+  "branch",
+  "repo",
+  "repository",
+  "fetch",
+  "render",
+  "props",
+  "state",
+  "hook",
+  "hooks",
+  "component",
+  "template",
+  "schema",
+  "query",
+  "mutation",
+  "subscription",
+  "regex",
+  "boolean",
+  "timestamp",
+  "uuid",
+  "token",
+  "payload",
+  "webhook",
+  "cron",
+  "stdout",
+  "stdin",
+  "stderr",
+  "env",
+  "config",
+  "localhost",
+  "wildcard",
+  "namespace",
+  "iterator",
+  "generator",
+  "decorator",
+  "annotation",
+  "serialization",
+  "deserialization",
+  "react",
+  "vue",
+  "svelte",
+  "angular",
+  "node",
+  "deno",
+  "bun",
+  "webpack",
+  "vite",
+  "docker",
+  "kubernetes",
+  "nginx",
+  "redis",
+  "postgres",
+  "mongodb",
+  "graphql",
+  "typescript",
+  "javascript",
+  "python",
+  "golang",
+  "rust",
+  "kotlin",
+  "swift",
+  "conversion",
+  "wishlist",
+  "workflow",
+  "changelog",
+  "readme",
+  "gitignore",
+  "serverless",
+  "stateless",
+  "stateful",
+  "serverside",
+  "clientside",
+  "microservice",
+  "microservices",
+  "devops",
+  "sysadmin",
+  "oauth",
+  "websocket",
+  "graphql",
+  "nosql",
+  "frontend",
+  "backend",
+  "fullstack",
+  "middleware",
+  "codebase",
+  "boilerplate",
+  "linting",
+  "formatter",
+  "transpiler",
+  "polyfill",
+  "shim",
+  "monorepo",
+  "changeset",
+  // Brand / product names commonly typed lowercase in prompts. Flagging these
+  // as typos is the single most trust-eroding false positive an always-on
+  // linter can produce (found via external corpus: shopify→SPELL_001).
+  "shopify",
+  "klaviyo",
+  "loox",
+  "pagespeed",
+  "wordpress",
+  "woocommerce",
+  "stripe",
+  "paypal",
+  "instagram",
+  "facebook",
+  "linkedin",
+  "youtube",
+  "tiktok",
+  "whatsapp",
+  "telegram",
+  "twitter",
+  "netflix",
+  "spotify",
+  "airbnb",
+  "uber",
+  "figma",
+  "notion",
+  "slack",
+  "discord",
+  "zoom",
+  "trello",
+  "asana",
+  "hubspot",
+  "mailchimp",
+  "zapier",
+  "salesforce",
+  "shopware",
+  "prestashop",
+  "magento",
+  "squarespace",
+  "wix",
+  "canva",
+  "chatgpt",
+  "claude",
+  "gemini",
+  "copilot",
+  "perplexity",
+  "openai",
+  "anthropic",
+  "gmail",
+  "outlook",
+  "excel",
+  "powerpoint",
+  "sheets",
+  "drive",
+  "dropbox",
+  "icloud",
+  // ── Italian common technical & scientific vocabulary. The Italian dictionary
+  // ── is derived from a general-purpose frequency corpus that under-covers
+  //    domain terms: probing surfaced ~40 legitimate Italian words missing
+  //    (grafo, nodo, arco, vertice, matrice, vettore, stringa, cache, hash,
+  //    fotosintesi, clorofilliana, enzima, proteina…). These are the most
+  //    trust-eroding kind of false positive because they hit every technical
+  //    or scientific prompt. Lowercased at check time. Additions are lemmas
+  //    only when the dictionary has enough coverage for morphology to work;
+  //    otherwise both singular and plural are listed.
+  "grafo",
+  "grafi",
+  "nodo",
+  "nodi",
+  "arco",
+  "archi",
+  "vertice",
+  "vertici",
+  "matrice",
+  "matrici",
+  "vettore",
+  "vettori",
+  "stringa",
+  "stringhe",
+  "pila",
+  "pile",
+  "coda",
+  "code",
+  "elemento",
+  "elementi",
+  "oggetto",
+  "oggetti",
+  "istanza",
+  "istanze",
+  "ereditariet\xE0",
+  "interfaccia",
+  "interfacce",
+  "modulo",
+  "moduli",
+  "pacchetto",
+  "pacchetti",
+  "libreria",
+  "librerie",
+  "ambiente",
+  "ambienti",
+  "processo",
+  "processi",
+  "memoria",
+  "buffer",
+  "cache",
+  "socket",
+  "porta",
+  "porte",
+  "protocollo",
+  "protocolli",
+  "richiesta",
+  "richieste",
+  "risposta",
+  "risposte",
+  "sessione",
+  "sessioni",
+  "autenticazione",
+  "autorizzazione",
+  "crittografia",
+  "decrittografia",
+  "hash",
+  "firma",
+  "certificato",
+  "certificati",
+  "ruolo",
+  "ruoli",
+  "permesso",
+  "permessi",
+  "chiave",
+  "chiavi",
+  "valore",
+  "valori",
+  "indice",
+  "indici",
+  "tabella",
+  "tabelle",
+  "cartella",
+  "cartelle",
+  "directory",
+  "percorso",
+  "percorsi",
+  "file",
+  "riga",
+  "righe",
+  "colonna",
+  "colonne",
+  "array",
+  "claim",
+  "clorofilliana",
+  "fotosintesi",
+  "mitocondrio",
+  "ribosoma",
+  "citoplasma",
+  "enzima",
+  "enzimi",
+  "proteina",
+  "proteine",
+  "peptide",
+  "peptidi",
+  "anticorpo",
+  "anticorpi",
+  "vaccinare",
+  "vaccino",
+  "vaccini",
+  "batterio",
+  "batteri",
+  "fungo",
+  "funghi",
+  "simbiosi",
+  "ecosistema",
+  "ecosistemi",
+  "biodiversit\xE0",
+  "endemismo",
+  // Common accented loanwords the English/Italian dicts drop.
+  "clich\xE9s",
+  "clich\xE9",
+  "na\xEFve",
+  "na\xEFvet\xE9",
+  "d\xE9j\xE0",
+  "fa\xE7ade",
+  "r\xE9sum\xE9",
+  "caf\xE9",
+  "fianc\xE9",
+  "fianc\xE9e",
+  "soir\xE9e",
+  "entr\xE9e",
+  "vis-\xE0-vis",
+  "\xE0"
+]);
+function shouldSkipWord(word) {
+  if (word.length <= 1) return true;
+  if (ALWAYS_SKIP.test(word)) return true;
+  if (/[A-ZÀ-Ö]/.test(word.slice(1))) return true;
+  const lower = word.toLowerCase();
+  if (TECH_TERMS.has(lower)) return true;
+  const ABBREV = /* @__PURE__ */ new Set([
+    "api",
+    "url",
+    "http",
+    "https",
+    "html",
+    "css",
+    "js",
+    "ts",
+    "jsx",
+    "tsx",
+    "sql",
+    "json",
+    "xml",
+    "yaml",
+    "csv",
+    "pdf",
+    "ai",
+    "ml",
+    "llm",
+    "gpt",
+    "rag",
+    "gpu",
+    "cpu",
+    "sdk",
+    "ide",
+    "cli",
+    "gui",
+    "ui",
+    "ux",
+    "db",
+    "orm",
+    "ci",
+    "cd",
+    "jwt",
+    "uuid",
+    "id",
+    "nb",
+    "aka",
+    "etc",
+    "vs",
+    "eg",
+    "ie",
+    "lol",
+    "asap",
+    "fyi",
+    "tbd",
+    "imo",
+    "imho",
+    "afaik",
+    "btw",
+    "faq",
+    "kpi",
+    "agi",
+    "asi",
+    "bert",
+    "rlhf",
+    // Added after 250-prompt benchmark: common words / tech terms that the
+    // bundled dictionaries miss, producing trust-eroding spelling false
+    // positives ("Ok", "docstring", "middleware"…).
+    "ok",
+    "okay",
+    "docstring",
+    "changelog",
+    "middleware",
+    "runtime",
+    "stdout",
+    "stdin",
+    "stderr",
+    "frontend",
+    "backend",
+    "fullstack",
+    "regex",
+    "npm",
+    "env",
+    "async",
+    "await",
+    "webhook",
+    "endpoint",
+    "endpoints",
+    "dataset",
+    "datasets"
+  ]);
+  return ABBREV.has(lower);
 }
-function getLineCol(text, offset) {
-  const before = text.slice(0, offset);
-  const lines = before.split("\n");
-  return { line: lines.length, column: lines[lines.length - 1].length + 1 };
-}
-var _inputPricePerMillion = 2.5;
-function impact(tokensSaved) {
-  const costPer1k = tokensSaved / 1e6 * _inputPricePerMillion * 1e3;
-  return {
-    tokensSaved,
-    impact: tokensSaved >= 10 ? "high" : tokensSaved >= 3 ? "medium" : tokensSaved >= 1 ? "low" : "none",
-    costSavedPer1kCalls: Math.round(costPer1k * 1e5) / 1e5
-  };
-}
-function obs(type, level, label2, matchText, offset, text, why, suggestion, example, tokensSaved, code) {
-  const { line, column } = getLineCol(text, offset);
-  return {
-    id: nextId(),
-    type,
-    level,
-    label: label2,
-    matchText,
-    offset,
-    length: matchText.length,
-    line,
-    column,
-    why,
-    suggestion,
-    example,
-    impact: impact(tokensSaved),
-    code
-  };
-}
+
+// src/rules/spelling.ts
 function getExemptMaterialRanges(text, taskConfidence) {
   const ranges = [];
   let m;
@@ -19390,6 +19404,8 @@ function runMultipleSpaces(text, uiLocale = "it") {
   }
   return results;
 }
+
+// src/rules/filler.ts
 var FILLERS = [
   { re: /\bbasically\b/gi, why: '"basically" non aggiunge significato alle istruzioni.', whyEn: '"basically" adds no meaning to the instructions.', save: 1, code: "FILL_001" },
   { re: /\bessentially\b/gi, why: '"essentially" \xE8 un intensificatore vuoto che non informa il modello.', whyEn: '"essentially" is an empty intensifier that gives the model no information.', save: 1, code: "FILL_002" },
@@ -19584,6 +19600,35 @@ function runPoliteness(text, uiLocale = "it") {
   }
   return results;
 }
+
+// src/rules/helpers.ts
+function isQuestion(text) {
+  const t = text.trim();
+  return /\?\s*$/.test(t) || /^(qual[ei]?|come|cosa|che|chi|dove|quando|perch[ée]|quant[oaie]|quali|what|how|why|who|where|when|which|whose|can|could|should|is|are|do|does)\b/i.test(t);
+}
+function isSelfBounding(text) {
+  const t = text.trim().replace(/^[^\p{L}\d]+/u, "");
+  return /^(translate|traduci|traducimi|list|elenca|elencami|enumera|calculate|calcola|calcolami|classify|classifica|classificami|convert|converti|count|conta|sort|ordina|rank|classifica|brainstorm|suggerisci|proponi)\b/i.test(t) || /^([^.!?]{0,40}\b)?(dammi|give me|elenca|list|proponi|suggest|genera|generate|scrivi|write|crea|create|mostra)\b[^.!?]{0,30}\b(idee|ideas|suggerimenti|suggestions|esempi|examples|opzioni|options|alternative|alternatives)\b/i.test(t);
+}
+function wordCount(text) {
+  return (text.trim().match(/\S+/g) ?? []).length;
+}
+var VAGUE_TERMS = [
+  { re: /\buna?\s+rob[ae]\b/gi, term: "una roba" },
+  { re: /\bqualcosa\s+(di|come|tipo|sul|sulla|riguardo|per|che)\b/gi, term: "qualcosa di\u2026" },
+  { re: /\bcon\s+(una\s+cosa|qualcosa|delle\s+cose)\b/gi, term: "con una cosa/qualcosa" },
+  { re: /\buna?\s+cosa\s+(tipo|così|del genere|carina|simile|bella|interessante|figa)(?![a-zà-ù])/gi, term: "una cosa tipo\u2026" },
+  { re: /\baiutami\s+con\s+(una|questa|delle)\b/gi, term: "aiutami con una\u2026" },
+  { re: /\bcose\s+(del genere|così|simili|varie|del tipo)(?![a-zà-ù])/gi, term: "cose del genere" },
+  { re: /\btipo\s+(un|una|che|quella|questo)\b/gi, term: "tipo\u2026" },
+  { re: /\bquella\s+cosa\b/gi, term: "quella cosa" },
+  { re: /\bun\s+coso\b/gi, term: "un coso" },
+  { re: /\bpiù\s+o\s+meno\b/gi, term: "pi\xF9 o meno" },
+  { re: /\bil tema che preferisci|argomento a piacere|quello che vuoi|come preferisci|come ti pare\b/gi, term: "a scelta libera" },
+  { re: /\b(some\s+(kind\s+of|sort\s+of)|something\s+like|a\s+thing\s+that|some\s+stuff|whatever you want)\b/gi, term: "something like\u2026" }
+];
+
+// src/rules/structure.ts
 function looksLikeEnrichmentTurn(text, model) {
   const t = text.trim();
   const wordCount2 = (t.match(/\S+/g) ?? []).length;
@@ -19644,17 +19689,6 @@ function runNoObject(text, detectedLang, model, uiLocale = "it") {
     0,
     "OBJ_001"
   )];
-}
-function isQuestion(text) {
-  const t = text.trim();
-  return /\?\s*$/.test(t) || /^(qual[ei]?|come|cosa|che|chi|dove|quando|perch[ée]|quant[oaie]|quali|what|how|why|who|where|when|which|whose|can|could|should|is|are|do|does)\b/i.test(t);
-}
-function isSelfBounding(text) {
-  const t = text.trim().replace(/^[^\p{L}\d]+/u, "");
-  return /^(translate|traduci|traducimi|list|elenca|elencami|enumera|calculate|calcola|calcolami|classify|classifica|classificami|convert|converti|count|conta|sort|ordina|rank|classifica|brainstorm|suggerisci|proponi)\b/i.test(t) || /^([^.!?]{0,40}\b)?(dammi|give me|elenca|list|proponi|suggest|genera|generate|scrivi|write|crea|create|mostra)\b[^.!?]{0,30}\b(idee|ideas|suggerimenti|suggestions|esempi|examples|opzioni|options|alternative|alternatives)\b/i.test(t);
-}
-function wordCount(text) {
-  return (text.trim().match(/\S+/g) ?? []).length;
 }
 function isConversationalReply(text) {
   const t = text.trim();
@@ -19828,20 +19862,8 @@ function runNoContext(text, uiLocale = "it") {
     "CTX_001"
   )];
 }
-var VAGUE_TERMS = [
-  { re: /\buna?\s+rob[ae]\b/gi, term: "una roba" },
-  { re: /\bqualcosa\s+(di|come|tipo|sul|sulla|riguardo|per|che)\b/gi, term: "qualcosa di\u2026" },
-  { re: /\bcon\s+(una\s+cosa|qualcosa|delle\s+cose)\b/gi, term: "con una cosa/qualcosa" },
-  { re: /\buna?\s+cosa\s+(tipo|così|del genere|carina|simile|bella|interessante|figa)(?![a-zà-ù])/gi, term: "una cosa tipo\u2026" },
-  { re: /\baiutami\s+con\s+(una|questa|delle)\b/gi, term: "aiutami con una\u2026" },
-  { re: /\bcose\s+(del genere|così|simili|varie|del tipo)(?![a-zà-ù])/gi, term: "cose del genere" },
-  { re: /\btipo\s+(un|una|che|quella|questo)\b/gi, term: "tipo\u2026" },
-  { re: /\bquella\s+cosa\b/gi, term: "quella cosa" },
-  { re: /\bun\s+coso\b/gi, term: "un coso" },
-  { re: /\bpiù\s+o\s+meno\b/gi, term: "pi\xF9 o meno" },
-  { re: /\bil tema che preferisci|argomento a piacere|quello che vuoi|come preferisci|come ti pare\b/gi, term: "a scelta libera" },
-  { re: /\b(some\s+(kind\s+of|sort\s+of)|something\s+like|a\s+thing\s+that|some\s+stuff|whatever you want)\b/gi, term: "something like\u2026" }
-];
+
+// src/rules/vagueness.ts
 function runVaguePlaceholders(text, uiLocale = "it") {
   if (isQuestion(text)) return [];
   const results = [];
@@ -19890,6 +19912,96 @@ function runVagueQualityPileup(text, uiLocale = "it") {
     "VAGUE_002"
   )];
 }
+function runVagueQuality(text, isExempt, uiLocale = "it") {
+  const results = [];
+  const re = /\b(better|nicer|cleaner|prettier|cooler|smarter|simpler|improved?|migliore|migliori|più bell[oa]|più pulit[oa]|più carin[oa]|più intelligente|più semplice|migliorat[oa])\b/gi;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    if (isExempt(m.index)) continue;
+    results.push(obs(
+      "ambiguity",
+      "improvable",
+      uiLocale === "it" ? "\u{1F7E1} Criterio vago" : "\u{1F7E1} Vague criterion",
+      m[0],
+      m.index,
+      text,
+      uiLocale === "it" ? `"${m[0]}" non definisce un criterio misurabile. Il modello non sa quale aspetto migliorare n\xE9 come valutare il risultato.` : `"${m[0]}" doesn't define a measurable criterion. The model doesn't know which aspect to improve or how to judge the result.`,
+      uiLocale === "it" ? "Specifica il criterio: pi\xF9 veloce, pi\xF9 leggibile, pi\xF9 conciso, con meno dipendenze\u2026" : "Specify the criterion: faster, more readable, more concise, with fewer dependencies\u2026",
+      { before: m[0], after: uiLocale === "it" ? '[criterio specifico, es. "pi\xF9 leggibile"]' : '[specific criterion, e.g. "more readable"]' },
+      0,
+      "AMB_002"
+    ));
+  }
+  return results;
+}
+function runVaguePlaceholderNouns(text, uiLocale = "it") {
+  const PLACEHOLDER2 = /\b(?:(?:la|le|una|le|quella|quelle|questa|queste|della|delle|sta|ste)\s+cos[ae]|cos[ae]\s+(?:con|per|di|da|che\s+(?:mi|ti|ci)))\b|\b(roba|robe|aggeggio|aggeggi|thing|things|stuff)\b/gi;
+  const hits = [];
+  let m;
+  while ((m = PLACEHOLDER2.exec(text)) !== null) hits.push(m);
+  if (hits.length < 2) return [];
+  const words = hits.map((h) => h[0]).join('", "');
+  const first = hits[0];
+  return [obs(
+    "ambiguity",
+    "unnecessary",
+    uiLocale === "it" ? "\u{1F7E0} Riferimenti generici senza contenuto" : "\u{1F7E0} Generic content-free references",
+    first[0],
+    first.index,
+    text,
+    uiLocale === "it" ? `Il prompt usa ${hits.length} volte parole segnaposto generiche ("${words}") che non identificano nulla di concreto. Il modello non ha alcun contenuto reale a cui agganciarsi: \xE8 come chiedere di fare "una cosa" senza dire quale.` : `The prompt uses ${hits.length} generic placeholder words ("${words}") that identify nothing concrete. The model has no real content to anchor to: it's like asking it to do "a thing" without saying which.`,
+    uiLocale === "it" ? "Sostituisci ogni riferimento generico con il nome specifico della cosa a cui ti riferisci (il documento, il file, il report, il progetto X\u2026)." : "Replace every generic reference with the specific name of the thing you mean (the document, the file, the report, project X\u2026).",
+    {
+      before: uiLocale === "it" ? "Fammi la cosa con le cose per quella roba" : "Do the thing with the stuff for that thing",
+      after: uiLocale === "it" ? "Genera il report vendite usando i dati del file export.csv" : "Generate the sales report using the data in export.csv"
+    },
+    0,
+    "AMB_003"
+  )];
+}
+var WEAK_VERBS = [
+  "handle",
+  "deal with",
+  "work on",
+  "look at",
+  "address",
+  "take care of",
+  "do something about",
+  "figure out",
+  "sort out",
+  "gestisci",
+  "occupati di",
+  "dai un'occhiata a",
+  "affronta",
+  "prenditi cura di",
+  "sistema in qualche modo"
+];
+function runWeakVerbs(text, isExempt, uiLocale = "it") {
+  const results = [];
+  for (const verb of WEAK_VERBS) {
+    const re = new RegExp(`\\b${verb.replace(/ /g, "\\s+")}\\b`, "gi");
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      if (isExempt(m.index)) continue;
+      results.push(obs(
+        "weak_verb",
+        "improvable",
+        uiLocale === "it" ? "\u{1F7E1} Verbo debole" : "\u{1F7E1} Weak verb",
+        m[0],
+        m.index,
+        text,
+        uiLocale === "it" ? `"${m[0]}" \xE8 un verbo vago: non specifica un'azione concreta. Il modello deve indovinare cosa fare esattamente.` : `"${m[0]}" is a vague verb: it doesn't specify a concrete action. The model has to guess exactly what to do.`,
+        uiLocale === "it" ? "Sostituisci con un verbo specifico: fix, implement, refactor, investigate, resolve, document\u2026" : "Replace with a specific verb: fix, implement, refactor, investigate, resolve, document\u2026",
+        { before: m[0], after: uiLocale === "it" ? "[verbo specifico]" : "[specific verb]" },
+        0,
+        "WEAK_001"
+      ));
+    }
+  }
+  return results;
+}
+
+// src/rules/contradiction.ts
 function runScopeLengthContradiction(text, model, uiLocale = "it") {
   const tight = model.cross.lengthDepth;
   if (tight) {
@@ -20198,6 +20310,7 @@ function runConflictingInstructions(text, model, uiLocale = "it") {
       else affirmed++;
     }
     if (negated > 0 && affirmed > 0) {
+      if (affirmed >= 3 && affirmed >= negated * 2) continue;
       const word = occ[0][0];
       results.push(obs(
         "contradiction",
@@ -20220,6 +20333,8 @@ function runConflictingInstructions(text, model, uiLocale = "it") {
   }
   return results;
 }
+
+// src/rules/readability.ts
 function runPassiveVoice(text, detectedLang, isExempt, uiLocale = "it") {
   if (detectedLang !== "en") return [];
   const results = [];
@@ -20243,10 +20358,12 @@ function runPassiveVoice(text, detectedLang, isExempt, uiLocale = "it") {
   }
   return results;
 }
+
+// src/rules/ambiguity.ts
 function runAmbiguousPronoun(text, exemptRanges, uiLocale = "it") {
   const trimmed = text.trim();
   const re = /^(fix|update|change|improve|modify|rewrite|edit|correct|adjust|refactor|optimize|optimise|clean up|simplify|review|check|correggi|aggiorna|cambia|migliora|modifica|riscrivi|sistema|rivedi|controlla|riordina|semplifica)\s+(it|this|that|these|those|lo|la|li|le|questo|questa|questi|queste|quello|quella)\b/i;
-  const reTerminal = /^(translate|traduci|traducimi|traduce|summarize|summarise|riassumi|riassumimi|explain|spiega|spiegami|describe|descrivi|analyze|analyse|analizza|analizzami|convert|converti|process|elabora)\s+(it|this|that|these|those|lo|la|questo|questa|questi|queste|quello|quella|ciò)\s*[.!?]*$/i;
+  const reTerminal = /^(translate|traduci|traducimi|traduce|summarize|summarise|riassumi|riassumimi|explain|spiega|spiegami|describe|descrivi|analyze|analyse|analizza|analizzami|convert|converti|process|elabora|list|elenca|elencami|sort|ordina|ordinami|rank|classifica|classificami|count|conta|contami|show|mostra|mostrami|display|visualizza)\s+(it|them|this|that|these|those|lo|la|li|le|questo|questa|questi|queste|quello|quella|ciò)\s*[.!?]*$/i;
   const m = trimmed.match(re) ?? trimmed.match(reTerminal);
   if (!m) return [];
   if (exemptRanges.length > 0) return [];
@@ -20264,94 +20381,8 @@ function runAmbiguousPronoun(text, exemptRanges, uiLocale = "it") {
     "AMB_001"
   )];
 }
-function runVagueQuality(text, isExempt, uiLocale = "it") {
-  const results = [];
-  const re = /\b(better|nicer|cleaner|prettier|cooler|smarter|simpler|improved?|migliore|migliori|più bell[oa]|più pulit[oa]|più carin[oa]|più intelligente|più semplice|migliorat[oa])\b/gi;
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    if (isExempt(m.index)) continue;
-    results.push(obs(
-      "ambiguity",
-      "improvable",
-      uiLocale === "it" ? "\u{1F7E1} Criterio vago" : "\u{1F7E1} Vague criterion",
-      m[0],
-      m.index,
-      text,
-      uiLocale === "it" ? `"${m[0]}" non definisce un criterio misurabile. Il modello non sa quale aspetto migliorare n\xE9 come valutare il risultato.` : `"${m[0]}" doesn't define a measurable criterion. The model doesn't know which aspect to improve or how to judge the result.`,
-      uiLocale === "it" ? "Specifica il criterio: pi\xF9 veloce, pi\xF9 leggibile, pi\xF9 conciso, con meno dipendenze\u2026" : "Specify the criterion: faster, more readable, more concise, with fewer dependencies\u2026",
-      { before: m[0], after: uiLocale === "it" ? '[criterio specifico, es. "pi\xF9 leggibile"]' : '[specific criterion, e.g. "more readable"]' },
-      0,
-      "AMB_002"
-    ));
-  }
-  return results;
-}
-function runVaguePlaceholderNouns(text, uiLocale = "it") {
-  const PLACEHOLDER2 = /\b(?:(?:la|le|una|le|quella|quelle|questa|queste|della|delle|sta|ste)\s+cos[ae]|cos[ae]\s+(?:con|per|di|da|che\s+(?:mi|ti|ci)))\b|\b(roba|robe|aggeggio|aggeggi|thing|things|stuff)\b/gi;
-  const hits = [];
-  let m;
-  while ((m = PLACEHOLDER2.exec(text)) !== null) hits.push(m);
-  if (hits.length < 2) return [];
-  const words = hits.map((h) => h[0]).join('", "');
-  const first = hits[0];
-  return [obs(
-    "ambiguity",
-    "unnecessary",
-    uiLocale === "it" ? "\u{1F7E0} Riferimenti generici senza contenuto" : "\u{1F7E0} Generic content-free references",
-    first[0],
-    first.index,
-    text,
-    uiLocale === "it" ? `Il prompt usa ${hits.length} volte parole segnaposto generiche ("${words}") che non identificano nulla di concreto. Il modello non ha alcun contenuto reale a cui agganciarsi: \xE8 come chiedere di fare "una cosa" senza dire quale.` : `The prompt uses ${hits.length} generic placeholder words ("${words}") that identify nothing concrete. The model has no real content to anchor to: it's like asking it to do "a thing" without saying which.`,
-    uiLocale === "it" ? "Sostituisci ogni riferimento generico con il nome specifico della cosa a cui ti riferisci (il documento, il file, il report, il progetto X\u2026)." : "Replace every generic reference with the specific name of the thing you mean (the document, the file, the report, project X\u2026).",
-    {
-      before: uiLocale === "it" ? "Fammi la cosa con le cose per quella roba" : "Do the thing with the stuff for that thing",
-      after: uiLocale === "it" ? "Genera il report vendite usando i dati del file export.csv" : "Generate the sales report using the data in export.csv"
-    },
-    0,
-    "AMB_003"
-  )];
-}
-var WEAK_VERBS = [
-  "handle",
-  "deal with",
-  "work on",
-  "look at",
-  "address",
-  "take care of",
-  "do something about",
-  "figure out",
-  "sort out",
-  "gestisci",
-  "occupati di",
-  "dai un'occhiata a",
-  "affronta",
-  "prenditi cura di",
-  "sistema in qualche modo"
-];
-function runWeakVerbs(text, isExempt, uiLocale = "it") {
-  const results = [];
-  for (const verb of WEAK_VERBS) {
-    const re = new RegExp(`\\b${verb.replace(/ /g, "\\s+")}\\b`, "gi");
-    let m;
-    while ((m = re.exec(text)) !== null) {
-      if (isExempt(m.index)) continue;
-      results.push(obs(
-        "weak_verb",
-        "improvable",
-        uiLocale === "it" ? "\u{1F7E1} Verbo debole" : "\u{1F7E1} Weak verb",
-        m[0],
-        m.index,
-        text,
-        uiLocale === "it" ? `"${m[0]}" \xE8 un verbo vago: non specifica un'azione concreta. Il modello deve indovinare cosa fare esattamente.` : `"${m[0]}" is a vague verb: it doesn't specify a concrete action. The model has to guess exactly what to do.`,
-        uiLocale === "it" ? "Sostituisci con un verbo specifico: fix, implement, refactor, investigate, resolve, document\u2026" : "Replace with a specific verb: fix, implement, refactor, investigate, resolve, document\u2026",
-        { before: m[0], after: uiLocale === "it" ? "[verbo specifico]" : "[specific verb]" },
-        0,
-        "WEAK_001"
-      ));
-    }
-  }
-  return results;
-}
+
+// src/analyzers/observations.ts
 var _lastDetectedLang = "en";
 function makeLangState() {
   return { lastLang: "en" };
@@ -20370,7 +20401,7 @@ function resolveLanguageForAnalysis(text, langState, forcedLang) {
 }
 function runAllObservations(text, disabledRules = [], spell, inputPricePerMillion = 2.5, langState, forcedLang, conversationTurn, preResolved, uiLocale = "it") {
   if (!text?.trim()) return [];
-  _inputPricePerMillion = inputPricePerMillion;
+  setInputPrice(inputPricePerMillion);
   let detected;
   if (preResolved) {
     detected = preResolved.detected;
@@ -20379,9 +20410,7 @@ function runAllObservations(text, disabledRules = [], spell, inputPricePerMillio
   } else {
     detected = resolveLanguageForAnalysis(text, langState, forcedLang);
   }
-  if (spell?.setLanguage) {
-    spell.setLanguage(detected);
-  }
+  if (spell?.setLanguage) spell.setLanguage(detected);
   const disabled = new Set(disabledRules);
   const isConversational = resolveConversational(text, conversationTurn);
   if (isConversational) {
@@ -20389,7 +20418,6 @@ function runAllObservations(text, disabledRules = [], spell, inputPricePerMillio
       disabled.add(code);
     }
   }
-  const all = [];
   const model = preResolved?.model ?? buildPromptModel(text, detected);
   const exemptRanges = getExemptMaterialRanges(text, model.task.confidence);
   const isExempt = makeExemptChecker(exemptRanges);
@@ -20424,6 +20452,7 @@ function runAllObservations(text, disabledRules = [], spell, inputPricePerMillio
     () => runVaguePlaceholderNouns(text, uiLocale),
     () => runWeakVerbs(text, isExempt, uiLocale)
   ];
+  const all = [];
   for (const runner of runners) {
     const obs2 = runner().filter((o) => !disabled.has(o.code));
     all.push(...obs2);
@@ -20432,8 +20461,7 @@ function runAllObservations(text, disabledRules = [], spell, inputPricePerMillio
   const usedRangesByType = /* @__PURE__ */ new Map();
   all.sort((a, b) => b.impact.tokensSaved - a.impact.tokensSaved || a.offset - b.offset);
   for (const o of all) {
-    const isWholePrompt = o.matchText.startsWith("(");
-    if (isWholePrompt) {
+    if (o.matchText.startsWith("(")) {
       deduped.push(o);
       continue;
     }
@@ -20759,7 +20787,7 @@ function isStopword(word, lang) {
 function findMorphologicalRedundancy(text, lang) {
   const clean = text.replace(/`[^`]*`|\{[^}]*\}|<[^>]+>/g, " ");
   const words = clean.match(/[\p{L}\p{M}]+/gu) ?? [];
-  if (words.length > 18) return [];
+  if (words.length > 25) return [];
   const stemToPositions = /* @__PURE__ */ new Map();
   words.forEach((raw, i) => {
     const w = raw.toLowerCase();
@@ -20791,7 +20819,7 @@ function findMorphologicalRedundancy(text, lang) {
 function findRepeatedContentWords(text, lang) {
   const clean = text.replace(/`[^`]*`|\{[^}]*\}|<[^>]+>/g, " ");
   const words = clean.match(/[\p{L}\p{M}]+/gu) ?? [];
-  if (words.length > 18) return [];
+  if (words.length > 25) return [];
   const positions = /* @__PURE__ */ new Map();
   words.forEach((raw, i) => {
     const w = raw.toLowerCase();
@@ -20823,6 +20851,84 @@ function findRepeatedContentWords(text, lang) {
   }
   return repeated;
 }
+
+// src/scoring/caps_data.ts
+var CAP_REASON_TEXT = {
+  genre_self_exclusion: { it: "contraddizione: il pubblico escluso coincide con il target naturale del contenuto richiesto", en: "contradiction: the excluded audience is the natural target of the requested content" },
+  contradiction: { it: "istruzioni in conflitto tra loro", en: "conflicting instructions" },
+  no_task: { it: "nessuna azione concreta richiesta", en: "no concrete action requested" },
+  courtesy_filler: { it: "solo cortesia, nessuna richiesta reale", en: "only courtesy, no real request" },
+  role_without_task: { it: "assegna un ruolo ma nessun compito", en: "assigns a role but no task" },
+  total_delegation: { it: "delega ogni scelta al modello", en: "delegates every choice to the model" },
+  self_bounding_no_object: { it: "verbo senza un oggetto su cui operare", en: "verb with no object to act on" },
+  self_bounding_no_material: { it: "nessun materiale concreto da elaborare", en: "no concrete material to process" },
+  synonymic_redundancy: { it: "ripete pi\xF9 sinonimi senza aggiungere contenuto", en: "repeats several synonyms without adding content" },
+  morphological_redundancy: { it: "ripete la stessa radice in forme diverse", en: "repeats the same root in different forms" },
+  semantic_pair_redundancy: { it: "coppia di parole semanticamente ridondanti", en: "semantically redundant word pair" },
+  repeated_content_word: { it: "parola di contenuto ripetuta senza motivo", en: "content word repeated without reason" },
+  negative_only_constraints: { it: "solo vincoli negativi, nessuna specifica positiva", en: "only negative constraints, no positive spec" },
+  mutually_exclusive_format: { it: "richiede due formati incompatibili tra loro", en: "asks for two mutually incompatible formats" },
+  literal_media_placeholder: { it: "riferimento a un file/immagine non realmente allegato", en: "reference to a file/image that is not actually attached" },
+  implicit_prior_reference: { it: "riferisce materiale precedente mai fornito", en: "refers to prior material never provided" },
+  low_information_density: { it: "contenuto quasi tutto generico, poco concreto", en: "content almost entirely generic, little that is concrete" },
+  meta_usage_unclear: { it: "chiede come usare il modello invece di dare un compito", en: "asks how to use the model instead of giving a task" },
+  unfilled_template: { it: "contiene placeholder non compilati", en: "contains unfilled placeholders" },
+  core_vocabulary_misspelled: { it: "errori di battitura sulle parole chiave del compito", en: "typos on the task's key words" },
+  missing_reference: { it: "riferisce materiale esterno non fornito", en: "refers to external material not provided" },
+  bare_acknowledgment: { it: "solo un'espressione di assenso, nessun compito", en: "just an acknowledgment, no task" },
+  empty_object: { it: "oggetto del compito vuoto o non specificato", en: "the task's object is empty or unspecified" },
+  ultra_short: { it: "troppo corto per essere eseguibile", en: "too short to be actionable" },
+  very_short_no_task: { it: "troppo corto e senza un compito", en: "too short and without a task" },
+  polite_filler: { it: "cortesia eccessiva senza contenuto", en: "excessive courtesy without content" },
+  pure_repetition: { it: "ripetizione pura senza nuovo contenuto", en: "pure repetition without new content" },
+  vague_adjectives: { it: "aggettivi vaghi senza specifiche concrete", en: "vague adjectives without concrete specifics" },
+  ambiguity: { it: "riferimenti ambigui nel testo", en: "ambiguous references in the text" },
+  underspecified_vague: { it: "quasi nessuna specifica: il modello deve indovinare tutto", en: "almost no specs: the model has to guess everything" },
+  underspecified_short: { it: "poche specifiche e testo corto", en: "few specs and short text" },
+  underspecified: { it: "nessuna delle sei specifiche fondamentali \xE8 presente", en: "none of the six core specs is present" },
+  underspecified_named: { it: "oggetto concreto ma nessuna specifica ulteriore", en: "concrete object but no further specs" },
+  impossible_budget: { it: "limite di lunghezza incompatibile con il numero di elementi richiesti", en: "length constraint incompatible with the number of items requested" },
+  impossible_temporal: { it: "vincolo temporale irrealistico per un modello", en: "unrealistic time constraint for a model" },
+  vague_topic_question: { it: "domanda su un argomento vago, senza deliverable concreto", en: "question about a vague topic, with no concrete deliverable" }
+};
+var CAP_TO_DIM = {
+  // Contradiction family — model can't satisfy both instructions
+  contradiction: "clarity",
+  genre_self_exclusion: "clarity",
+  mutually_exclusive_format: "clarity",
+  impossible_budget: "clarity",
+  impossible_temporal: "clarity",
+  // Reference-failure family — model doesn't know what "it" points to
+  implicit_prior_reference: "clarity",
+  literal_media_placeholder: "clarity",
+  missing_reference: "clarity",
+  core_vocabulary_misspelled: "clarity",
+  unfilled_template: "clarity",
+  // Spec-empty / delegation / courtesy — no real content to act on
+  no_task: "precision",
+  empty_object: "precision",
+  role_without_task: "precision",
+  total_delegation: "precision",
+  self_bounding_no_object: "precision",
+  self_bounding_no_material: "precision",
+  meta_usage_unclear: "precision",
+  vague_topic_question: "precision",
+  negative_only_constraints: "precision",
+  low_information_density: "precision",
+  underspecified_vague: "precision",
+  underspecified_short: "precision",
+  underspecified: "precision",
+  underspecified_named: "precision",
+  courtesy_filler: "precision",
+  polite_filler: "precision",
+  bare_acknowledgment: "precision",
+  // Redundancy family
+  synonymic_redundancy: "redundancy",
+  morphological_redundancy: "redundancy",
+  semantic_pair_redundancy: "redundancy",
+  repeated_content_word: "redundancy",
+  pure_repetition: "redundancy"
+};
 
 // src/scoring/index.ts
 function label(score) {
@@ -21008,6 +21114,12 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
     const ACK_FIRST = /^\s*(ok|okay|va bene|d'accordo|alright|sure|yes|no|si|sì|\.{1,}|!{1,}|\?{1,})\s*[.!?]*\s*$/i;
     if (ACK_FIRST.test(text)) cap(15, "bare_acknowledgment");
   }
+  if (words >= 2 && words <= 6 && !conversational && !m.object.fromInlineMaterial) {
+    const EMPTY_GO = /^\s*(ok\s+)?(vai|procedi|continua|dai|forza|go\s+ahead|proceed|carry\s+on|continue|go\s+for\s+it|go\s+on)(\s+(pure|avanti|adesso|ora|now|then))?\s*[.!?]*\s*$/i;
+    if (EMPTY_GO.test(text)) cap(15, "bare_acknowledgment");
+    const EMPTY_QUESTION = /^\s*(puoi|potresti|riusciresti|sapresti|can\s+you|could\s+you|would\s+you)\s+(fare|far|do|make)\s+(una\s+)?(cosa|robe?|thing|something)\s*\??\s*$/i;
+    if (EMPTY_QUESTION.test(text)) cap(15, "bare_acknowledgment");
+  }
   const ROLE_ASSIGN = /^(sei\s+un|agisci\s+come|comportati\s+come|fai\s+finta\s+di\s+essere|you\s+are\s+(a|an)|act\s+as)\b/i;
   if (ROLE_ASSIGN.test(text.trim()) && m.task.source !== "imperative-lead") {
     const ACTION_VERB = /\b(scrivi|crea|genera|analizza|spiega|elenca|dimmi|fammi|rispondi|traduci|correggi|ottimizza|confronta|write|create|explain|analyze|list|make|tell|give|find|help|review|debug|fix|compare|translate|summarize)\b/i;
@@ -21016,7 +21128,7 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
     const hasInlineMaterial2 = m.object.fromInlineMaterial || /```|`[^`]+`|["«»""]/.test(text);
     if (!hasAction && !hasInlineMaterial2) cap(30, "role_without_task");
   }
-  const COURTESY_HEAVY = /\b(scusami|scusa\s+se|non\s+voglio\s+disturbar|mi\s+dispiace\s+disturbar|saresti\s+così\s+gentile|potresti\s+gentilmente|per\s+favore\s+potresti|i\s+hope\s+this\s+isn'?t\s+too\s+much|sorry\s+to\s+bother|would\s+you\s+be\s+so\s+kind|could\s+you\s+possibly|if\s+it'?s\s+not\s+too\s+much\s+trouble|grazie\s+mille!?\s+(saresti|potresti)|i\s+hate\s+to\s+ask|would\s+you\s+mind\s+help|if\s+you\s+have\s+a\s+moment|if\s+possible.*assist|sarebbe\s+possibile\s+avere|spero\s+di\s+non\s+darti\s+fastidio|se\s+fosse\s+possibile)\b/i;
+  const COURTESY_HEAVY = /\b(scusami|scusa\s+se|scusa\s+il\s+disturbo|non\s+voglio\s+disturbar|mi\s+dispiace\s+disturbar|se\s+non\s+è\s+un\s+problema|saresti\s+così\s+gentile|potresti\s+gentilmente|per\s+favore\s+potresti|potresti\s+magari|i\s+hope\s+this\s+isn'?t\s+too\s+much|sorry\s+to\s+bother|would\s+you\s+be\s+so\s+kind|could\s+you\s+possibly|could\s+you\s+perhaps|if\s+it'?s\s+not\s+too\s+much\s+trouble|if\s+you\s+don'?t\s+mind|grazie\s+mille!?\s+(saresti|potresti)|i\s+hate\s+to\s+ask|would\s+you\s+mind\s+help|if\s+you\s+have\s+a\s+moment|if\s+possible.*assist|sarebbe\s+possibile\s+avere|spero\s+di\s+non\s+darti\s+fastidio|se\s+fosse\s+possibile)/i;
   if (COURTESY_HEAVY.test(text) && !m.object.fromInlineMaterial) {
     const realSpecs = (m.format.formats.length > 0 ? 1 : 0) + (m.length.cues.length > 0 ? 1 : 0) + (m.audience.level !== null ? 1 : 0);
     if (realSpecs <= 1) cap(25, "courtesy_filler");
@@ -21071,16 +21183,33 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
       cap(35, "low_information_density");
     }
   }
-  const META_USAGE = /\b(come\s+(posso\s+)?(usarti|farti\s+lavorare|sfruttarti|utilizzarti)|come\s+dovrei\s+(usarti|strutturare\s+le\s+mie)|how\s+(can\s+i|should\s+i)\s+(use\s+you|make\s+you\s+work|get\s+the\s+best|structure\s+my)|what\s+are\s+you\s+(best\s+at|good\s+at|capable\s+of)|cos[aà]\s+(sai|riesci)\s+a\s+fare|cosa\s+sai\s+fare\s+meglio)\b/i;
-  if (META_USAGE.test(text) && words <= 20 && !m.object.fromInlineMaterial) {
+  const META_USAGE = /\b(come\s+(posso\s+)?(usarti|farti\s+lavorare|sfruttarti|utilizzarti)|come\s+dovrei\s+(usarti|strutturare\s+le\s+mie)|how\s+(can\s+i|should\s+i)\s+(use\s+you|make\s+you\s+work|get\s+the\s+best|structure\s+my)|what\s+are\s+you\s+(best\s+at|good\s+at|capable\s+of)|cos[aà]\s+(sai|riesci)\s+a\s+fare|cosa\s+sai\s+fare\s+meglio|cos['’]è\s+che\s+sai\s+fare|cosa\s+dovrei\s+(chiederti|farti|domandarti)|che\s+(domanda|cosa)\s+dovrei\s+(farti|chiederti)|puoi\s+suggerir(mi|ti)\s+una\s+(buona\s+)?domanda|potresti\s+suggerir(mi|ti)\s+(una\s+)?(buona\s+)?domanda|what\s+should\s+i\s+ask\s+you|can\s+you\s+suggest\s+a\s+(good\s+)?question\s+(for\s+me\s+)?to\s+ask|what\s+questions?\s+should\s+i\s+ask)\b/i;
+  if (META_USAGE.test(text) && words <= 25 && !m.object.fromInlineMaterial) {
     cap(25, "meta_usage_unclear");
   }
-  const NEGATED_IMPERATIVE = /\b(don'?t|do\s+not|never|non)\s+\w+/gi;
+  const VAGUE_TOPIC_QUESTION = /^(cosa\s+(sai|conosci)\s+(su|di|sull[ae]|sulla|sull'|dell[oa]|del)\s+|what\s+do\s+you\s+know\s+about\s+|tell\s+me\s+(everything\s+)?about\s+|(?:mi\s+)?parlami\s+d[eiaou]l?\s+|(?:mi\s+)?parlami\s+dell[eaoi]\s+)/i;
+  if (VAGUE_TOPIC_QUESTION.test(text.trim()) && words <= 20) {
+    const hasConcreteContent = /\d/.test(text) || /["'«»""]/.test(text) || hasFormat || hasLength || hasExamples;
+    if (!hasConcreteContent) {
+      cap(38, "vague_topic_question");
+    }
+  }
+  const NEGATED_IMPERATIVE = /\b(don'?t|do\s+not|never|non)\s+(?:essere|sembrare|fare|includ|usare|be|make|include|use|write|scrivere|repeat|ripetere)\w*/gi;
   const negMatches = text.match(NEGATED_IMPERATIVE) ?? [];
   if (negMatches.length >= 2) {
-    const hasConcreteSpec = hasFormat || hasLength || hasExamples || hasAudienceSpec || /\d/.test(text);
+    const stripped = text.replace(
+      /\b(don'?t|do\s+not|never|non)\s+[^.!?]+(?=[.!?]|$)/gi,
+      " "
+    );
+    const has_ = (re) => re.test(stripped);
+    const hasExplicitFormat = has_(/\b(json|markdown|html|xml|yaml|csv|diff|in formato|come (una )?lista|elenco puntato|numerat[oa]|tabell[ae]|in \d+ paragraf|bullet|schema|in una tabella|formato)\b/i);
+    const hasExplicitLength = has_(/\b(\d+\s*(?:word|parole|parola|frasi|frase|paragraf|righe|riga|bullet|punti|caratteri)|brevemente|concis[oa]|sintetic[oa]|in \d+ parole|max\w*\s*\d+|al massimo \d+|no more than|at most)\b/i);
+    const hasExplicitExamples = has_(/(esempi?o?\s*:|per esempio|ad esempio|e\.g\.|example\s*:|for example|→)/i) || has_(/\b(con\s+(un\s+)?esempi[oi]|usando\s+(degli\s+)?esempi|con\s+esempi|includi\s+esempi|with\s+(an?\s+)?examples?|using\s+examples?|include\s+examples?)\b/i);
+    const hasConcreteSpec = hasExplicitFormat || hasExplicitLength || hasExplicitExamples || hasAudienceSpec || /\d/.test(stripped);
     if (!hasConcreteSpec) {
       cap(40, "negative_only_constraints");
+    } else if (negMatches.length >= 3) {
+      cap(38, "negative_only_constraints");
     }
   }
   const EXCLUSIVE_FORMAT_PAIRS = [
@@ -21098,8 +21227,69 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
       }
     }
   }
+  const GENRE_INCOMPAT = [
+    // short poetic form + long-form technical
+    [
+      /\b(haiku|limerick|poesia|poem|sonetto)\b/i,
+      /\b(detailed|comprehensive|thorough|exhaustive|manual|manuale|documentation|documentazione|technical\s+manual|manuale\s+tecnico|guide\s+d[ei]tta|deep\s+dive)\b/i
+    ],
+    // one-word / minimal answer + detailed explanation
+    [
+      /\b(one[-\s]?word|una\s+parola\s+sola|in\s+una\s+parola|single[-\s]?word|risposta\s+di\s+una\s+parola)\b/i,
+      /\b(explain\s+everything|in\s+detail|detailed|thorough|dettagliat|approfondit|nei\s+dettagli|tutto\s+in\s+dettaglio|spiega\s+tutto)\b/i
+    ],
+    // haiku / haiku + explain
+    [
+      /\b(haiku|limerick|verso|verse)\b/i,
+      /\bspiega\s+tutto|explain\s+(all|everything)/i
+    ]
+  ];
+  const ALSO_MARKER = /\b(that\s+is\s+also|but\s+also|and\s+also|which\s+is\s+also|che\s+sia\s+anche|ma\s+(che\s+sia\s+)?anche|però\s+anche|ma\s+includ\w+)\b/i;
+  if (ALSO_MARKER.test(text)) {
+    for (const [a, b] of GENRE_INCOMPAT) {
+      if (a.test(text) && b.test(text)) {
+        cap(22, "mutually_exclusive_format");
+        break;
+      }
+    }
+  }
+  const TEMPORAL_IMPOSSIBLE = /\bin\s+(under\s+|meno\s+di\s+|less\s+than\s+)?\d+\s*(second[oi]?s?|sec\b|ms\b|millisecond[oi]?s?|millisec[oi]?)\b/i;
+  if (TEMPORAL_IMPOSSIBLE.test(text)) {
+    cap(25, "impossible_temporal");
+  }
+  const TIGHT_LENGTH_ONE = /\b(?:in\s+)?(?:one|una|un|1)\s+(?:sentence|frase|word|parola|paragraph|paragrafo)\b/i.test(text);
+  const numericLengthMatch = text.match(/(?<!\d)(\d{1,2})(?!\d)\s*(?:words?|parol[ae])\b/i);
+  const TIGHT_LENGTH_N = !!numericLengthMatch && parseInt(numericLengthMatch[1], 10) <= 15;
+  const TIGHT_LENGTH = TIGHT_LENGTH_ONE || TIGHT_LENGTH_N;
+  const DELIVERABLE_NOUNS = /\b(introduzione|introduction|conclusione|conclusion|riassunto|summary|sinossi|synopsis|tabella|table|grafico|chart|elenco|list|spiegazione|explanation|analisi|analysis|esempio|esempi|example|examples|casi\s+d'?uso|use\s+cases?|vantaggi|pros?|contro|cons?|glossario|glossary|bibliografia|bibliography|paragrafo|paragraph|sezione|section|capitolo|chapter)\b/gi;
+  const numericMentions = text.match(/\b\d+\s+(esempi|examples|paragraf|sezion|section|casi|use\s+case|elementi|item)/gi) ?? [];
+  if (TIGHT_LENGTH) {
+    const deliverables = text.match(DELIVERABLE_NOUNS) ?? [];
+    const uniqueDeliv = new Set(deliverables.map((d) => d.toLowerCase()));
+    const totalItems = uniqueDeliv.size + numericMentions.length;
+    if (totalItems >= 3) {
+      cap(20, "impossible_budget");
+    }
+  }
+  const ONE_WORD = /\b(one[-\s]?word|una\s+parola\s+sola|in\s+una\s+parola|single[-\s]?word|risposta\s+di\s+una\s+parola)\b/i;
+  const EXPLAIN_ALL = /\b(explain\s+(all|everything)|spiega\s+tutto|in\s+dettaglio|in\s+detail|dettagliatamente|nei\s+dettagli)\b/i;
+  const BUT_MARKER = /\bbut\b|\bma\b|\byet\b|\bhowever\b|\btuttavia\b|\bperò\b/i;
+  if (ONE_WORD.test(text) && EXPLAIN_ALL.test(text) && BUT_MARKER.test(text)) {
+    cap(20, "impossible_budget");
+  }
   if (/\[\s*(screenshot|image|immagine|foto|photo|allegato|attachment)\s*\]/i.test(text)) {
     cap(35, "literal_media_placeholder");
+  }
+  {
+    const UNFILLED_TEMPLATE = /\[\s*(?:[A-ZÀ-Ù][A-ZÀ-Ù\s]{3,60})\s*\]/;
+    const match = text.match(UNFILLED_TEMPLATE);
+    if (match) {
+      const inside = match[0].slice(1, -1).trim();
+      const wordCount2 = (inside.match(/\S+/g) ?? []).length;
+      if (wordCount2 >= 2 || wordCount2 === 1 && inside.length >= 5) {
+        cap(18, "unfilled_template");
+      }
+    }
   }
   const IMPLICIT_PRIOR_REF = /\b(quello\s+che\s+hai\s+(fatto|detto|scritto)\s+prima|come\s+prima|come\s+l'ultima\s+volta|i\s+\w+(\s+\w+){0,2}\s+che\s+ti\s+ho\s+(detto|mostrato|dato)|what\s+you\s+did\s+(before|last\s+time)|like\s+(before|last\s+time)|the\s+\w+(\s+\w+){0,2}\s+i\s+(told|showed|gave)\s+you|as\s+we\s+(discussed|agreed)|come\s+abbiamo\s+discusso)\b/i;
   const USE_PRIOR_MATERIAL = /\b(usa|segui|applica|use|follow|apply)\s+(il|lo|la|i|gli|le|the)?\s*\w+(\s+\w+){0,2}\s+(che\s+ti\s+ho\s+(mandato|dato|mostrato|inviato)|you\s+(sent|gave|showed)\s+me)\b/i;
@@ -21133,9 +21323,38 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
   if (DETAIL_SHORT_EN.test(text) || SHORT_DETAIL_EN.test(text)) {
     cap(35, "contradiction");
   }
+  const SENTENCE_COVER_ALL = /\b(one\s+sentence|in\s+one\s+sentence|una\s+(sola\s+)?frase|in\s+una\s+(sola\s+)?frase)\b[^.!?]{0,40}\b(but|yet|however|ma|però)\b[^.!?]{0,40}\b(cover(?:ing|s)?\s+(everything|all|every\s+(aspect|angle|detail))|copr(?:endo|ire|i)\s+tutt[oi]\s+(gli\s+)?aspett[oi]|tutti\s+gli\s+aspetti|every\s+aspect|all\s+aspects)\b/i;
+  if (SENTENCE_COVER_ALL.test(text)) {
+    cap(22, "contradiction");
+  }
+  const LONG_DETAILED_SUMMARY = /\b(long|lengthy|extensive|lung[oa]|est[eé]s[oa])\b\s+(and\s+|e\s+)?(detailed|comprehensive|thorough|exhaustive|dettagliat[oa]|approfondit[oa]|esaustiv[oa]|completo|completa)\s+(summary|riassunto|sintesi|synopsis|sinossi)\b/i;
+  const SUMMARY_LONG_DETAIL = /\b(summary|riassunto|sintesi|synopsis|sinossi)\b[^.!?]{0,30}\b(long\s+and\s+detailed|detailed\s+and\s+long|lung[oa]\s+e\s+dettagliat[oa]|dettagliat[oa]\s+e\s+lung[oa]|completo\s+e\s+dettagliato)\b/i;
+  if (LONG_DETAILED_SUMMARY.test(text) || SUMMARY_LONG_DETAIL.test(text)) {
+    cap(30, "contradiction");
+  }
+  const PRECISE_APPROX = /\b(preciso|precisa|accurato|accurata|esatto|esatta|precise|accurate|exact)\b[^.!?]{0,30}\b(ma|però|but|yet)\b[^.!?]{0,30}\b(approssimativo|approssimativa|impreciso|imprecisa|vago|vaga|approximate|rough|imprecise|vague)\b/i;
+  const APPROX_PRECISE = /\b(approssimativo|approssimativa|impreciso|imprecisa|vago|vaga|approximate|rough|imprecise|vague)\b[^.!?]{0,30}\b(ma|però|but|yet)\b[^.!?]{0,30}\b(preciso|precisa|accurato|accurata|esatto|esatta|precise|accurate|exact)\b/i;
+  if (PRECISE_APPROX.test(text) || APPROX_PRECISE.test(text)) {
+    cap(20, "contradiction");
+  }
   const SAME_BUT_DIFF = /\b(same|stess[oa]|uguale|medesim[oa])\b[^.!?]{0,20}\b(but|yet|however|ma|però|pero)\b[^.!?]{0,20}\b(different|divers[oa]|altro)\b/i;
   if (SAME_BUT_DIFF.test(text)) {
     cap(20, "contradiction");
+  }
+  const AUDIENCE_EXCLUSION_IT = /a\s+tutti\s+(tranne|eccetto|escluso)\s+(a\s+)?(chi|quelli\s+che|cui)\s+(piace|piacciono|ama|amano)\s+(?:le\s+|il\s+|la\s+|i\s+|gli\s+)?([\p{L}\p{M}'\s]{2,30}?)(?:[.!?]|$)/iu;
+  const AUDIENCE_EXCLUSION_EN = /everyone[^.!?]{0,20}\bexcept\s+(those\s+who|people\s+who|fans\s+of)\s+(?:like|love|enjoy)?\s*(?:the\s+)?([\p{L}\p{M}'\s]{2,30}?)(?:[.!?]|$)/iu;
+  const excMatch = text.match(AUDIENCE_EXCLUSION_IT) || text.match(AUDIENCE_EXCLUSION_EN);
+  if (excMatch) {
+    const excludedGroup = excMatch[excMatch.length - 1] || "";
+    const excludedWords = (excludedGroup.match(/[\p{L}]{4,}/gu) ?? []).map((w) => w.toLowerCase());
+    const beforeExclusion = text.slice(0, excMatch.index ?? 0);
+    const priorWords = (beforeExclusion.match(/[\p{L}]{4,}/gu) ?? []).map((w) => w.toLowerCase());
+    const excLang = /[àèéìòù]/i.test(text) ? "it" : "en";
+    const overlap = excludedWords.some((ew) => {
+      const ewStem = stem(ew, excLang);
+      return priorWords.some((pw) => stem(pw, excLang) === ewStem);
+    });
+    if (overlap) cap(22, "genre_self_exclusion");
   }
   if (byCode("REF_001") > 0) cap(45, "missing_reference");
   if (byCode("VAGUE_002") > 0) {
@@ -21169,29 +21388,51 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
   }
   total = clamp(total);
   const lbl = label(total);
-  const worst = [clarityScore, precisionScore, lengthScore, redundancyScore, readabilityScore].sort((a, b) => a.score - b.score)[0];
+  const decisiveCapForDim = [...breakdown].reverse().find((b) => b.kind === "cap" && b.effect === total);
+  const dims = {
+    clarity: clarityScore,
+    precision: precisionScore,
+    length: lengthScore,
+    redundancy: redundancyScore,
+    readability: readabilityScore
+  };
+  if (decisiveCapForDim) {
+    const target = CAP_TO_DIM[decisiveCapForDim.label];
+    if (target) {
+      const ceiling = Math.min(100, total + 15);
+      const currentDim = dims[target];
+      if (currentDim.score > ceiling) {
+        const capText = CAP_REASON_TEXT[decisiveCapForDim.label];
+        const newWhy = capText ? uiLocale === "it" ? capText.it : capText.en : currentDim.why;
+        dims[target] = {
+          ...currentDim,
+          score: ceiling,
+          label: label(ceiling),
+          why: newWhy
+        };
+      }
+    }
+  }
+  const worst = [dims.clarity, dims.precision, dims.length, dims.redundancy, dims.readability].sort((a, b) => a.score - b.score)[0];
+  const decisiveCap = [...breakdown].reverse().find((b) => b.kind === "cap" && b.effect === total);
+  const capReason = decisiveCap ? CAP_REASON_TEXT[decisiveCap.label] : void 0;
+  const focusText = capReason ? uiLocale === "it" ? capReason.it : capReason.en : worst.name.toLowerCase();
   const summaries = uiLocale === "it" ? {
     excellent: "Ottimo prompt: ben strutturato e specificato.",
-    good: `Buon prompt, migliorabile. Focus: ${worst.name.toLowerCase()}.`,
-    fair: `Prompt discreto. Problema principale: ${worst.name.toLowerCase()}.`,
-    poor: `Prompt debole. Inizia da: ${worst.name.toLowerCase()}.`
+    good: `Buon prompt, migliorabile. Focus: ${focusText}.`,
+    fair: `Prompt discreto. Problema principale: ${focusText}.`,
+    poor: `Prompt debole. Inizia da: ${focusText}.`
   } : {
     excellent: "Great prompt: well structured and specified.",
-    good: `Good prompt, room to improve. Focus: ${worst.name.toLowerCase()}.`,
-    fair: `Decent prompt. Main issue: ${worst.name.toLowerCase()}.`,
-    poor: `Weak prompt. Start with: ${worst.name.toLowerCase()}.`
+    good: `Good prompt, room to improve. Focus: ${focusText}.`,
+    fair: `Decent prompt. Main issue: ${focusText}.`,
+    poor: `Weak prompt. Start with: ${focusText}.`
   };
   return {
     total,
     label: lbl,
     breakdown,
-    dimensions: {
-      clarity: clarityScore,
-      precision: precisionScore,
-      length: lengthScore,
-      redundancy: redundancyScore,
-      readability: readabilityScore
-    },
+    dimensions: dims,
     structure: {
       task: hasTaskVerb,
       role: hasRole,
