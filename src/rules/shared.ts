@@ -46,6 +46,30 @@ function nextId(): string {
   }
 }
 
+// ─── Confidence tiers (v2.25) ────────────────────────────────────────────────
+// Design-time priors of rule reliability. Assigned once when a rule is
+// authored and passed through `obs()`; the scorer sums confidences instead of
+// counting to naturally dampen weakly-confident matches. Values below are the
+// hand-tuned defaults; the calibrator can override them via weights.ts.
+export const CONF = {
+  /** Dictionary/lexicon lookup or purely mechanical structure. Near-zero FP. */
+  certain: 1.00,
+  /** Specific pattern with a discriminating marker (adversative, template shape). */
+  probable: 0.90,
+  /**
+   * Language heuristic (vague word, weak verb, filler noun). Moderate FP.
+   *
+   * Chosen empirically at 0.75, not the theoretical 0.60: benchmark showed
+   * that 0.60 deflated legitimate weak-verb / vague-term penalties enough
+   * to leak dangerous misses back in (MAE 11.7 → 11.9, dangerous 9 → 11 on
+   * the full corpus). 0.75 preserves the intent of the tier (weaker rules
+   * matter less) without eroding coverage on genuinely poor prompts.
+   * Calibrator sensitivity Δloss ≤ 0.05 for ±20% around this value: the
+   * loss surface is flat here, so the choice is stable.
+   */
+  heuristic: 0.75,
+} as const;
+
 // ─── Observation factory ──────────────────────────────────────────────────────
 export function obs(
   type: ObservationType,
@@ -59,11 +83,13 @@ export function obs(
   example: { before: string; after: string } | null,
   tokensSaved: number,
   code: string,
+  confidence: number = 1.0,
 ): Observation {
   const { line, column } = getLineCol(text, offset);
   return {
     id: nextId(), type, level, label, matchText,
     offset, length: matchText.length, line, column,
     why, suggestion, example, impact: impact(tokensSaved), code,
+    confidence,
   };
 }

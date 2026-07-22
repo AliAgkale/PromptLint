@@ -4,7 +4,7 @@
  */
 
 import type { Observation } from '../types.js';
-import { obs, UILocale } from './shared.js';
+import { obs, UILocale, CONF } from './shared.js';
 import type { PromptModel } from '../slots/model.js';
 
 export function runScopeLengthContradiction(text: string, model: PromptModel, uiLocale: UILocale = 'it'): Observation[] {
@@ -18,7 +18,7 @@ export function runScopeLengthContradiction(text: string, model: PromptModel, ui
         : `The requested length (${tight.match}) is too short for the depth you're asking for. The model can't be exhaustive and respect that limit at the same time: it will ignore one of them.`,
       uiLocale === 'it' ? 'Aumenta la lunghezza, oppure riduci la profondità richiesta.' : 'Increase the length, or reduce the requested depth.',
       { before: tight.match, after: uiLocale === 'it' ? '(lunghezza coerente con la profondità)' : '(length consistent with the depth)' },
-      0, 'CONTRA_001'
+      0, 'CONTRA_001', CONF.certain
     )];
   }
 
@@ -43,7 +43,7 @@ export function runScopeLengthContradiction(text: string, model: PromptModel, ui
         : `"${longShort[0]}" contradicts itself: you're asking for something long and short at the same time. The model will ignore one.`,
       uiLocale === 'it' ? 'Scegli una lunghezza sola, oppure indicala in modo concreto (es. "circa 300 parole").' : 'Pick a single length, or state it concretely (e.g. "around 300 words").',
       { before: longShort[0], after: uiLocale === 'it' ? '(una lunghezza coerente)' : '(a single coherent length)' },
-      0, 'CONTRA_001'
+      0, 'CONTRA_001', CONF.certain
     )];
   }
 
@@ -62,7 +62,7 @@ export function runScopeLengthContradiction(text: string, model: PromptModel, ui
       ? 'Scegli una delle due: o completo, o breve. Oppure specifica la lunghezza adeguata alla profondità richiesta.'
       : 'Pick one: either comprehensive, or short. Or specify a length that matches the requested depth.',
     { before: cm[0] + ' … ' + sm[0], after: uiLocale === 'it' ? '(coerenza tra profondità e lunghezza)' : '(consistency between depth and length)' },
-    0, 'CONTRA_001'
+    0, 'CONTRA_001', CONF.certain
   )];
 }
 
@@ -153,7 +153,7 @@ export function runUnfilledTemplate(text: string, uiLocale: UILocale = 'it'): Ob
     uiLocale === 'it'
       ? 'Sostituisci i segnaposto con il contenuto reale prima di inviare.'
       : 'Replace the placeholders with real content before sending.',
-    null, 0, 'TMPL_001'
+    null, 0, 'TMPL_001', CONF.certain
   )];
 }
 
@@ -190,7 +190,7 @@ export function runTranslateKeepContradiction(text: string, uiLocale: UILocale =
       : `You ask to translate into ${m[1]} but then to keep it in ${m[2]}: those are two different output languages. The model can't do both and will pick one.`,
     uiLocale === 'it' ? 'Indica una sola lingua di destinazione.' : 'State a single target language.',
     { before: m[0], after: uiLocale === 'it' ? '(una sola lingua di output)' : '(a single output language)' },
-    0, 'CONTRA_002'
+    0, 'CONTRA_002', CONF.certain
   )];
 }
 
@@ -212,7 +212,7 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
         : `The prompt asks for two incompatible registers (${c.why}): "${c.a.match}" and "${c.b.match}". The model can't satisfy both and will pick one at random.`,
       uiLocale === 'it' ? 'Tieni una sola direzione di tono, oppure chiarisci come combinarle.' : 'Keep a single tone direction, or clarify how to combine them.',
       { before: `${c.a.match} … ${c.b.match}`, after: uiLocale === 'it' ? '(scegli un registro coerente)' : '(pick a consistent register)' },
-      0, 'CONTRA_002'
+      0, 'CONTRA_002', CONF.certain
     ));
   }
 
@@ -229,7 +229,7 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
         : `The prompt asks for two incompatible output formats (${c.why}): "${c.a.match}" and "${c.b.match}". The model can't produce both as the shape of a single answer.`,
       uiLocale === 'it' ? 'Scegli un solo formato di output.' : 'Pick a single output format.',
       { before: `${c.a.match} … ${c.b.match}`, after: uiLocale === 'it' ? '(un solo formato)' : '(a single format)' },
-      0, 'CONTRA_002'
+      0, 'CONTRA_002', CONF.certain
     ));
   }
   const ftConflict = model.cross.formatTone;
@@ -243,7 +243,7 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
         : `A structured data format ("${ftConflict.match}") can't have a ${voice.match} tone: formats like JSON, CSV or tables leave no room for a narrative voice. The model will ignore one.`,
       uiLocale === 'it' ? 'Scegli: o un formato dati strutturato, o un testo con voce narrativa.' : 'Choose: either a structured data format, or a narrative-voice text.',
       { before: `${ftConflict.match} … ${voice.match}`, after: uiLocale === 'it' ? '(formato dati OPPURE voce narrativa)' : '(data format OR narrative voice)' },
-      0, 'CONTRA_002'
+      0, 'CONTRA_002', CONF.certain
     ));
   }
 
@@ -271,7 +271,7 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
         ? 'Allinea il tono al pubblico: un pubblico esperto vuole un taglio tecnico, un principiante uno semplice.'
         : 'Align the tone with the audience: an expert audience wants a technical angle, a beginner wants a simple one.',
       { before: `${atConflict.audienceMatch} … ${atConflict.toneMatch}`, after: uiLocale === 'it' ? '(tono coerente col pubblico)' : '(tone consistent with the audience)' },
-      0, 'CONTRA_002'
+      0, 'CONTRA_002', CONF.certain
     ));
   } else if (audience.internalConflict && !depthFamilyAlreadyReported && !atConflict) {
     const { a: aa, b: ab } = audience.internalConflict;
@@ -283,7 +283,7 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
         : `The prompt states two incompatible audiences: "${aa.match}" and "${ab.match}". The model can't address both with the same angle.`,
       uiLocale === 'it' ? 'Scegli un solo pubblico di riferimento.' : 'Pick a single target audience.',
       { before: `${aa.match} … ${ab.match}`, after: uiLocale === 'it' ? '(un solo pubblico)' : '(a single audience)' },
-      0, 'CONTRA_002'
+      0, 'CONTRA_002', CONF.certain
     ));
   }
 
@@ -306,7 +306,7 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
           ? 'Tieni una sola delle due istruzioni in conflitto, oppure chiarisci come combinarle.'
           : 'Keep only one of the two conflicting instructions, or clarify how to combine them.',
         { before: `${ma[0]} … ${mb[0]}`, after: uiLocale === 'it' ? '(scegli una direzione coerente)' : '(pick a consistent direction)' },
-        0, 'CONTRA_002'
+        0, 'CONTRA_002', CONF.certain
       ));
     }
   }
@@ -350,7 +350,7 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
           : 'Decide whether you want that element or not, and leave only one instruction.',
         { before: uiLocale === 'it' ? `includi ${word} … non usare ${word}` : `include ${word} … don't use ${word}`,
           after: uiLocale === 'it' ? `(scegli: includere o non includere ${word})` : `(choose: include or exclude ${word})` },
-        0, 'CONTRA_003'
+        0, 'CONTRA_003', CONF.certain
       ));
       break; // one self-cancellation is enough to flag
     }

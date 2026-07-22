@@ -210,6 +210,8 @@ export { getTabCompletion, applyTabCompletion } from './completion/index.js';
 export type { CompletionSuggestion } from './completion/index.js';
 export { runAllObservations, resetLanguageState, makeLangState } from './analyzers/observations.js';
 export { detectIntent } from './analyzers/intent.js';
+export { setWeights, resetWeights, DEFAULT_WEIGHTS, type Weights, confOverride } from './scoring/weights.js';
+export { CONF } from './rules/shared.js';
 export { resolveConversational } from './analyzers/observations.js';
 export type { LangState } from './analyzers/observations.js';
 export { scorePrompt } from './scoring/index.js';

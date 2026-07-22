@@ -4,7 +4,7 @@
  */
 
 import type { Observation } from '../types.js';
-import { obs, UILocale } from './shared.js';
+import { obs, CONF, UILocale } from './shared.js';
 import { estimateTokens } from '../tokenizer/index.js';
 import { isCorrect as liteIsCorrect, getSuggestions as liteGetSuggestions, isItalianElision } from '../spell/index.js';
 import type { SupportedLanguage } from '../spell/index.js';
@@ -183,7 +183,7 @@ export function runSpell(text: string, spell: SpellAdapter | undefined, detected
         ? (isItalian ? `Forse intendevi: ${suggs.join(', ')}?` : `Did you mean: ${suggs.join(', ')}?`)
         : (isItalian ? 'Controlla l\'ortografia di questa parola.' : 'Check the spelling of this word.'),
       suggs.length > 0 ? { before: word, after: suggs[0] } : null,
-      0, 'SPELL_001'
+      0, 'SPELL_001', CONF.certain
     ));
   }
   return results;
@@ -205,7 +205,7 @@ export function runRepeatedWord(text: string, isExempt: (pos: number) => boolean
       uiLocale === 'it' ? `Rimuovi una delle due occorrenze di "${m[1]}".` : `Remove one of the two occurrences of "${m[1]}".`,
       { before: m[0], after: m[1] },
       estimateTokens(m[1]),
-      'GRAM_001'
+      'GRAM_001', CONF.certain
     ));
   }
   return results;
@@ -238,7 +238,7 @@ export function runDoubleNegation(text: string, detectedLang: SupportedLanguage,
         ? 'Riscrivi la frase usando una sola negazione chiara, o formula in positivo.'
         : 'Rewrite the sentence using a single clear negation, or phrase it positively.',
       { before: m[0], after: uiLocale === 'it' ? '(riformulare in positivo)' : '(rephrase positively)' },
-      0, 'GRAM_002'
+      0, 'GRAM_002', CONF.certain
     ));
   }
   return results;
@@ -266,7 +266,7 @@ export function runLongSentence(text: string, uiLocale: UILocale = 'it'): Observ
           ? 'Dividi in 2–3 frasi più brevi, ognuna con un\'istruzione singola.'
           : 'Split into 2–3 shorter sentences, each with a single instruction.',
         { before: sentence.slice(0, 50) + '…', after: uiLocale === 'it' ? '(dividere in istruzioni separate)' : '(split into separate instructions)' },
-        Math.round(tok * 0.15), 'GRAM_003'
+        Math.round(tok * 0.15), 'GRAM_003', CONF.probable
       ));
     }
     cursor = offset + sentence.length;
@@ -291,7 +291,7 @@ export function runMultipleSpaces(text: string, uiLocale: UILocale = 'it'): Obse
         : `${m[0].length} consecutive spaces. Each extra space wastes tokens and can interfere with structured-output parsers.`,
       uiLocale === 'it' ? 'Sostituisci con un singolo spazio.' : 'Replace with a single space.',
       { before: m[0], after: ' ' },
-      m[0].length - 1, 'GRAM_004'
+      m[0].length - 1, 'GRAM_004', CONF.certain
     ));
   }
   return results;

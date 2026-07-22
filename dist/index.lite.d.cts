@@ -45,6 +45,28 @@ interface Observation {
     impact: ImpactEstimate;
     /** Rule code for programmatic use */
     code: string;
+    /**
+     * Confidence that this observation is a genuine problem, in [0, 1].
+     *
+     * A design-time prior of the rule that fired, NOT a per-instance estimate:
+     *   ~0.99 — dictionary-backed (SPELL_001) or purely structural
+     *           (repeated_word, double_space, unfilled_template with all-caps)
+     *   ~0.85 — pattern-based with a specific lexical marker
+     *           (CONTRA_*, TMPL_001, POL_*)
+     *   ~0.60 — heuristic (AMB_002 vague words, WEAK_001 weak verbs,
+     *           VAGUE_002 filler placeholder nouns)
+     *
+     * The scorer's `byType()` sums confidences (not counts), so a single
+     * dictionary spelling error weighs a full unit while three heuristic
+     * vague-verb matches weigh 1.8. This automatically dampens false
+     * positives from the fuzziest rules without disabling them. The three
+     * tier values are calibrated by benchmark/calibrate.mjs alongside the
+     * cap ceilings.
+     *
+     * Defaults to 1.0 for backward compatibility — rule files that haven't
+     * been annotated yet behave exactly as before.
+     */
+    confidence?: number;
 }
 interface AutocorrectSuggestion {
     /** The word/phrase as typed */

@@ -4,7 +4,7 @@
  */
 
 import type { Observation } from '../types.js';
-import { obs, UILocale } from './shared.js';
+import { obs, CONF, UILocale } from './shared.js';
 import { estimateTokens } from '../tokenizer/index.js';
 
 /** Filler words */

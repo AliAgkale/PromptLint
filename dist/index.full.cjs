@@ -253,7 +253,25 @@ function nextId() {
     return `obs_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
   }
 }
-function obs(type, level, label2, matchText, offset, text, why, suggestion, example, tokensSaved, code) {
+var CONF = {
+  /** Dictionary/lexicon lookup or purely mechanical structure. Near-zero FP. */
+  certain: 1,
+  /** Specific pattern with a discriminating marker (adversative, template shape). */
+  probable: 0.9,
+  /**
+   * Language heuristic (vague word, weak verb, filler noun). Moderate FP.
+   *
+   * Chosen empirically at 0.75, not the theoretical 0.60: benchmark showed
+   * that 0.60 deflated legitimate weak-verb / vague-term penalties enough
+   * to leak dangerous misses back in (MAE 11.7 → 11.9, dangerous 9 → 11 on
+   * the full corpus). 0.75 preserves the intent of the tier (weaker rules
+   * matter less) without eroding coverage on genuinely poor prompts.
+   * Calibrator sensitivity Δloss ≤ 0.05 for ±20% around this value: the
+   * loss surface is flat here, so the choice is stable.
+   */
+  heuristic: 0.75
+};
+function obs(type, level, label2, matchText, offset, text, why, suggestion, example, tokensSaved, code, confidence = 1) {
   const { line, column } = getLineCol(text, offset);
   return {
     id: nextId(),
@@ -269,7 +287,8 @@ function obs(type, level, label2, matchText, offset, text, why, suggestion, exam
     suggestion,
     example,
     impact: impact(tokensSaved),
-    code
+    code,
+    confidence
   };
 }
 
@@ -19313,7 +19332,8 @@ function runSpell(text, spell, detectedLang, isExempt, uiLocale = "it") {
       suggs.length > 0 ? isItalian ? `Forse intendevi: ${suggs.join(", ")}?` : `Did you mean: ${suggs.join(", ")}?` : isItalian ? "Controlla l'ortografia di questa parola." : "Check the spelling of this word.",
       suggs.length > 0 ? { before: word, after: suggs[0] } : null,
       0,
-      "SPELL_001"
+      "SPELL_001",
+      CONF.certain
     ));
   }
   return results;
@@ -19335,7 +19355,8 @@ function runRepeatedWord(text, isExempt, uiLocale = "it") {
       uiLocale === "it" ? `Rimuovi una delle due occorrenze di "${m[1]}".` : `Remove one of the two occurrences of "${m[1]}".`,
       { before: m[0], after: m[1] },
       estimateTokens(m[1]),
-      "GRAM_001"
+      "GRAM_001",
+      CONF.certain
     ));
   }
   return results;
@@ -19361,7 +19382,8 @@ function runDoubleNegation(text, detectedLang, uiLocale = "it") {
       uiLocale === "it" ? "Riscrivi la frase usando una sola negazione chiara, o formula in positivo." : "Rewrite the sentence using a single clear negation, or phrase it positively.",
       { before: m[0], after: uiLocale === "it" ? "(riformulare in positivo)" : "(rephrase positively)" },
       0,
-      "GRAM_002"
+      "GRAM_002",
+      CONF.certain
     ));
   }
   return results;
@@ -19387,7 +19409,8 @@ function runLongSentence(text, uiLocale = "it") {
         uiLocale === "it" ? "Dividi in 2\u20133 frasi pi\xF9 brevi, ognuna con un'istruzione singola." : "Split into 2\u20133 shorter sentences, each with a single instruction.",
         { before: sentence.slice(0, 50) + "\u2026", after: uiLocale === "it" ? "(dividere in istruzioni separate)" : "(split into separate instructions)" },
         Math.round(tok * 0.15),
-        "GRAM_003"
+        "GRAM_003",
+        CONF.probable
       ));
     }
     cursor = offset + sentence.length;
@@ -19413,7 +19436,8 @@ function runMultipleSpaces(text, uiLocale = "it") {
       uiLocale === "it" ? "Sostituisci con un singolo spazio." : "Replace with a single space.",
       { before: m[0], after: " " },
       m[0].length - 1,
-      "GRAM_004"
+      "GRAM_004",
+      CONF.certain
     ));
   }
   return results;
@@ -19675,7 +19699,8 @@ function runNoTask(text, detectedLang, model, conversationTurn, uiLocale = "it")
     uiLocale === "it" ? "Inizia con un verbo imperativo: Scrivi, Analizza, Riassumi, Spiega, Elenca, Confronta, Genera\u2026" : "Start with an imperative verb: Write, Analyze, Summarize, Explain, List, Compare, Generate\u2026",
     { before: trimmed.slice(0, 30), after: uiLocale === "it" ? "Analizza / Scrivi / Spiega \u2026" : "Analyze / Write / Explain \u2026" },
     0,
-    "PL_001"
+    "PL_001",
+    CONF.probable
   )].map((o) => ({ ...o, matchText: "(no task \u2014 " + o.matchText + ")" }));
 }
 function runNoObject(text, detectedLang, model, uiLocale = "it") {
@@ -19701,7 +19726,8 @@ function runNoObject(text, detectedLang, model, uiLocale = "it") {
     uiLocale === "it" ? "Aggiungi su cosa: un argomento, un testo da elaborare, o un riferimento concreto." : "Add what it's about: a topic, a text to work on, or a concrete reference.",
     { before: object.text ?? trimmed.slice(0, 30), after: uiLocale === "it" ? "(argomento o materiale specifico)" : "(specific topic or material)" },
     0,
-    "OBJ_001"
+    "OBJ_001",
+    CONF.probable
   )];
 }
 function isConversationalReply(text) {
@@ -19734,7 +19760,8 @@ function runNoFormat(text, uiLocale = "it") {
     uiLocale === "it" ? 'Specifica il formato: "in JSON", "come lista numerata", "in 2 paragrafi", "in una tabella Markdown".' : 'Specify the format: "in JSON", "as a numbered list", "in 2 paragraphs", "in a Markdown table".',
     { before: "\u2026", after: uiLocale === "it" ? "\u2026 in formato JSON." : "\u2026 in JSON format." },
     0,
-    "PL_002"
+    "PL_002",
+    CONF.probable
   )];
 }
 function runNoRole(text, uiLocale = "it") {
@@ -19755,7 +19782,8 @@ function runNoRole(text, uiLocale = "it") {
     uiLocale === "it" ? `Aggiungi un ruolo all'inizio: "Sei un [esperto di\u2026]. ".` : 'Add a role at the start: "You are a [domain expert]. ".',
     { before: text.slice(0, 20), after: (uiLocale === "it" ? "Sei un esperto di [dominio]. " : "You are a [domain] expert. ") + text.slice(0, 20) },
     0,
-    "PL_006"
+    "PL_006",
+    CONF.probable
   )];
 }
 function runNoLength(text, uiLocale = "it") {
@@ -19775,7 +19803,8 @@ function runNoLength(text, uiLocale = "it") {
     uiLocale === "it" ? 'Aggiungi: "in 100 parole", "in 3 bullet point", "in 2 frasi".' : 'Add: "in 100 words", "in 3 bullet points", "in 2 sentences".',
     { before: "\u2026", after: uiLocale === "it" ? "\u2026 in 3 bullet point." : "\u2026 in 3 bullet points." },
     0,
-    "PL_009"
+    "PL_009",
+    CONF.probable
   )];
 }
 function hasExample(text) {
@@ -19797,7 +19826,8 @@ function runNoExample(text, uiLocale = "it") {
     uiLocale === "it" ? 'Aggiungi un esempio concreto, es: "Input: mario@x.it \u2014 Output: {\\"nome\\":\\"mario\\"}". Anche uno solo cambia molto.' : 'Add a concrete example, e.g.: "Input: mario@x.it \u2014 Output: {\\"name\\":\\"mario\\"}". Even just one changes a lot.',
     { before: "\u2026", after: uiLocale === "it" ? "\u2026\\n\\nEsempio:\\nInput: [\u2026]\\nOutput: [\u2026]" : "\u2026\\n\\nExample:\\nInput: [\u2026]\\nOutput: [\u2026]" },
     0,
-    "EX_001"
+    "EX_001",
+    CONF.probable
   )];
 }
 function runNegativeFraming(text, uiLocale = "it") {
@@ -19822,7 +19852,8 @@ function runNegativeFraming(text, uiLocale = "it") {
     uiLocale === "it" ? `Riformula in positivo: invece di "non usare X" scrivi "usa Y". Di' cosa fare, non solo cosa evitare.` : `Rephrase positively: instead of "don't use X" write "use Y". Say what to do, not just what to avoid.`,
     { before: uiLocale === "it" ? "Non essere troppo formale" : "Don't be too formal", after: uiLocale === "it" ? "Usa un tono colloquiale e diretto" : "Use a conversational, direct tone" },
     0,
-    "NEG_001"
+    "NEG_001",
+    CONF.probable
   )];
 }
 function runMissingReferencedMaterial(text, model, isExempt, uiLocale = "it") {
@@ -19847,7 +19878,8 @@ function runMissingReferencedMaterial(text, model, isExempt, uiLocale = "it") {
     uiLocale === "it" ? "Incolla il contenuto direttamente nel prompt (dopo i due punti, tra virgolette, o come blocco separato)." : "Paste the content directly into the prompt (after a colon, in quotes, or as a separate block).",
     { before: `${hit[0]}`, after: uiLocale === "it" ? `${hit[0]}: [incolla qui il contenuto]` : `${hit[0]}: [paste the content here]` },
     0,
-    "REF_001"
+    "REF_001",
+    CONF.probable
   )];
 }
 function runNoContext(text, uiLocale = "it") {
@@ -19873,7 +19905,8 @@ function runNoContext(text, uiLocale = "it") {
       after: uiLocale === "it" ? "Scrivi una landing page per il prodotto, rivolta a CTO B2B, per generare richieste di demo" : "Write a landing page for the product, aimed at B2B CTOs, to drive demo signups"
     },
     0,
-    "CTX_001"
+    "CTX_001",
+    CONF.probable
   )];
 }
 
@@ -19896,7 +19929,8 @@ function runVaguePlaceholders(text, uiLocale = "it") {
         uiLocale === "it" ? "Sostituisci con ci\xF2 che vuoi davvero: oggetto concreto, formato, contesto." : "Replace with what you actually want: a concrete object, format, context.",
         { before: m[0], after: uiLocale === "it" ? "[descrizione concreta]" : "[concrete description]" },
         0,
-        "VAGUE_001"
+        "VAGUE_001",
+        CONF.heuristic
       ));
     }
   }
@@ -19923,7 +19957,8 @@ function runVagueQualityPileup(text, uiLocale = "it") {
       after: uiLocale === "it" ? "una guida in 5 punti con un esempio per punto, per chi parte da zero" : "a 5-point guide with one example per point, for absolute beginners"
     },
     0,
-    "VAGUE_002"
+    "VAGUE_002",
+    CONF.heuristic
   )];
 }
 function runVagueQuality(text, isExempt, uiLocale = "it") {
@@ -19943,7 +19978,8 @@ function runVagueQuality(text, isExempt, uiLocale = "it") {
       uiLocale === "it" ? "Specifica il criterio: pi\xF9 veloce, pi\xF9 leggibile, pi\xF9 conciso, con meno dipendenze\u2026" : "Specify the criterion: faster, more readable, more concise, with fewer dependencies\u2026",
       { before: m[0], after: uiLocale === "it" ? '[criterio specifico, es. "pi\xF9 leggibile"]' : '[specific criterion, e.g. "more readable"]' },
       0,
-      "AMB_002"
+      "AMB_002",
+      CONF.heuristic
     ));
   }
   return results;
@@ -19970,7 +20006,8 @@ function runVaguePlaceholderNouns(text, uiLocale = "it") {
       after: uiLocale === "it" ? "Genera il report vendite usando i dati del file export.csv" : "Generate the sales report using the data in export.csv"
     },
     0,
-    "AMB_003"
+    "AMB_003",
+    CONF.heuristic
   )];
 }
 var WEAK_VERBS = [
@@ -20008,7 +20045,8 @@ function runWeakVerbs(text, isExempt, uiLocale = "it") {
         uiLocale === "it" ? "Sostituisci con un verbo specifico: fix, implement, refactor, investigate, resolve, document\u2026" : "Replace with a specific verb: fix, implement, refactor, investigate, resolve, document\u2026",
         { before: m[0], after: uiLocale === "it" ? "[verbo specifico]" : "[specific verb]" },
         0,
-        "WEAK_001"
+        "WEAK_001",
+        CONF.heuristic
       ));
     }
   }
@@ -20030,7 +20068,8 @@ function runScopeLengthContradiction(text, model, uiLocale = "it") {
       uiLocale === "it" ? "Aumenta la lunghezza, oppure riduci la profondit\xE0 richiesta." : "Increase the length, or reduce the requested depth.",
       { before: tight.match, after: uiLocale === "it" ? "(lunghezza coerente con la profondit\xE0)" : "(length consistent with the depth)" },
       0,
-      "CONTRA_001"
+      "CONTRA_001",
+      CONF.certain
     )];
   }
   const ADVERS = "(?:ma|per\xF2|pero|eppure|tuttavia|but|yet|however)";
@@ -20049,7 +20088,8 @@ function runScopeLengthContradiction(text, model, uiLocale = "it") {
       uiLocale === "it" ? 'Scegli una lunghezza sola, oppure indicala in modo concreto (es. "circa 300 parole").' : 'Pick a single length, or state it concretely (e.g. "around 300 words").',
       { before: longShort[0], after: uiLocale === "it" ? "(una lunghezza coerente)" : "(a single coherent length)" },
       0,
-      "CONTRA_001"
+      "CONTRA_001",
+      CONF.certain
     )];
   }
   const COMPLETE = /\b(completo|completa|esaustiv[oa]|esaurient[ei]|dettagliat[oa]|approfondit[oa]|dettagliatamente|molto lungo|estremamente|approfondisci|nei minimi dettagli|comprehensive|exhaustive|detailed|thorough|in-depth|in depth|extensive|elaborate)\b/i;
@@ -20068,7 +20108,8 @@ function runScopeLengthContradiction(text, model, uiLocale = "it") {
     uiLocale === "it" ? "Scegli una delle due: o completo, o breve. Oppure specifica la lunghezza adeguata alla profondit\xE0 richiesta." : "Pick one: either comprehensive, or short. Or specify a length that matches the requested depth.",
     { before: cm[0] + " \u2026 " + sm[0], after: uiLocale === "it" ? "(coerenza tra profondit\xE0 e lunghezza)" : "(consistency between depth and length)" },
     0,
-    "CONTRA_001"
+    "CONTRA_001",
+    CONF.certain
   )];
 }
 var CONFLICT_PAIRS = [
@@ -20154,7 +20195,8 @@ function runUnfilledTemplate(text, uiLocale = "it") {
     uiLocale === "it" ? "Sostituisci i segnaposto con il contenuto reale prima di inviare." : "Replace the placeholders with real content before sending.",
     null,
     0,
-    "TMPL_001"
+    "TMPL_001",
+    CONF.certain
   )];
 }
 var LANG_CANON = {
@@ -20195,7 +20237,8 @@ function runTranslateKeepContradiction(text, uiLocale = "it") {
     uiLocale === "it" ? "Indica una sola lingua di destinazione." : "State a single target language.",
     { before: m[0], after: uiLocale === "it" ? "(una sola lingua di output)" : "(a single output language)" },
     0,
-    "CONTRA_002"
+    "CONTRA_002",
+    CONF.certain
   )];
 }
 function runConflictingInstructions(text, model, uiLocale = "it") {
@@ -20215,7 +20258,8 @@ function runConflictingInstructions(text, model, uiLocale = "it") {
       uiLocale === "it" ? "Tieni una sola direzione di tono, oppure chiarisci come combinarle." : "Keep a single tone direction, or clarify how to combine them.",
       { before: `${c.a.match} \u2026 ${c.b.match}`, after: uiLocale === "it" ? "(scegli un registro coerente)" : "(pick a consistent register)" },
       0,
-      "CONTRA_002"
+      "CONTRA_002",
+      CONF.certain
     ));
   }
   const format = model.format;
@@ -20232,7 +20276,8 @@ function runConflictingInstructions(text, model, uiLocale = "it") {
       uiLocale === "it" ? "Scegli un solo formato di output." : "Pick a single output format.",
       { before: `${c.a.match} \u2026 ${c.b.match}`, after: uiLocale === "it" ? "(un solo formato)" : "(a single format)" },
       0,
-      "CONTRA_002"
+      "CONTRA_002",
+      CONF.certain
     ));
   }
   const ftConflict = model.cross.formatTone;
@@ -20249,7 +20294,8 @@ function runConflictingInstructions(text, model, uiLocale = "it") {
       uiLocale === "it" ? "Scegli: o un formato dati strutturato, o un testo con voce narrativa." : "Choose: either a structured data format, or a narrative-voice text.",
       { before: `${ftConflict.match} \u2026 ${voice.match}`, after: uiLocale === "it" ? "(formato dati OPPURE voce narrativa)" : "(data format OR narrative voice)" },
       0,
-      "CONTRA_002"
+      "CONTRA_002",
+      CONF.certain
     ));
   }
   const audience = model.audience;
@@ -20269,7 +20315,8 @@ function runConflictingInstructions(text, model, uiLocale = "it") {
       uiLocale === "it" ? "Allinea il tono al pubblico: un pubblico esperto vuole un taglio tecnico, un principiante uno semplice." : "Align the tone with the audience: an expert audience wants a technical angle, a beginner wants a simple one.",
       { before: `${atConflict.audienceMatch} \u2026 ${atConflict.toneMatch}`, after: uiLocale === "it" ? "(tono coerente col pubblico)" : "(tone consistent with the audience)" },
       0,
-      "CONTRA_002"
+      "CONTRA_002",
+      CONF.certain
     ));
   } else if (audience.internalConflict && !depthFamilyAlreadyReported && !atConflict) {
     const { a: aa, b: ab } = audience.internalConflict;
@@ -20284,7 +20331,8 @@ function runConflictingInstructions(text, model, uiLocale = "it") {
       uiLocale === "it" ? "Scegli un solo pubblico di riferimento." : "Pick a single target audience.",
       { before: `${aa.match} \u2026 ${ab.match}`, after: uiLocale === "it" ? "(un solo pubblico)" : "(a single audience)" },
       0,
-      "CONTRA_002"
+      "CONTRA_002",
+      CONF.certain
     ));
   }
   for (const pair of CONFLICT_PAIRS) {
@@ -20307,7 +20355,8 @@ function runConflictingInstructions(text, model, uiLocale = "it") {
         uiLocale === "it" ? "Tieni una sola delle due istruzioni in conflitto, oppure chiarisci come combinarle." : "Keep only one of the two conflicting instructions, or clarify how to combine them.",
         { before: `${ma[0]} \u2026 ${mb[0]}`, after: uiLocale === "it" ? "(scegli una direzione coerente)" : "(pick a consistent direction)" },
         0,
-        "CONTRA_002"
+        "CONTRA_002",
+        CONF.certain
       ));
     }
   }
@@ -20340,7 +20389,8 @@ function runConflictingInstructions(text, model, uiLocale = "it") {
           after: uiLocale === "it" ? `(scegli: includere o non includere ${word})` : `(choose: include or exclude ${word})`
         },
         0,
-        "CONTRA_003"
+        "CONTRA_003",
+        CONF.certain
       ));
       break;
     }
@@ -20367,7 +20417,8 @@ function runPassiveVoice(text, detectedLang, isExempt, uiLocale = "it") {
       uiLocale === "it" ? "Riformula in voce attiva." : "Rephrase in active voice.",
       { before: m[0], after: uiLocale === "it" ? "(soggetto + verbo attivo)" : "(subject + active verb)" },
       1,
-      "GRAM_010"
+      "GRAM_010",
+      CONF.probable
     ));
   }
   return results;
@@ -20392,7 +20443,8 @@ function runAmbiguousPronoun(text, exemptRanges, uiLocale = "it") {
     uiLocale === "it" ? `Sostituisci "${m[2]}" con l'oggetto specifico (es. "questo paragrafo", "la funzione login", "il file config.json").` : `Replace "${m[2]}" with the specific object (e.g. "this paragraph", "the login function", "the config.json file").`,
     { before: m[0], after: uiLocale === "it" ? `${m[1]} [oggetto specifico]` : `${m[1]} [specific object]` },
     0,
-    "AMB_001"
+    "AMB_001",
+    CONF.probable
   )];
 }
 
@@ -20944,6 +20996,87 @@ var CAP_TO_DIM = {
   pure_repetition: "redundancy"
 };
 
+// src/scoring/weights.ts
+var DEFAULT_WEIGHTS = {
+  dims: {
+    clarity: 0.3,
+    precision: 0.3,
+    length: 0.13,
+    redundancy: 0.14,
+    readability: 0.13
+  },
+  // Calibrated v2.24 (benchmark/calibrate.mjs, 2026-07-22).
+  // Coordinate descent on the 601-prompt train split, hierarchical loss
+  // L = 10·dangerous + 25·falseRejects + MAE, validated on the untouched
+  // 262-prompt holdout: loss 145.5 → 90.8, MAE 15.5 → 10.8, falseRej 4 → 2,
+  // dangerous flat. Dimension weights deliberately NOT tuned: sensitivity
+  // analysis showed Δloss ≤ 2 (vs 124 for the top cap) and the proposed
+  // values broke the "perfect prompt = 100" invariant — cost > gain.
+  // The isotonic layer was evaluated and REJECTED: it improved MAE slightly
+  // but exploded false rejects on holdout (2 → 11) because PAV optimizes
+  // squared error, not the hierarchical loss. See benchmark/calibration.md.
+  //
+  // 'short_named_object@74' → 44 was also proposed by the optimizer (train
+  // loss gain ~0.8) but VETOED by the external-corpus test suite — a second,
+  // fully independent validation set the calibrator never saw — because it
+  // punished legitimate terse prompts ("Configura una campagna Klaviyo per
+  // clienti inattivi" dropped 74 → 44). Product contract "never discourage
+  // a good prompt" outranks 0.8 loss points. Kept at its hand-tuned 74.
+  caps: {
+    "no_task@50": 43,
+    "underspecified_vague@48": 41,
+    "very_short_no_task@38": 44,
+    "morphological_redundancy@35": 42,
+    "very_short_task@55": 43,
+    "short_underspecified@54": 42,
+    "contradiction@35": 23,
+    "negative_only_constraints@40": 30,
+    "implicit_prior_reference@35": 23,
+    "underspecified_short@54": 23,
+    "role_without_task@30": 21,
+    "vague_topic_question@38": 32,
+    "courtesy_filler@25": 18,
+    "missing_reference@45": 22,
+    "unfilled_template@18": 10,
+    "empty_object@40": 20,
+    "meta_usage_unclear@25": 30,
+    "repeated_content_word@35": 21,
+    "ambiguity@58": 67
+  },
+  conf: {}
+  // no overrides by default → use tier priors from rules/shared.ts
+};
+var W = {
+  dims: { ...DEFAULT_WEIGHTS.dims },
+  caps: { ...DEFAULT_WEIGHTS.caps },
+  conf: { ...DEFAULT_WEIGHTS.conf }
+};
+function dimWeights() {
+  return W.dims;
+}
+function capValue(label2, inlineDefault) {
+  const specific = W.caps[`${label2}@${inlineDefault}`];
+  if (specific !== void 0) return specific;
+  const general = W.caps[label2];
+  if (general !== void 0) return general;
+  return inlineDefault;
+}
+function confOverride(tier) {
+  return W.conf[tier];
+}
+function setWeights(partial) {
+  if (partial.dims) W.dims = { ...W.dims, ...partial.dims };
+  if (partial.caps) W.caps = { ...W.caps, ...partial.caps };
+  if (partial.conf) W.conf = { ...W.conf, ...partial.conf };
+}
+function resetWeights() {
+  W = {
+    dims: { ...DEFAULT_WEIGHTS.dims },
+    caps: { ...DEFAULT_WEIGHTS.caps },
+    conf: { ...DEFAULT_WEIGHTS.conf }
+  };
+}
+
 // src/scoring/index.ts
 function label(score) {
   if (score >= 82) return "excellent";
@@ -20963,8 +21096,14 @@ function isSelfBoundingTask(text) {
   return /^(translate|traduci|traducimi|list|elenca|elencami|enumera|calculate|calcola|calcolami|classify|classifica|classificami|convert|converti|count|conta|sort|ordina|rank|brainstorm|suggerisci|proponi)\b/i.test(t) || /^([^.!?]{0,40}\b)?(dammi|give me|elenca|list|proponi|suggest|genera|generate|scrivi|write|crea|create|mostra)\b[^.!?]{0,30}\b(idee|ideas|suggerimenti|suggestions|esempi|examples|opzioni|options|alternative|alternatives)\b/i.test(t);
 }
 function scorePrompt(text, observations, tokens, conversational = false, model, enrichment = false, uiLocale = "it") {
-  const byCode = (code) => observations.filter((o) => o.code === code).length;
-  const byType = (type) => observations.filter((o) => o.type === type).length;
+  const tierMult = (c) => {
+    if (c === void 0) return 1;
+    if (c >= 0.95) return confOverride("certain") ?? c;
+    if (c >= 0.75) return confOverride("probable") ?? c;
+    return confOverride("heuristic") ?? c;
+  };
+  const byCode = (code) => observations.filter((o) => o.code === code).reduce((s, o) => s + tierMult(o.confidence), 0);
+  const byType = (type) => observations.filter((o) => o.type === type).reduce((s, o) => s + tierMult(o.confidence), 0);
   const words = (text.trim().match(/\S+/g) ?? []).length;
   const m = model ?? buildPromptModel(text, detectLanguage(text));
   const clarityPenalty = (byCode("PL_001") > 0 ? 35 : 0) + byType("spelling") * 7 + byType("double_negation") * 15 + byType("contradiction") * 28 + Math.min(36, byType("ambiguity") * 14) + byType("weak_verb") * 4;
@@ -21080,19 +21219,21 @@ function scorePrompt(text, observations, tokens, conversational = false, model, 
       ...longSentences > 0 ? [uiLocale === "it" ? `${longSentences} frase/i lunga/e: dividile.` : `${longSentences} long sentence(s): split them.`] : []
     ]
   );
+  const DW = dimWeights();
   let total = Math.round(
-    clarityScore.score * 0.3 + precisionScore.score * 0.3 + lengthScore.score * 0.13 + redundancyScore.score * 0.14 + readabilityScore.score * 0.13
+    clarityScore.score * DW.clarity + precisionScore.score * DW.precision + lengthScore.score * DW.length + redundancyScore.score * DW.redundancy + readabilityScore.score * DW.readability
   );
   const breakdown = [
-    { label: "clarity", effect: Math.round(clarityScore.score * 0.3), kind: "dimension" },
-    { label: "precision", effect: Math.round(precisionScore.score * 0.3), kind: "dimension" },
-    { label: "length", effect: Math.round(lengthScore.score * 0.13), kind: "dimension" },
-    { label: "redundancy", effect: Math.round(redundancyScore.score * 0.14), kind: "dimension" },
-    { label: "readability", effect: Math.round(readabilityScore.score * 0.13), kind: "dimension" }
+    { label: "clarity", effect: Math.round(clarityScore.score * DW.clarity), kind: "dimension" },
+    { label: "precision", effect: Math.round(precisionScore.score * DW.precision), kind: "dimension" },
+    { label: "length", effect: Math.round(lengthScore.score * DW.length), kind: "dimension" },
+    { label: "redundancy", effect: Math.round(redundancyScore.score * DW.redundancy), kind: "dimension" },
+    { label: "readability", effect: Math.round(readabilityScore.score * DW.readability), kind: "dimension" }
   ];
   const cap = (ceiling, reason) => {
-    if (ceiling < total) breakdown.push({ label: reason, effect: ceiling, kind: "cap" });
-    total = Math.min(total, ceiling);
+    const effective = capValue(reason, ceiling);
+    if (effective < total) breakdown.push({ label: reason, effect: effective, kind: "cap" });
+    total = Math.min(total, effective);
   };
   const contradictions = byType("contradiction");
   if (contradictions > 0) cap(35 - Math.min(12, (contradictions - 1) * 6), "contradiction");
@@ -22252,13 +22393,16 @@ function analyze(text, options) {
   return _default.analyze(text, options);
 }
 
+exports.CONF = CONF;
 exports.DEFAULT_PRICES = DEFAULT_PRICES;
+exports.DEFAULT_WEIGHTS = DEFAULT_WEIGHTS;
 exports.addPersonalWord = addPersonalWord;
 exports.analyze = analyze;
 exports.analyzeTokens = analyzeTokens;
 exports.applyAllAutoCorrections = applyAllAutoCorrections;
 exports.applyAutocorrect = applyAutocorrect;
 exports.applyTabCompletion = applyTabCompletion;
+exports.confOverride = confOverride;
 exports.createAnalyzer = createAnalyzer;
 exports.detectIntent = detectIntent;
 exports.detectLanguage = detectLanguage;
@@ -22278,10 +22422,12 @@ exports.loadBigItalian = loadBigItalian;
 exports.makeLangState = makeLangState;
 exports.removePersonalWord = removePersonalWord;
 exports.resetLanguageState = resetLanguageState;
+exports.resetWeights = resetWeights;
 exports.resolveConversational = resolveConversational;
 exports.runAllObservations = runAllObservations;
 exports.scorePrompt = scorePrompt;
 exports.setPersonalWords = setPersonalWords;
+exports.setWeights = setWeights;
 exports.splitSentences = splitSentences;
 //# sourceMappingURL=index.full.cjs.map
 //# sourceMappingURL=index.full.cjs.map

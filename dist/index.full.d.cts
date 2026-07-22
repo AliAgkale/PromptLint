@@ -45,6 +45,28 @@ interface Observation {
     impact: ImpactEstimate;
     /** Rule code for programmatic use */
     code: string;
+    /**
+     * Confidence that this observation is a genuine problem, in [0, 1].
+     *
+     * A design-time prior of the rule that fired, NOT a per-instance estimate:
+     *   ~0.99 — dictionary-backed (SPELL_001) or purely structural
+     *           (repeated_word, double_space, unfilled_template with all-caps)
+     *   ~0.85 — pattern-based with a specific lexical marker
+     *           (CONTRA_*, TMPL_001, POL_*)
+     *   ~0.60 — heuristic (AMB_002 vague words, WEAK_001 weak verbs,
+     *           VAGUE_002 filler placeholder nouns)
+     *
+     * The scorer's `byType()` sums confidences (not counts), so a single
+     * dictionary spelling error weighs a full unit while three heuristic
+     * vague-verb matches weigh 1.8. This automatically dampens false
+     * positives from the fuzziest rules without disabling them. The three
+     * tier values are calibrated by benchmark/calibrate.mjs alongside the
+     * cap ceilings.
+     *
+     * Defaults to 1.0 for backward compatibility — rule files that haven't
+     * been annotated yet behave exactly as before.
+     */
+    confidence?: number;
 }
 interface AutocorrectSuggestion {
     /** The word/phrase as typed */
@@ -451,6 +473,24 @@ declare function applyTabCompletion(text: string, suggestion: CompletionSuggesti
  */
 
 type UILocale = 'it' | 'en';
+declare const CONF: {
+    /** Dictionary/lexicon lookup or purely mechanical structure. Near-zero FP. */
+    readonly certain: 1;
+    /** Specific pattern with a discriminating marker (adversative, template shape). */
+    readonly probable: 0.9;
+    /**
+     * Language heuristic (vague word, weak verb, filler noun). Moderate FP.
+     *
+     * Chosen empirically at 0.75, not the theoretical 0.60: benchmark showed
+     * that 0.60 deflated legitimate weak-verb / vague-term penalties enough
+     * to leak dangerous misses back in (MAE 11.7 → 11.9, dangerous 9 → 11 on
+     * the full corpus). 0.75 preserves the intent of the tier (weaker rules
+     * matter less) without eroding coverage on genuinely poor prompts.
+     * Calibrator sensitivity Δloss ≤ 0.05 for ±20% around this value: the
+     * loss surface is flat here, so the choice is stable.
+     */
+    readonly heuristic: 0.75;
+};
 
 /**
  * promptlint-core — Spell Engine v3
@@ -871,6 +911,65 @@ declare function resetLanguageState(): void;
 declare function detectIntent(text: string): PromptIntent;
 
 /**
+ * promptlint-core — Tunable scoring weights (v2.24)
+ *
+ * FORMAL SCORE DEFINITION (adopted v2.24):
+ *   The score estimates the probability that an expert reviewer would judge
+ *   the prompt sufficiently specific, coherent, and executable by an LLM.
+ *
+ * Every numeric parameter of the scorer that a calibration procedure may
+ * want to adjust lives here — dimension weights and cap ceilings. The values
+ * in DEFAULT_WEIGHTS are the hand-tuned v2.23 values and remain the
+ * defaults; `setWeights()` lets the benchmark calibrator (or a host) inject
+ * overrides at runtime WITHOUT rebuilding.
+ *
+ * Design constraints:
+ *  - Zero behavior change when no overrides are set: `capValue(label, n)`
+ *    returns the override if present, else the inline default `n`. The
+ *    hardcoded numbers in scoring/index.ts stay as authoritative defaults,
+ *    so the scorer remains readable on its own.
+ *  - Deterministic: overrides are plain data; once frozen at release time,
+ *    the engine is exactly as reproducible as before.
+ *
+ * Calibration protocol (benchmark/calibrate.mjs):
+ *  1. Deterministic 70/30 train/holdout split of the annotated corpus.
+ *  2. Sensitivity analysis: perturb each parameter, measure Δloss on train.
+ *  3. Coordinate descent on the sensitive parameters only, minimizing the
+ *     hierarchical loss L = 10·dangerous + 25·falseRejects + MAE (train).
+ *  4. Report metrics on the untouched holdout. Freeze weights per release.
+ */
+interface DimWeights {
+    clarity: number;
+    precision: number;
+    length: number;
+    redundancy: number;
+    readability: number;
+}
+interface Weights {
+    /** Multipliers for the five dimensions in the weighted total. Sum ≈ 1. */
+    dims: DimWeights;
+    /** Cap ceiling overrides keyed by "label" or "label@N" (see capValue). */
+    caps: Record<string, number>;
+    /**
+     * Confidence multipliers for observation tiers. Runtime overrides let the
+     * calibrator learn the optimal weight of each tier without editing rule
+     * files. Missing keys fall back to the tier's built-in prior (0.99/0.85/0.60).
+     */
+    conf: {
+        certain?: number;
+        probable?: number;
+        heuristic?: number;
+    };
+}
+declare const DEFAULT_WEIGHTS: Weights;
+/** Injected multiplier for a confidence tier, or undefined if not overridden. */
+declare function confOverride(tier: 'certain' | 'probable' | 'heuristic'): number | undefined;
+/** Inject weight overrides (partial merge). Used by the calibrator. */
+declare function setWeights(partial: Partial<Weights>): void;
+/** Restore hand-tuned defaults. */
+declare function resetWeights(): void;
+
+/**
  * promptlint-core — Scorer (hybrid model)
  *
  * Design: gradual where quality is continuous, hard caps only where a single
@@ -1083,4 +1182,4 @@ declare function createAnalyzer(options?: {
  */
 declare function analyze(text: string, options?: AnalyzeOptions): AnalysisResult;
 
-export { type AnalysisResult, type AnalyzeOptions, type Analyzer, type AutocorrectSuggestion, type CompletionSuggestion, type CostEstimate, DEFAULT_PRICES, type ImpactEstimate, type LangState, type ModelPrice, type Observation, type ObservationLevel, type ObservationType, type PromptScore, type ScoreContribution, type ScoreDimension, type ScoreLabel, type SpellAdapter, type SupportedLanguage, type TokenAnalysis, addPersonalWord, analyze, analyzeTokens, applyAllAutoCorrections, applyAutocorrect, applyTabCompletion, createAnalyzer, detectIntent, detectLanguage, estimateCosts, estimateTokens, formatCost, getAutocorrectSuggestions, getNspellAdapter, getPersonalWords, getSuggestions, getTabCompletion, getTiktokenAdapter, getWordAtCursor, isBigItalianReady, isCorrect, loadBigItalian, makeLangState, removePersonalWord, resetLanguageState, resolveConversational, runAllObservations, scorePrompt, setPersonalWords, splitSentences };
+export { type AnalysisResult, type AnalyzeOptions, type Analyzer, type AutocorrectSuggestion, CONF, type CompletionSuggestion, type CostEstimate, DEFAULT_PRICES, DEFAULT_WEIGHTS, type ImpactEstimate, type LangState, type ModelPrice, type Observation, type ObservationLevel, type ObservationType, type PromptScore, type ScoreContribution, type ScoreDimension, type ScoreLabel, type SpellAdapter, type SupportedLanguage, type TokenAnalysis, type Weights, addPersonalWord, analyze, analyzeTokens, applyAllAutoCorrections, applyAutocorrect, applyTabCompletion, confOverride, createAnalyzer, detectIntent, detectLanguage, estimateCosts, estimateTokens, formatCost, getAutocorrectSuggestions, getNspellAdapter, getPersonalWords, getSuggestions, getTabCompletion, getTiktokenAdapter, getWordAtCursor, isBigItalianReady, isCorrect, loadBigItalian, makeLangState, removePersonalWord, resetLanguageState, resetWeights, resolveConversational, runAllObservations, scorePrompt, setPersonalWords, setWeights, splitSentences };

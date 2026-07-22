@@ -4,7 +4,7 @@
  */
 
 import type { Observation } from '../types.js';
-import { obs, UILocale } from './shared.js';
+import { obs, CONF, UILocale } from './shared.js';
 
 export function runAmbiguousPronoun(text: string, exemptRanges: Array<[number, number]>, uiLocale: UILocale = 'it'): Observation[] {
   const trimmed = text.trim();
@@ -30,7 +30,7 @@ export function runAmbiguousPronoun(text: string, exemptRanges: Array<[number, n
       ? `Sostituisci "${m[2]}" con l'oggetto specifico (es. "questo paragrafo", "la funzione login", "il file config.json").`
       : `Replace "${m[2]}" with the specific object (e.g. "this paragraph", "the login function", "the config.json file").`,
     { before: m[0], after: uiLocale === 'it' ? `${m[1]} [oggetto specifico]` : `${m[1]} [specific object]` },
-    0, 'AMB_001'
+    0, 'AMB_001', CONF.probable
   )];
 }
 

@@ -21,6 +21,7 @@ import { detectLanguage } from '../spell/language.js';
 import type { UILocale } from '../analyzers/observations.js';
 import { findMorphologicalRedundancy, findRepeatedContentWords, stem } from '../spell/engine/stemmer.js';
 import { CAP_REASON_TEXT, CAP_TO_DIM } from './caps_data.js';
+import { dimWeights, capValue, confOverride } from './weights.js';
 
 function label(score: number): ScoreLabel {
   if (score >= 82) return 'excellent';
@@ -57,8 +58,30 @@ export function scorePrompt(
   enrichment = false,
   uiLocale: UILocale = 'it'
 ): PromptScore {
-  const byCode = (code: string) => observations.filter(o => o.code === code).length;
-  const byType = (type: string) => observations.filter(o => o.type === type).length;
+  // ── Confidence-weighted counts (v2.25) ─────────────────────────────────
+  // byType and byCode sum per-observation `confidence` (0..1) instead of
+  // counting occurrences. Backward compatible: an observation without a
+  // confidence field weighs 1.0 exactly, so unmigrated rules behave as
+  // before. Migrated rules pass CONF.certain/probable/heuristic through
+  // obs(), and the calibrator can further rescale those tiers by tier
+  // multiplier via weights.ts.
+  //
+  // Consequence: `byType('ambiguity') * 14` — previously (# of ambiguous
+  // matches) * 14 — is now (sum of confidences) * 14. A single
+  // dictionary-backed spelling error still contributes 14; three low-
+  // confidence vague-word matches contribute 3 * 0.6 * 14 = 25.2 instead
+  // of the previous 42, automatically dampening the fuzziest rules
+  // without disabling them.
+  const tierMult = (c: number | undefined): number => {
+    if (c === undefined) return 1;
+    if (c >= 0.95) return confOverride('certain') ?? c;
+    if (c >= 0.75) return confOverride('probable') ?? c;
+    return confOverride('heuristic') ?? c;
+  };
+  const byCode = (code: string) =>
+    observations.filter(o => o.code === code).reduce((s, o) => s + tierMult(o.confidence), 0);
+  const byType = (type: string) =>
+    observations.filter(o => o.type === type).reduce((s, o) => s + tierMult(o.confidence), 0);
   const words = (text.trim().match(/\S+/g) ?? []).length;
   // The normalized slot model is the single source of truth for spec presence.
   // Built here if an upstream caller didn't already build it, so the scorer and
@@ -325,12 +348,15 @@ export function scorePrompt(
   // WEIGHTED TOTAL (gradual core) — clarity + precision carry the quality
   // signal; the other three refine it.
   // ─────────────────────────────────────────────────────────────────────────
+  // Dimension weights come from scoring/weights.ts — hand-tuned defaults,
+  // overridable at runtime by the benchmark calibrator via setWeights().
+  const DW = dimWeights();
   let total = Math.round(
-    clarityScore.score * 0.30 +
-    precisionScore.score * 0.30 +
-    lengthScore.score * 0.13 +
-    redundancyScore.score * 0.14 +
-    readabilityScore.score * 0.13
+    clarityScore.score * DW.clarity +
+    precisionScore.score * DW.precision +
+    lengthScore.score * DW.length +
+    redundancyScore.score * DW.redundancy +
+    readabilityScore.score * DW.readability
   );
 
   // ── Interpretability: record each factor's contribution to `total`. The five
@@ -341,15 +367,19 @@ export function scorePrompt(
   // first, low-risk half of the feature-scorer direction: expose WHY the number
   // is what it is, without yet touching how it's computed.
   const breakdown: ScoreContribution[] = [
-    { label: 'clarity',     effect: Math.round(clarityScore.score * 0.30),     kind: 'dimension' },
-    { label: 'precision',   effect: Math.round(precisionScore.score * 0.30),   kind: 'dimension' },
-    { label: 'length',      effect: Math.round(lengthScore.score * 0.13),      kind: 'dimension' },
-    { label: 'redundancy',  effect: Math.round(redundancyScore.score * 0.14),  kind: 'dimension' },
-    { label: 'readability', effect: Math.round(readabilityScore.score * 0.13), kind: 'dimension' },
+    { label: 'clarity',     effect: Math.round(clarityScore.score * DW.clarity),     kind: 'dimension' },
+    { label: 'precision',   effect: Math.round(precisionScore.score * DW.precision), kind: 'dimension' },
+    { label: 'length',      effect: Math.round(lengthScore.score * DW.length),       kind: 'dimension' },
+    { label: 'redundancy',  effect: Math.round(redundancyScore.score * DW.redundancy),  kind: 'dimension' },
+    { label: 'readability', effect: Math.round(readabilityScore.score * DW.readability), kind: 'dimension' },
   ];
+  // The inline number at each cap() call site is the hand-tuned default; the
+  // calibrator can override any of them via weights.ts (capValue resolves
+  // "label@N" then "label" then the inline default).
   const cap = (ceiling: number, reason: string): void => {
-    if (ceiling < total) breakdown.push({ label: reason, effect: ceiling, kind: 'cap' });
-    total = Math.min(total, ceiling);
+    const effective = capValue(reason, ceiling);
+    if (effective < total) breakdown.push({ label: reason, effect: effective, kind: 'cap' });
+    total = Math.min(total, effective);
   };
 
   // ─────────────────────────────────────────────────────────────────────────

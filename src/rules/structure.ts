@@ -4,7 +4,7 @@
  */
 
 import type { Observation } from '../types.js';
-import { obs, UILocale } from './shared.js';
+import { obs, CONF, UILocale } from './shared.js';
 import { estimateTokens } from '../tokenizer/index.js';
 import type { SupportedLanguage } from '../spell/index.js';
 import type { PromptModel } from '../slots/model.js';
@@ -89,7 +89,7 @@ export function runNoTask(
       ? 'Inizia con un verbo imperativo: Scrivi, Analizza, Riassumi, Spiega, Elenca, Confronta, Genera…'
       : 'Start with an imperative verb: Write, Analyze, Summarize, Explain, List, Compare, Generate…',
     { before: trimmed.slice(0, 30), after: uiLocale === 'it' ? 'Analizza / Scrivi / Spiega …' : 'Analyze / Write / Explain …' },
-    0, 'PL_001'
+    0, 'PL_001', CONF.probable
   )].map(o => ({ ...o, matchText: '(no task — ' + o.matchText + ')' }));
   // matchText starts with '(' so it bypasses deduplication
 }
@@ -134,7 +134,7 @@ export function runNoObject(text: string, detectedLang: SupportedLanguage, model
       ? 'Aggiungi su cosa: un argomento, un testo da elaborare, o un riferimento concreto.'
       : 'Add what it\'s about: a topic, a text to work on, or a concrete reference.',
     { before: object.text ?? trimmed.slice(0, 30), after: uiLocale === 'it' ? '(argomento o materiale specifico)' : '(specific topic or material)' },
-    0, 'OBJ_001'
+    0, 'OBJ_001', CONF.probable
   )];
 }
 
@@ -213,7 +213,7 @@ export function runNoFormat(text: string, uiLocale: UILocale = 'it'): Observatio
       ? 'Specifica il formato: "in JSON", "come lista numerata", "in 2 paragrafi", "in una tabella Markdown".'
       : 'Specify the format: "in JSON", "as a numbered list", "in 2 paragraphs", "in a Markdown table".',
     { before: '…', after: uiLocale === 'it' ? '… in formato JSON.' : '… in JSON format.' },
-    0, 'PL_002'
+    0, 'PL_002', CONF.probable
   )];
 }
 
@@ -240,7 +240,7 @@ export function runNoRole(text: string, uiLocale: UILocale = 'it'): Observation[
       ? 'Aggiungi un ruolo all\'inizio: "Sei un [esperto di…]. ".'
       : 'Add a role at the start: "You are a [domain expert]. ".',
     { before: text.slice(0, 20), after: (uiLocale === 'it' ? 'Sei un esperto di [dominio]. ' : 'You are a [domain] expert. ') + text.slice(0, 20) },
-    0, 'PL_006'
+    0, 'PL_006', CONF.probable
   )];
 }
 
@@ -265,7 +265,7 @@ export function runNoLength(text: string, uiLocale: UILocale = 'it'): Observatio
       ? 'Aggiungi: "in 100 parole", "in 3 bullet point", "in 2 frasi".'
       : 'Add: "in 100 words", "in 3 bullet points", "in 2 sentences".',
     { before: '…', after: uiLocale === 'it' ? '… in 3 bullet point.' : '… in 3 bullet points.' },
-    0, 'PL_009'
+    0, 'PL_009', CONF.probable
   )];
 }
 
@@ -315,7 +315,7 @@ export function runNoExample(text: string, uiLocale: UILocale = 'it'): Observati
       ? 'Aggiungi un esempio concreto, es: "Input: mario@x.it — Output: {\\"nome\\":\\"mario\\"}". Anche uno solo cambia molto.'
       : 'Add a concrete example, e.g.: "Input: mario@x.it — Output: {\\"name\\":\\"mario\\"}". Even just one changes a lot.',
     { before: '…', after: uiLocale === 'it' ? '…\\n\\nEsempio:\\nInput: […]\\nOutput: […]' : '…\\n\\nExample:\\nInput: […]\\nOutput: […]' },
-    0, 'EX_001'
+    0, 'EX_001', CONF.probable
   )];
 }
 
@@ -358,7 +358,7 @@ export function runNegativeFraming(text: string, uiLocale: UILocale = 'it'): Obs
       ? 'Riformula in positivo: invece di "non usare X" scrivi "usa Y". Di\' cosa fare, non solo cosa evitare.'
       : 'Rephrase positively: instead of "don\'t use X" write "use Y". Say what to do, not just what to avoid.',
     { before: uiLocale === 'it' ? 'Non essere troppo formale' : 'Don\'t be too formal', after: uiLocale === 'it' ? 'Usa un tono colloquiale e diretto' : 'Use a conversational, direct tone' },
-    0, 'NEG_001'
+    0, 'NEG_001', CONF.probable
   )];
 }
 
@@ -421,7 +421,7 @@ export function runMissingReferencedMaterial(text: string, model: PromptModel, i
       ? 'Incolla il contenuto direttamente nel prompt (dopo i due punti, tra virgolette, o come blocco separato).'
       : 'Paste the content directly into the prompt (after a colon, in quotes, or as a separate block).',
     { before: `${hit[0]}`, after: uiLocale === 'it' ? `${hit[0]}: [incolla qui il contenuto]` : `${hit[0]}: [paste the content here]` },
-    0, 'REF_001'
+    0, 'REF_001', CONF.probable
   )];
 }
 
@@ -457,7 +457,7 @@ export function runNoContext(text: string, uiLocale: UILocale = 'it'): Observati
       : 'Add two things: who it\'s for (audience) and its purpose. E.g.: "…for beginners, to convince them to sign up".',
     { before: uiLocale === 'it' ? 'Scrivi una landing page per il prodotto' : 'Write a landing page for the product',
       after: uiLocale === 'it' ? 'Scrivi una landing page per il prodotto, rivolta a CTO B2B, per generare richieste di demo' : 'Write a landing page for the product, aimed at B2B CTOs, to drive demo signups' },
-    0, 'CTX_001'
+    0, 'CTX_001', CONF.probable
   )];
 }
 

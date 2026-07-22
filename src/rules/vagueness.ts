@@ -4,7 +4,7 @@
  */
 
 import type { Observation } from '../types.js';
-import { obs, UILocale } from './shared.js';
+import { obs, CONF, UILocale } from './shared.js';
 import { estimateTokens } from '../tokenizer/index.js';
 import { isQuestion, VAGUE_TERMS } from './helpers.js';
 
@@ -25,7 +25,7 @@ export function runVaguePlaceholders(text: string, uiLocale: UILocale = 'it'): O
           ? 'Sostituisci con ciò che vuoi davvero: oggetto concreto, formato, contesto.'
           : 'Replace with what you actually want: a concrete object, format, context.',
         { before: m[0], after: uiLocale === 'it' ? '[descrizione concreta]' : '[concrete description]' },
-        0, 'VAGUE_001'
+        0, 'VAGUE_001', CONF.heuristic
       ));
     }
   }
@@ -59,7 +59,7 @@ export function runVagueQualityPileup(text: string, uiLocale: UILocale = 'it'): 
       : 'Replace the vague adjectives with concrete criteria: who it\'s for, its purpose, its structure, how long. E.g. instead of "nice and useful" → "with 3 practical examples, for beginners".',
     { before: uiLocale === 'it' ? 'qualcosa di bello, interessante e utile' : 'something nice, interesting and useful',
       after: uiLocale === 'it' ? 'una guida in 5 punti con un esempio per punto, per chi parte da zero' : 'a 5-point guide with one example per point, for absolute beginners' },
-    0, 'VAGUE_002'
+    0, 'VAGUE_002', CONF.heuristic
   )];
 }
 
@@ -83,7 +83,7 @@ export function runVagueQuality(text: string, isExempt: (pos: number) => boolean
         ? 'Specifica il criterio: più veloce, più leggibile, più conciso, con meno dipendenze…'
         : 'Specify the criterion: faster, more readable, more concise, with fewer dependencies…',
       { before: m[0], after: uiLocale === 'it' ? '[criterio specifico, es. "più leggibile"]' : '[specific criterion, e.g. "more readable"]' },
-      0, 'AMB_002'
+      0, 'AMB_002', CONF.heuristic
     ));
   }
   return results;
@@ -122,7 +122,7 @@ export function runVaguePlaceholderNouns(text: string, uiLocale: UILocale = 'it'
       : 'Replace every generic reference with the specific name of the thing you mean (the document, the file, the report, project X…).',
     { before: uiLocale === 'it' ? 'Fammi la cosa con le cose per quella roba' : 'Do the thing with the stuff for that thing',
       after: uiLocale === 'it' ? 'Genera il report vendite usando i dati del file export.csv' : 'Generate the sales report using the data in export.csv' },
-    0, 'AMB_003'
+    0, 'AMB_003', CONF.heuristic
   )];
 }
 
@@ -154,7 +154,7 @@ export function runWeakVerbs(text: string, isExempt: (pos: number) => boolean, u
           ? 'Sostituisci con un verbo specifico: fix, implement, refactor, investigate, resolve, document…'
           : 'Replace with a specific verb: fix, implement, refactor, investigate, resolve, document…',
         { before: m[0], after: uiLocale === 'it' ? '[verbo specifico]' : '[specific verb]' },
-        0, 'WEAK_001'
+        0, 'WEAK_001', CONF.heuristic
       ));
     }
   }

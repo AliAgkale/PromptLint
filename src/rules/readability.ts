@@ -4,7 +4,7 @@
  */
 
 import type { Observation } from '../types.js';
-import { obs, UILocale } from './shared.js';
+import { obs, CONF, UILocale } from './shared.js';
 import { estimateTokens } from '../tokenizer/index.js';
 import type { SupportedLanguage } from '../spell/index.js';
 
@@ -23,7 +23,7 @@ export function runPassiveVoice(text: string, detectedLang: SupportedLanguage, i
         : 'Passive constructions are more ambiguous for LLMs. Active voice is more direct and uses fewer tokens for the same meaning.',
       uiLocale === 'it' ? 'Riformula in voce attiva.' : 'Rephrase in active voice.',
       { before: m[0], after: uiLocale === 'it' ? '(soggetto + verbo attivo)' : '(subject + active verb)' },
-      1, 'GRAM_010'
+      1, 'GRAM_010', CONF.probable
     ));
   }
   return results;

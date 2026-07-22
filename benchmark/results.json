@@ -30,11 +30,10 @@
     "cat": "vague",
     "text": "vorrei qualcosa di bello",
     "human": 10,
-    "got": 48,
-    "err": 38,
+    "got": 41,
+    "err": 31,
     "inRange": false,
     "caps": [
-      "ambiguity",
       "short_underspecified",
       "underspecified_vague"
     ],
@@ -60,8 +59,8 @@
     "cat": "vague",
     "text": "Dimmi tutto",
     "human": 14,
-    "got": 55,
-    "err": 41,
+    "got": 43,
+    "err": 29,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -73,8 +72,8 @@
     "cat": "vague",
     "text": "Spiegami le cose",
     "human": 16,
-    "got": 55,
-    "err": 39,
+    "got": 43,
+    "err": 27,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -86,8 +85,8 @@
     "cat": "vague",
     "text": "tell me about it",
     "human": 12,
-    "got": 38,
-    "err": 26,
+    "got": 32,
+    "err": 20,
     "inRange": false,
     "caps": [
       "vague_topic_question"
@@ -99,8 +98,8 @@
     "cat": "vague",
     "text": "do something cool",
     "human": 10,
-    "got": 55,
-    "err": 45,
+    "got": 43,
+    "err": 33,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -127,11 +126,10 @@
     "cat": "vague",
     "text": "Scrivi qualcosa di utile per il mio lavoro",
     "human": 20,
-    "got": 48,
-    "err": 28,
+    "got": 41,
+    "err": 21,
     "inRange": false,
     "caps": [
-      "ambiguity",
       "underspecified_vague"
     ],
     "allObs": [
@@ -200,7 +198,6 @@
     "err": 0,
     "inRange": true,
     "caps": [
-      "ambiguity",
       "ultra_short"
     ],
     "allObs": [
@@ -216,7 +213,6 @@
     "err": 0,
     "inRange": true,
     "caps": [
-      "ambiguity",
       "ultra_short"
     ],
     "allObs": [
@@ -232,7 +228,6 @@
     "err": 0,
     "inRange": true,
     "caps": [
-      "ambiguity",
       "ultra_short"
     ],
     "allObs": [
@@ -244,8 +239,8 @@
     "cat": "minimal_task",
     "text": "Genera codice",
     "human": 16,
-    "got": 55,
-    "err": 39,
+    "got": 43,
+    "err": 27,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -257,8 +252,8 @@
     "cat": "minimal_task",
     "text": "Write a report",
     "human": 22,
-    "got": 55,
-    "err": 33,
+    "got": 43,
+    "err": 21,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -270,8 +265,8 @@
     "cat": "minimal_task",
     "text": "Crea un piano",
     "human": 22,
-    "got": 55,
-    "err": 33,
+    "got": 43,
+    "err": 21,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -393,8 +388,8 @@
     "cat": "contradiction",
     "text": "Scrivi un testo lungo ma breve",
     "human": 24,
-    "got": 35,
-    "err": 11,
+    "got": 23,
+    "err": 1,
     "inRange": true,
     "caps": [
       "contradiction"
@@ -408,8 +403,8 @@
     "cat": "contradiction",
     "text": "Traduci in francese ma lascialo in italiano",
     "human": 22,
-    "got": 35,
-    "err": 13,
+    "got": 23,
+    "err": 1,
     "inRange": true,
     "caps": [
       "contradiction"
@@ -423,8 +418,8 @@
     "cat": "contradiction",
     "text": "Write a very detailed explanation in one sentence",
     "human": 26,
-    "got": 35,
-    "err": 9,
+    "got": 23,
+    "err": 3,
     "inRange": true,
     "caps": [
       "contradiction"
@@ -439,8 +434,8 @@
     "cat": "contradiction",
     "text": "Sii obiettivo e neutrale, poi dimmi senza dubbio qual è il partito migliore",
     "human": 24,
-    "got": 35,
-    "err": 11,
+    "got": 23,
+    "err": 1,
     "inRange": true,
     "caps": [
       "contradiction"
@@ -455,11 +450,12 @@
     "cat": "contradiction",
     "text": "Scrivimi un'analisi completa in massimo 20 parole",
     "human": 26,
-    "got": 35,
-    "err": 9,
+    "got": 20,
+    "err": 6,
     "inRange": true,
     "caps": [
-      "contradiction"
+      "contradiction",
+      "empty_object"
     ],
     "allObs": [
       "OBJ_001",
@@ -487,8 +483,8 @@
     "cat": "contradiction",
     "text": "Be creative and original but strictly follow the template",
     "human": 28,
-    "got": 35,
-    "err": 7,
+    "got": 23,
+    "err": 5,
     "inRange": true,
     "caps": [
       "contradiction"
@@ -520,11 +516,12 @@
     "cat": "contradiction",
     "text": "Includi esempi ma non usare esempi",
     "human": 20,
-    "got": 35,
-    "err": 15,
-    "inRange": false,
+    "got": 20,
+    "err": 0,
+    "inRange": true,
     "caps": [
-      "contradiction"
+      "contradiction",
+      "empty_object"
     ],
     "allObs": [
       "OBJ_001",
@@ -537,8 +534,8 @@
     "cat": "contradiction",
     "text": "Explain this in detail but keep it very short",
     "human": 26,
-    "got": 35,
-    "err": 9,
+    "got": 23,
+    "err": 3,
     "inRange": true,
     "caps": [
       "contradiction"
@@ -889,11 +886,12 @@
     "cat": "conversational",
     "text": "sì ma aggiungi anche un esempio pratico",
     "human": 78,
-    "got": 48,
-    "err": 30,
+    "got": 41,
+    "err": 37,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -982,8 +980,8 @@
     "cat": "polite_filler",
     "text": "Per favore potresti gentilmente aiutarmi a scrivere qualcosa?",
     "human": 22,
-    "got": 25,
-    "err": 3,
+    "got": 18,
+    "err": 4,
     "inRange": true,
     "caps": [
       "polite_filler",
@@ -1015,8 +1013,8 @@
     "cat": "polite_filler",
     "text": "Grazie mille! Saresti così gentile da spiegarmi come funziona?",
     "human": 28,
-    "got": 25,
-    "err": 3,
+    "got": 18,
+    "err": 10,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -1028,8 +1026,8 @@
     "cat": "polite_filler",
     "text": "Scusami tanto, non voglio disturbarti, ma potresti magari aiutarmi con una cosa?",
     "human": 16,
-    "got": 25,
-    "err": 9,
+    "got": 18,
+    "err": 2,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -1041,8 +1039,8 @@
     "cat": "polite_filler",
     "text": "I hope this isn't too much trouble, but could you possibly take a look at this for me?",
     "human": 20,
-    "got": 25,
-    "err": 5,
+    "got": 18,
+    "err": 2,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -1069,9 +1067,9 @@
     "cat": "redundancy",
     "text": "Scrivi un testo scritto bene e ben scritto",
     "human": 20,
-    "got": 35,
-    "err": 15,
-    "inRange": false,
+    "got": 21,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "repeated_content_word"
     ],
@@ -1082,9 +1080,9 @@
     "cat": "redundancy",
     "text": "Please write a written text in writing about dogs",
     "human": 24,
-    "got": 35,
-    "err": 11,
-    "inRange": true,
+    "got": 42,
+    "err": 18,
+    "inRange": false,
     "caps": [
       "morphological_redundancy"
     ],
@@ -1156,8 +1154,8 @@
     "cat": "question",
     "text": "Cosa ne pensi?",
     "human": 32,
-    "got": 55,
-    "err": 23,
+    "got": 43,
+    "err": 11,
     "inRange": true,
     "caps": [
       "very_short_task"
@@ -1224,8 +1222,8 @@
     "cat": "question",
     "text": "What should I do?",
     "human": 31,
-    "got": 54,
-    "err": 23,
+    "got": 42,
+    "err": 11,
     "inRange": true,
     "caps": [
       "short_underspecified"
@@ -1251,11 +1249,12 @@
     "cat": "spelling",
     "text": "Wrte a sumary of the main pints of the artcle",
     "human": 26,
-    "got": 50,
-    "err": 24,
-    "inRange": false,
+    "got": 23,
+    "err": 3,
+    "inRange": true,
     "caps": [
-      "no_task"
+      "no_task",
+      "underspecified_short"
     ],
     "allObs": [
       "PL_001"
@@ -1279,7 +1278,7 @@
     "cat": "spelling",
     "text": "Explian the differance betwwen machine learing and deep learing",
     "human": 28,
-    "got": 35,
+    "got": 21,
     "err": 7,
     "inRange": true,
     "caps": [
@@ -1372,8 +1371,8 @@
     "cat": "technical",
     "text": "Debug my code",
     "human": 32,
-    "got": 55,
-    "err": 23,
+    "got": 43,
+    "err": 11,
     "inRange": true,
     "caps": [
       "very_short_task"
@@ -1556,8 +1555,8 @@
     "cat": "creative",
     "text": "Fammi una storia",
     "human": 34,
-    "got": 55,
-    "err": 21,
+    "got": 43,
+    "err": 9,
     "inRange": true,
     "caps": [
       "very_short_task"
@@ -1620,8 +1619,8 @@
     "cat": "long_complex",
     "text": "Tell me everything about web development",
     "human": 41,
-    "got": 38,
-    "err": 3,
+    "got": 32,
+    "err": 9,
     "inRange": true,
     "caps": [
       "vague_topic_question"
@@ -1633,9 +1632,9 @@
     "cat": "negative_framing",
     "text": "Non usare parole difficili, non essere prolisso e non fare cose strane",
     "human": 24,
-    "got": 40,
-    "err": 16,
-    "inRange": false,
+    "got": 30,
+    "err": 6,
+    "inRange": true,
     "caps": [
       "no_task",
       "negative_only_constraints"
@@ -1650,9 +1649,9 @@
     "cat": "negative_framing",
     "text": "Don't make it too long and don't use technical jargon",
     "human": 26,
-    "got": 40,
-    "err": 14,
-    "inRange": false,
+    "got": 30,
+    "err": 4,
+    "inRange": true,
     "caps": [
       "no_task",
       "negative_only_constraints"
@@ -1667,9 +1666,9 @@
     "cat": "negative_framing",
     "text": "Non voglio JSON, non voglio markdown, non voglio liste. Solo testo semplice su come imparare Python.",
     "human": 46,
-    "got": 35,
-    "err": 11,
-    "inRange": true,
+    "got": 23,
+    "err": 23,
+    "inRange": false,
     "caps": [
       "contradiction"
     ],
@@ -1696,8 +1695,8 @@
     "cat": "negative_framing",
     "text": "Write a product description. Don't be boring. Don't repeat yourself. Don't use clichés.",
     "human": 30,
-    "got": 40,
-    "err": 10,
+    "got": 30,
+    "err": 0,
     "inRange": true,
     "caps": [
       "negative_only_constraints"
@@ -1729,7 +1728,6 @@
     "err": 8,
     "inRange": true,
     "caps": [
-      "ambiguity",
       "ultra_short"
     ],
     "allObs": [
@@ -1741,11 +1739,10 @@
     "cat": "ambiguity",
     "text": "Rendilo migliore",
     "human": 14,
-    "got": 55,
-    "err": 41,
+    "got": 43,
+    "err": 29,
     "inRange": false,
     "caps": [
-      "ambiguity",
       "very_short_task"
     ],
     "allObs": [
@@ -1757,11 +1754,12 @@
     "cat": "ambiguity",
     "text": "Make it better and more professional",
     "human": 18,
-    "got": 58,
-    "err": 40,
+    "got": 68,
+    "err": 50,
     "inRange": false,
     "caps": [
-      "ambiguity"
+      "short_named_object",
+      "underspecified_named"
     ],
     "allObs": [
       "AMB_002"
@@ -1786,8 +1784,8 @@
     "cat": "ambiguity",
     "text": "Scrivi un articolo simile a quello che hai fatto prima",
     "human": 28,
-    "got": 35,
-    "err": 7,
+    "got": 23,
+    "err": 5,
     "inRange": true,
     "caps": [
       "implicit_prior_reference"
@@ -1826,12 +1824,10 @@
     "cat": "ambiguity",
     "text": "Which one is better?",
     "human": 10,
-    "got": 58,
-    "err": 48,
+    "got": 89,
+    "err": 79,
     "inRange": false,
-    "caps": [
-      "ambiguity"
-    ],
+    "caps": [],
     "allObs": [
       "AMB_002"
     ]
@@ -1841,9 +1837,9 @@
     "cat": "ambiguity",
     "text": "Confronta i due approcci che ti ho detto",
     "human": 16,
-    "got": 35,
-    "err": 19,
-    "inRange": false,
+    "got": 23,
+    "err": 7,
+    "inRange": true,
     "caps": [
       "implicit_prior_reference"
     ],
@@ -1854,8 +1850,8 @@
     "cat": "role_only",
     "text": "Sei un esperto di marketing digitale.",
     "human": 28,
-    "got": 30,
-    "err": 2,
+    "got": 21,
+    "err": 7,
     "inRange": true,
     "caps": [
       "no_task",
@@ -1870,8 +1866,8 @@
     "cat": "role_only",
     "text": "You are a helpful assistant.",
     "human": 26,
-    "got": 30,
-    "err": 4,
+    "got": 21,
+    "err": 5,
     "inRange": true,
     "caps": [
       "no_task",
@@ -1886,8 +1882,8 @@
     "cat": "role_only",
     "text": "Agisci come un esperto di cybersecurity.",
     "human": 28,
-    "got": 30,
-    "err": 2,
+    "got": 21,
+    "err": 7,
     "inRange": true,
     "caps": [
       "role_without_task"
@@ -1899,8 +1895,8 @@
     "cat": "role_only",
     "text": "Sei un traduttore professionista. Italiano madrelingua.",
     "human": 28,
-    "got": 30,
-    "err": 2,
+    "got": 21,
+    "err": 7,
     "inRange": true,
     "caps": [
       "role_without_task"
@@ -1912,8 +1908,8 @@
     "cat": "role_only",
     "text": "Act as a senior software architect.",
     "human": 28,
-    "got": 30,
-    "err": 2,
+    "got": 21,
+    "err": 7,
     "inRange": true,
     "caps": [
       "no_task",
@@ -1928,12 +1924,11 @@
     "cat": "mixed_quality",
     "text": "Scrivi un articolo sull'AI bello, interessante, utile, di almeno 500 parole.",
     "human": 52,
-    "got": 58,
-    "err": 6,
+    "got": 60,
+    "err": 8,
     "inRange": true,
     "caps": [
-      "vague_adjectives",
-      "ambiguity"
+      "vague_adjectives"
     ],
     "allObs": [
       "VAGUE_002"
@@ -2064,9 +2059,9 @@
     "cat": "ref_missing",
     "text": "Analizza il documento che ti ho inviato",
     "human": 22,
-    "got": 45,
-    "err": 23,
-    "inRange": false,
+    "got": 22,
+    "err": 0,
+    "inRange": true,
     "caps": [
       "missing_reference"
     ],
@@ -2079,9 +2074,9 @@
     "cat": "ref_missing",
     "text": "Rispondi all'email di Marco",
     "human": 22,
-    "got": 45,
-    "err": 23,
-    "inRange": false,
+    "got": 22,
+    "err": 0,
+    "inRange": true,
     "caps": [
       "missing_reference"
     ],
@@ -2094,9 +2089,9 @@
     "cat": "ref_missing",
     "text": "Summarize the article I sent you",
     "human": 22,
-    "got": 45,
-    "err": 23,
-    "inRange": false,
+    "got": 22,
+    "err": 0,
+    "inRange": true,
     "caps": [
       "missing_reference"
     ],
@@ -2109,11 +2104,12 @@
     "cat": "ref_missing",
     "text": "Continua da dove eravamo rimasti",
     "human": 24,
-    "got": 35,
-    "err": 11,
+    "got": 22,
+    "err": 2,
     "inRange": true,
     "caps": [
-      "implicit_prior_reference"
+      "implicit_prior_reference",
+      "missing_reference"
     ],
     "allObs": [
       "REF_001"
@@ -2124,9 +2120,9 @@
     "cat": "ref_missing",
     "text": "Correggi il file allegato",
     "human": 22,
-    "got": 45,
-    "err": 23,
-    "inRange": false,
+    "got": 22,
+    "err": 0,
+    "inRange": true,
     "caps": [
       "missing_reference"
     ],
@@ -2252,8 +2248,8 @@
     "cat": "edge_case",
     "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
     "human": 10,
-    "got": 18,
-    "err": 8,
+    "got": 10,
+    "err": 0,
     "inRange": true,
     "caps": [
       "no_task",
@@ -2302,9 +2298,9 @@
     "cat": "edge_case",
     "text": "Scrivi un articolo. Scrivilo bene. Non farlo male. Fallo lungo. Ma non troppo lungo. Con esempi. Senza esempi inutili. Per tutti. Ma soprattutto per esperti. Formale. Ma accessibile.",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "contradiction"
     ],
@@ -2319,8 +2315,8 @@
     "cat": "edge_case",
     "text": "[INSERISCI QUI IL TESTO]",
     "human": 8,
-    "got": 18,
-    "err": 10,
+    "got": 10,
+    "err": 2,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -2334,9 +2330,9 @@
     "cat": "edge_case",
     "text": "{{topic}} {{audience}} {{tone}} {{format}}",
     "human": 6,
-    "got": 18,
-    "err": 12,
-    "inRange": false,
+    "got": 10,
+    "err": 4,
+    "inRange": true,
     "caps": [
       "no_task",
       "unfilled_template"
@@ -2351,8 +2347,8 @@
     "cat": "code_task",
     "text": "Write a function",
     "human": 32,
-    "got": 55,
-    "err": 23,
+    "got": 43,
+    "err": 11,
     "inRange": true,
     "caps": [
       "very_short_task"
@@ -2395,8 +2391,8 @@
     "cat": "code_task",
     "text": "Fix the bug",
     "human": 31,
-    "got": 55,
-    "err": 24,
+    "got": 43,
+    "err": 12,
     "inRange": true,
     "caps": [
       "very_short_task"
@@ -2479,8 +2475,8 @@
     "cat": "instruction_dense",
     "text": "Analizza il mercato",
     "human": 34,
-    "got": 55,
-    "err": 21,
+    "got": 43,
+    "err": 9,
     "inRange": true,
     "caps": [
       "very_short_task"
@@ -2507,9 +2503,9 @@
     "cat": "delegation",
     "text": "Fammi un esempio di come si potrebbe fare",
     "human": 18,
-    "got": 40,
-    "err": 22,
-    "inRange": false,
+    "got": 20,
+    "err": 2,
+    "inRange": true,
     "caps": [
       "empty_object"
     ],
@@ -2535,11 +2531,10 @@
     "cat": "delegation",
     "text": "Crea qualcosa di utile per un'azienda",
     "human": 18,
-    "got": 48,
-    "err": 30,
+    "got": 41,
+    "err": 23,
     "inRange": false,
     "caps": [
-      "ambiguity",
       "short_underspecified",
       "underspecified_vague"
     ],
@@ -2593,8 +2588,8 @@
     "cat": "multiline_structured",
     "text": "Titolo:\nDescrizione:\nPubblico:\nTono:\nLunghezza:",
     "human": 10,
-    "got": 18,
-    "err": 8,
+    "got": 10,
+    "err": 0,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -2622,11 +2617,12 @@
     "cat": "multiline_structured",
     "text": "Write something.\nMake it good.\nUse nice words.",
     "human": 32,
-    "got": 35,
-    "err": 3,
+    "got": 23,
+    "err": 9,
     "inRange": true,
     "caps": [
-      "low_information_density"
+      "low_information_density",
+      "underspecified_short"
     ],
     "allObs": []
   },
@@ -2695,8 +2691,8 @@
     "cat": "system_prompt",
     "text": "You are a helpful assistant. Answer questions clearly and concisely.",
     "human": 30,
-    "got": 30,
-    "err": 0,
+    "got": 21,
+    "err": 9,
     "inRange": true,
     "caps": [
       "role_without_task"
@@ -2816,11 +2812,12 @@
     "cat": "implicit_task",
     "text": "Ho una presentazione importante domani e non so da dove iniziare.",
     "human": 30,
-    "got": 50,
-    "err": 20,
-    "inRange": false,
+    "got": 23,
+    "err": 7,
+    "inRange": true,
     "caps": [
-      "no_task"
+      "no_task",
+      "underspecified_short"
     ],
     "allObs": [
       "PL_001"
@@ -2831,11 +2828,12 @@
     "cat": "implicit_task",
     "text": "My code keeps throwing a null pointer exception",
     "human": 28,
-    "got": 50,
-    "err": 22,
-    "inRange": false,
+    "got": 23,
+    "err": 5,
+    "inRange": true,
     "caps": [
-      "no_task"
+      "no_task",
+      "underspecified_short"
     ],
     "allObs": [
       "PL_001"
@@ -2846,11 +2844,12 @@
     "cat": "implicit_task",
     "text": "Il mio capo mi ha chiesto un report entro venerdì",
     "human": 22,
-    "got": 50,
-    "err": 28,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
-      "no_task"
+      "no_task",
+      "underspecified_short"
     ],
     "allObs": [
       "PL_001"
@@ -2861,8 +2860,8 @@
     "cat": "implicit_task",
     "text": "I've been trying to learn Python for 3 months but I'm stuck",
     "human": 24,
-    "got": 50,
-    "err": 26,
+    "got": 43,
+    "err": 19,
     "inRange": false,
     "caps": [
       "no_task"
@@ -2876,11 +2875,12 @@
     "cat": "implicit_task",
     "text": "Il nostro sito è lento e i clienti si lamentano",
     "human": 20,
-    "got": 50,
-    "err": 30,
-    "inRange": false,
+    "got": 23,
+    "err": 3,
+    "inRange": true,
     "caps": [
-      "no_task"
+      "no_task",
+      "underspecified_short"
     ],
     "allObs": [
       "PL_001"
@@ -2891,8 +2891,8 @@
     "cat": "over_constrained",
     "text": "Scrivi un'email di max 50 parole, min 3 paragrafi, con almeno 2 citazioni, senza usare la parola 'il', in rima, in tono formale ma giocoso, con una metafora sportiva.",
     "human": 36,
-    "got": 35,
-    "err": 1,
+    "got": 23,
+    "err": 13,
     "inRange": true,
     "caps": [
       "contradiction"
@@ -2924,8 +2924,8 @@
     "cat": "over_constrained",
     "text": "Spiegami l'AI in modo approfondito ma con massimo 30 parole, senza usare termini tecnici.",
     "human": 28,
-    "got": 35,
-    "err": 7,
+    "got": 23,
+    "err": 5,
     "inRange": true,
     "caps": [
       "contradiction"
@@ -2941,9 +2941,9 @@
     "cat": "over_constrained",
     "text": "Scrivi un testo di esattamente 200 caratteri, in italiano, in inglese e in francese simultaneamente.",
     "human": 20,
-    "got": 35,
-    "err": 15,
-    "inRange": false,
+    "got": 23,
+    "err": 3,
+    "inRange": true,
     "caps": [
       "contradiction"
     ],
@@ -3026,9 +3026,9 @@
     "cat": "multimodal_hint",
     "text": "Analizza questa immagine e dimmi cosa vedi",
     "human": 38,
-    "got": 45,
-    "err": 7,
-    "inRange": true,
+    "got": 22,
+    "err": 16,
+    "inRange": false,
     "caps": [
       "missing_reference"
     ],
@@ -3041,8 +3041,8 @@
     "cat": "multimodal_hint",
     "text": "Transcribe this audio file",
     "human": 32,
-    "got": 45,
-    "err": 13,
+    "got": 22,
+    "err": 10,
     "inRange": true,
     "caps": [
       "missing_reference"
@@ -3083,9 +3083,9 @@
     "cat": "multimodal_hint",
     "text": "Come vedi nello screenshot qui sopra, il problema è chiaro",
     "human": 22,
-    "got": 45,
-    "err": 23,
-    "inRange": false,
+    "got": 22,
+    "err": 0,
+    "inRange": true,
     "caps": [
       "missing_reference"
     ],
@@ -3297,8 +3297,8 @@
     "cat": "meta",
     "text": "Quanti parametri hai?",
     "human": 45,
-    "got": 55,
-    "err": 10,
+    "got": 43,
+    "err": 2,
     "inRange": true,
     "caps": [
       "very_short_task"
@@ -3332,8 +3332,8 @@
     "cat": "meta",
     "text": "Are you conscious?",
     "human": 44,
-    "got": 55,
-    "err": 11,
+    "got": 43,
+    "err": 1,
     "inRange": true,
     "caps": [
       "very_short_task"
@@ -3371,11 +3371,10 @@
     "cat": "vague_ultra",
     "text": "fammi qualcosa di bello",
     "human": 10,
-    "got": 48,
-    "err": 38,
+    "got": 41,
+    "err": 31,
     "inRange": false,
     "caps": [
-      "ambiguity",
       "short_underspecified",
       "underspecified_vague"
     ],
@@ -3414,8 +3413,8 @@
     "cat": "vague_ultra",
     "text": "fammi capire",
     "human": 10,
-    "got": 55,
-    "err": 45,
+    "got": 43,
+    "err": 33,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -3427,8 +3426,8 @@
     "cat": "vague_ultra",
     "text": "dimmi tutto",
     "human": 10,
-    "got": 55,
-    "err": 45,
+    "got": 43,
+    "err": 33,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -3440,8 +3439,8 @@
     "cat": "vague_ultra",
     "text": "ho bisogno di aiuto",
     "human": 12,
-    "got": 48,
-    "err": 36,
+    "got": 41,
+    "err": 29,
     "inRange": false,
     "caps": [
       "short_underspecified",
@@ -3454,11 +3453,10 @@
     "cat": "vague_ultra",
     "text": "fai qualcosa di utile",
     "human": 10,
-    "got": 48,
-    "err": 38,
+    "got": 41,
+    "err": 31,
     "inRange": false,
     "caps": [
-      "ambiguity",
       "short_underspecified",
       "underspecified_vague"
     ],
@@ -3475,8 +3473,7 @@
     "err": 12,
     "inRange": true,
     "caps": [
-      "empty_object",
-      "ultra_short"
+      "empty_object"
     ],
     "allObs": [
       "OBJ_001"
@@ -3487,9 +3484,9 @@
     "cat": "vague_ultra",
     "text": "fammi un esempio",
     "human": 15,
-    "got": 40,
-    "err": 25,
-    "inRange": false,
+    "got": 20,
+    "err": 5,
+    "inRange": true,
     "caps": [
       "empty_object"
     ],
@@ -3567,8 +3564,8 @@
     "cat": "vague_ultra",
     "text": "do something",
     "human": 6,
-    "got": 55,
-    "err": 49,
+    "got": 43,
+    "err": 37,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -3580,8 +3577,8 @@
     "cat": "vague_ultra",
     "text": "help me",
     "human": 8,
-    "got": 55,
-    "err": 47,
+    "got": 43,
+    "err": 35,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -3593,8 +3590,8 @@
     "cat": "vague_ultra",
     "text": "give me something good",
     "human": 10,
-    "got": 48,
-    "err": 38,
+    "got": 41,
+    "err": 31,
     "inRange": false,
     "caps": [
       "short_underspecified",
@@ -3607,8 +3604,8 @@
     "cat": "vague_ultra",
     "text": "do something cool",
     "human": 10,
-    "got": 55,
-    "err": 45,
+    "got": 43,
+    "err": 33,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -3749,9 +3746,9 @@
     "cat": "vague_ultra",
     "text": "give me ideas",
     "human": 15,
-    "got": 40,
-    "err": 25,
-    "inRange": false,
+    "got": 20,
+    "err": 5,
+    "inRange": true,
     "caps": [
       "empty_object"
     ],
@@ -3778,8 +3775,8 @@
     "cat": "vague_topic",
     "text": "parlami di Python",
     "human": 32,
-    "got": 38,
-    "err": 6,
+    "got": 32,
+    "err": 0,
     "inRange": true,
     "caps": [
       "vague_topic_question"
@@ -3807,11 +3804,10 @@
     "cat": "vague_topic",
     "text": "dimmi qualcosa sulla storia di Roma",
     "human": 35,
-    "got": 48,
-    "err": 13,
-    "inRange": false,
+    "got": 41,
+    "err": 6,
+    "inRange": true,
     "caps": [
-      "ambiguity",
       "short_underspecified",
       "underspecified_vague"
     ],
@@ -3824,9 +3820,9 @@
     "cat": "vague_topic",
     "text": "spiega l'intelligenza artificiale",
     "human": 35,
-    "got": 55,
-    "err": 20,
-    "inRange": false,
+    "got": 43,
+    "err": 8,
+    "inRange": true,
     "caps": [
       "very_short_task"
     ],
@@ -3837,8 +3833,8 @@
     "cat": "vague_topic",
     "text": "parlami di marketing",
     "human": 32,
-    "got": 38,
-    "err": 6,
+    "got": 32,
+    "err": 0,
     "inRange": true,
     "caps": [
       "vague_topic_question"
@@ -3880,8 +3876,8 @@
     "cat": "vague_topic",
     "text": "cosa sai sulla cucina italiana",
     "human": 34,
-    "got": 38,
-    "err": 4,
+    "got": 32,
+    "err": 2,
     "inRange": true,
     "caps": [
       "vague_topic_question"
@@ -3893,9 +3889,9 @@
     "cat": "vague_topic",
     "text": "spiegami la blockchain",
     "human": 35,
-    "got": 55,
-    "err": 20,
-    "inRange": false,
+    "got": 43,
+    "err": 8,
+    "inRange": true,
     "caps": [
       "very_short_task"
     ],
@@ -3906,8 +3902,8 @@
     "cat": "vague_topic",
     "text": "parlami di economia",
     "human": 30,
-    "got": 38,
-    "err": 8,
+    "got": 32,
+    "err": 2,
     "inRange": true,
     "caps": [
       "vague_topic_question"
@@ -3919,11 +3915,12 @@
     "cat": "vague_topic",
     "text": "cos'è il cloud computing",
     "human": 40,
-    "got": 48,
-    "err": 8,
+    "got": 41,
+    "err": 1,
     "inRange": true,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -3977,9 +3974,9 @@
     "cat": "vague_topic",
     "text": "explain machine learning",
     "human": 35,
-    "got": 55,
-    "err": 20,
-    "inRange": false,
+    "got": 43,
+    "err": 8,
+    "inRange": true,
     "caps": [
       "very_short_task"
     ],
@@ -3990,8 +3987,8 @@
     "cat": "vague_topic",
     "text": "tell me about Python",
     "human": 33,
-    "got": 38,
-    "err": 5,
+    "got": 32,
+    "err": 1,
     "inRange": true,
     "caps": [
       "vague_topic_question"
@@ -4003,9 +4000,9 @@
     "cat": "vague_topic",
     "text": "what is CSS",
     "human": 40,
-    "got": 55,
-    "err": 15,
-    "inRange": false,
+    "got": 43,
+    "err": 3,
+    "inRange": true,
     "caps": [
       "very_short_task"
     ],
@@ -4016,9 +4013,9 @@
     "cat": "vague_topic",
     "text": "explain artificial intelligence",
     "human": 34,
-    "got": 55,
-    "err": 21,
-    "inRange": false,
+    "got": 43,
+    "err": 9,
+    "inRange": true,
     "caps": [
       "very_short_task"
     ],
@@ -4029,8 +4026,8 @@
     "cat": "vague_topic",
     "text": "tell me about marketing",
     "human": 32,
-    "got": 38,
-    "err": 6,
+    "got": 32,
+    "err": 0,
     "inRange": true,
     "caps": [
       "vague_topic_question"
@@ -4042,9 +4039,9 @@
     "cat": "vague_topic",
     "text": "what is Docker",
     "human": 40,
-    "got": 55,
-    "err": 15,
-    "inRange": false,
+    "got": 43,
+    "err": 3,
+    "inRange": true,
     "caps": [
       "very_short_task"
     ],
@@ -4069,8 +4066,8 @@
     "cat": "vague_topic",
     "text": "tell me about climate change",
     "human": 33,
-    "got": 38,
-    "err": 5,
+    "got": 32,
+    "err": 1,
     "inRange": true,
     "caps": [
       "vague_topic_question"
@@ -4082,8 +4079,8 @@
     "cat": "vague_topic",
     "text": "what do you know about cooking",
     "human": 34,
-    "got": 38,
-    "err": 4,
+    "got": 32,
+    "err": 2,
     "inRange": true,
     "caps": [
       "vague_topic_question"
@@ -4095,9 +4092,9 @@
     "cat": "vague_topic",
     "text": "explain blockchain",
     "human": 35,
-    "got": 55,
-    "err": 20,
-    "inRange": false,
+    "got": 43,
+    "err": 8,
+    "inRange": true,
     "caps": [
       "very_short_task"
     ],
@@ -4108,8 +4105,8 @@
     "cat": "vague_topic",
     "text": "tell me about economics",
     "human": 30,
-    "got": 38,
-    "err": 8,
+    "got": 32,
+    "err": 2,
     "inRange": true,
     "caps": [
       "vague_topic_question"
@@ -4132,8 +4129,8 @@
     "cat": "vague_topic",
     "text": "explain quantum physics",
     "human": 28,
-    "got": 55,
-    "err": 27,
+    "got": 43,
+    "err": 15,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -4145,8 +4142,8 @@
     "cat": "vague_topic",
     "text": "tell me about management",
     "human": 30,
-    "got": 38,
-    "err": 8,
+    "got": 32,
+    "err": 2,
     "inRange": true,
     "caps": [
       "vague_topic_question"
@@ -4158,9 +4155,9 @@
     "cat": "vague_topic",
     "text": "what is programming",
     "human": 32,
-    "got": 55,
-    "err": 23,
-    "inRange": false,
+    "got": 43,
+    "err": 11,
+    "inRange": true,
     "caps": [
       "very_short_task"
     ],
@@ -4361,7 +4358,6 @@
     "err": 2,
     "inRange": true,
     "caps": [
-      "ambiguity",
       "ultra_short"
     ],
     "allObs": [
@@ -4390,7 +4386,6 @@
     "err": 0,
     "inRange": true,
     "caps": [
-      "ambiguity",
       "ultra_short"
     ],
     "allObs": [
@@ -4428,12 +4423,10 @@
     "cat": "no_object",
     "text": "List them",
     "human": 20,
-    "got": 58,
-    "err": 38,
+    "got": 90,
+    "err": 70,
     "inRange": false,
-    "caps": [
-      "ambiguity"
-    ],
+    "caps": [],
     "allObs": [
       "AMB_001"
     ]
@@ -4495,8 +4488,8 @@
     "cat": "implicit_task",
     "text": "Il mio sito è lento e i clienti si lamentano",
     "human": 22,
-    "got": 50,
-    "err": 28,
+    "got": 43,
+    "err": 21,
     "inRange": false,
     "caps": [
       "no_task"
@@ -4510,8 +4503,8 @@
     "cat": "implicit_task",
     "text": "Ho bisogno di più clienti",
     "human": 25,
-    "got": 48,
-    "err": 23,
+    "got": 41,
+    "err": 16,
     "inRange": false,
     "caps": [
       "short_underspecified",
@@ -4524,11 +4517,12 @@
     "cat": "implicit_task",
     "text": "Il mio capo mi ha chiesto un report entro venerdì",
     "human": 28,
-    "got": 50,
-    "err": 22,
-    "inRange": false,
+    "got": 23,
+    "err": 5,
+    "inRange": true,
     "caps": [
-      "no_task"
+      "no_task",
+      "underspecified_short"
     ],
     "allObs": [
       "PL_001"
@@ -4539,8 +4533,8 @@
     "cat": "implicit_task",
     "text": "Ho un bug nel codice che non riesco a risolvere",
     "human": 30,
-    "got": 50,
-    "err": 20,
+    "got": 43,
+    "err": 13,
     "inRange": false,
     "caps": [
       "no_task"
@@ -4554,11 +4548,12 @@
     "cat": "implicit_task",
     "text": "Non so come iniziare la presentazione",
     "human": 30,
-    "got": 48,
-    "err": 18,
-    "inRange": false,
+    "got": 41,
+    "err": 11,
+    "inRange": true,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4570,11 +4565,12 @@
     "cat": "implicit_task",
     "text": "Il mio database è lento",
     "human": 25,
-    "got": 48,
-    "err": 23,
+    "got": 41,
+    "err": 16,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4586,11 +4582,12 @@
     "cat": "implicit_task",
     "text": "Non riesco a dormire",
     "human": 20,
-    "got": 48,
-    "err": 28,
+    "got": 41,
+    "err": 21,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4602,11 +4599,12 @@
     "cat": "implicit_task",
     "text": "La mia app continua a crashare",
     "human": 28,
-    "got": 48,
-    "err": 20,
+    "got": 41,
+    "err": 13,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4618,11 +4616,12 @@
     "cat": "implicit_task",
     "text": "Ho un esame domani",
     "human": 25,
-    "got": 48,
-    "err": 23,
+    "got": 41,
+    "err": 16,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4634,11 +4633,12 @@
     "cat": "implicit_task",
     "text": "Il nostro budget è ridotto",
     "human": 22,
-    "got": 48,
-    "err": 26,
+    "got": 41,
+    "err": 19,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4650,11 +4650,12 @@
     "cat": "implicit_task",
     "text": "I miei dipendenti non sono motivati",
     "human": 25,
-    "got": 48,
-    "err": 23,
+    "got": 41,
+    "err": 16,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4666,11 +4667,12 @@
     "cat": "implicit_task",
     "text": "Il cliente non è soddisfatto del risultato",
     "human": 26,
-    "got": 48,
-    "err": 22,
+    "got": 41,
+    "err": 15,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4682,11 +4684,12 @@
     "cat": "implicit_task",
     "text": "Ho difficoltà con Excel",
     "human": 28,
-    "got": 48,
-    "err": 20,
+    "got": 41,
+    "err": 13,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4698,11 +4701,12 @@
     "cat": "implicit_task",
     "text": "My app crashes on startup",
     "human": 28,
-    "got": 50,
-    "err": 22,
+    "got": 42,
+    "err": 14,
     "inRange": false,
     "caps": [
-      "no_task"
+      "no_task",
+      "short_underspecified"
     ],
     "allObs": [
       "PL_001"
@@ -4729,11 +4733,12 @@
     "cat": "implicit_task",
     "text": "My boss asked for a report by Friday",
     "human": 28,
-    "got": 50,
-    "err": 22,
-    "inRange": false,
+    "got": 23,
+    "err": 5,
+    "inRange": true,
     "caps": [
-      "no_task"
+      "no_task",
+      "underspecified_short"
     ],
     "allObs": [
       "PL_001"
@@ -4744,11 +4749,12 @@
     "cat": "implicit_task",
     "text": "I can't figure out this bug",
     "human": 30,
-    "got": 48,
-    "err": 18,
-    "inRange": false,
+    "got": 41,
+    "err": 11,
+    "inRange": true,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4761,11 +4767,12 @@
     "cat": "implicit_task",
     "text": "I'm struggling with my presentation",
     "human": 30,
-    "got": 48,
-    "err": 18,
-    "inRange": false,
+    "got": 41,
+    "err": 11,
+    "inRange": true,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4777,11 +4784,12 @@
     "cat": "implicit_task",
     "text": "The database is running slow",
     "human": 25,
-    "got": 48,
-    "err": 23,
+    "got": 41,
+    "err": 16,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4809,11 +4817,12 @@
     "cat": "implicit_task",
     "text": "The server keeps going down",
     "human": 28,
-    "got": 48,
-    "err": 20,
+    "got": 41,
+    "err": 13,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4825,11 +4834,12 @@
     "cat": "implicit_task",
     "text": "I have a job interview tomorrow",
     "human": 25,
-    "got": 48,
-    "err": 23,
+    "got": 41,
+    "err": 16,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4841,11 +4851,12 @@
     "cat": "implicit_task",
     "text": "The client is unhappy with the results",
     "human": 26,
-    "got": 48,
-    "err": 22,
+    "got": 41,
+    "err": 15,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4857,11 +4868,12 @@
     "cat": "implicit_task",
     "text": "Our budget has been cut",
     "human": 22,
-    "got": 50,
-    "err": 28,
+    "got": 42,
+    "err": 20,
     "inRange": false,
     "caps": [
-      "no_task"
+      "no_task",
+      "short_underspecified"
     ],
     "allObs": [
       "PL_001"
@@ -4872,11 +4884,12 @@
     "cat": "implicit_task",
     "text": "I'm having trouble with Excel",
     "human": 28,
-    "got": 48,
-    "err": 20,
+    "got": 41,
+    "err": 13,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -4888,8 +4901,8 @@
     "cat": "role_only",
     "text": "Sei un esperto di marketing.",
     "human": 18,
-    "got": 30,
-    "err": 12,
+    "got": 21,
+    "err": 3,
     "inRange": true,
     "caps": [
       "no_task",
@@ -4904,8 +4917,8 @@
     "cat": "role_only",
     "text": "Agisci come un medico.",
     "human": 20,
-    "got": 30,
-    "err": 10,
+    "got": 21,
+    "err": 1,
     "inRange": true,
     "caps": [
       "role_without_task"
@@ -4917,9 +4930,9 @@
     "cat": "role_only",
     "text": "Sei un assistente virtuale.",
     "human": 15,
-    "got": 30,
-    "err": 15,
-    "inRange": false,
+    "got": 21,
+    "err": 6,
+    "inRange": true,
     "caps": [
       "no_task",
       "role_without_task"
@@ -4933,8 +4946,8 @@
     "cat": "role_only",
     "text": "Comportati come un chef professionista.",
     "human": 20,
-    "got": 30,
-    "err": 10,
+    "got": 21,
+    "err": 1,
     "inRange": true,
     "caps": [
       "role_without_task"
@@ -4946,8 +4959,8 @@
     "cat": "role_only",
     "text": "Sei un esperto di cybersecurity.",
     "human": 18,
-    "got": 30,
-    "err": 12,
+    "got": 21,
+    "err": 3,
     "inRange": true,
     "caps": [
       "no_task",
@@ -4962,8 +4975,8 @@
     "cat": "role_only",
     "text": "Agisci come un avvocato esperto.",
     "human": 22,
-    "got": 30,
-    "err": 8,
+    "got": 21,
+    "err": 1,
     "inRange": true,
     "caps": [
       "role_without_task"
@@ -4975,8 +4988,8 @@
     "cat": "role_only",
     "text": "Sei un traduttore professionista.",
     "human": 20,
-    "got": 30,
-    "err": 10,
+    "got": 21,
+    "err": 1,
     "inRange": true,
     "caps": [
       "no_task",
@@ -4991,9 +5004,9 @@
     "cat": "role_only",
     "text": "Sei un coach motivazionale.",
     "human": 15,
-    "got": 30,
-    "err": 15,
-    "inRange": false,
+    "got": 21,
+    "err": 6,
+    "inRange": true,
     "caps": [
       "no_task",
       "role_without_task"
@@ -5007,8 +5020,8 @@
     "cat": "role_only",
     "text": "Agisci come un data scientist.",
     "human": 20,
-    "got": 30,
-    "err": 10,
+    "got": 21,
+    "err": 1,
     "inRange": true,
     "caps": [
       "role_without_task"
@@ -5020,8 +5033,8 @@
     "cat": "role_only",
     "text": "Sei un insegnante di matematica.",
     "human": 18,
-    "got": 30,
-    "err": 12,
+    "got": 21,
+    "err": 3,
     "inRange": true,
     "caps": [
       "no_task",
@@ -5036,8 +5049,8 @@
     "cat": "role_only",
     "text": "You are a senior developer.",
     "human": 18,
-    "got": 30,
-    "err": 12,
+    "got": 21,
+    "err": 3,
     "inRange": true,
     "caps": [
       "no_task",
@@ -5052,8 +5065,8 @@
     "cat": "role_only",
     "text": "Act as a chef.",
     "human": 18,
-    "got": 30,
-    "err": 12,
+    "got": 21,
+    "err": 3,
     "inRange": true,
     "caps": [
       "no_task",
@@ -5068,9 +5081,9 @@
     "cat": "role_only",
     "text": "You are a helpful assistant.",
     "human": 15,
-    "got": 30,
-    "err": 15,
-    "inRange": false,
+    "got": 21,
+    "err": 6,
+    "inRange": true,
     "caps": [
       "no_task",
       "role_without_task"
@@ -5084,11 +5097,12 @@
     "cat": "role_only",
     "text": "Behave like a professional lawyer.",
     "human": 22,
-    "got": 48,
-    "err": 26,
+    "got": 41,
+    "err": 19,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -5100,8 +5114,8 @@
     "cat": "role_only",
     "text": "You are a cybersecurity expert.",
     "human": 18,
-    "got": 30,
-    "err": 12,
+    "got": 21,
+    "err": 3,
     "inRange": true,
     "caps": [
       "no_task",
@@ -5116,8 +5130,8 @@
     "cat": "role_only",
     "text": "Act as a financial advisor.",
     "human": 20,
-    "got": 30,
-    "err": 10,
+    "got": 21,
+    "err": 1,
     "inRange": true,
     "caps": [
       "no_task",
@@ -5132,8 +5146,8 @@
     "cat": "role_only",
     "text": "You are a professional translator.",
     "human": 20,
-    "got": 30,
-    "err": 10,
+    "got": 21,
+    "err": 1,
     "inRange": true,
     "caps": [
       "no_task",
@@ -5148,9 +5162,9 @@
     "cat": "role_only",
     "text": "You are a life coach.",
     "human": 15,
-    "got": 30,
-    "err": 15,
-    "inRange": false,
+    "got": 21,
+    "err": 6,
+    "inRange": true,
     "caps": [
       "no_task",
       "role_without_task"
@@ -5164,8 +5178,8 @@
     "cat": "role_only",
     "text": "Act as a data scientist.",
     "human": 20,
-    "got": 30,
-    "err": 10,
+    "got": 21,
+    "err": 1,
     "inRange": true,
     "caps": [
       "no_task",
@@ -5180,8 +5194,8 @@
     "cat": "role_only",
     "text": "You are a math teacher.",
     "human": 18,
-    "got": 30,
-    "err": 12,
+    "got": 21,
+    "err": 3,
     "inRange": true,
     "caps": [
       "no_task",
@@ -5196,8 +5210,8 @@
     "cat": "pure_courtesy",
     "text": "Scusa il disturbo, ma potresti aiutarmi con una cosa?",
     "human": 18,
-    "got": 25,
-    "err": 7,
+    "got": 18,
+    "err": 0,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5209,8 +5223,8 @@
     "cat": "pure_courtesy",
     "text": "Grazie mille! Saresti così gentile da spiegarmi qualcosa?",
     "human": 20,
-    "got": 25,
-    "err": 5,
+    "got": 18,
+    "err": 2,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5222,8 +5236,8 @@
     "cat": "pure_courtesy",
     "text": "Mi dispiace disturbarti, ma potresti darmi una mano?",
     "human": 18,
-    "got": 25,
-    "err": 7,
+    "got": 18,
+    "err": 0,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5235,8 +5249,8 @@
     "cat": "pure_courtesy",
     "text": "Se non è un problema, potresti magari aiutarmi?",
     "human": 15,
-    "got": 25,
-    "err": 10,
+    "got": 18,
+    "err": 3,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5248,8 +5262,8 @@
     "cat": "pure_courtesy",
     "text": "Scusami tanto, non voglio disturbarti, ma potresti aiutarmi con una cosa?",
     "human": 16,
-    "got": 25,
-    "err": 9,
+    "got": 18,
+    "err": 2,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5261,8 +5275,8 @@
     "cat": "pure_courtesy",
     "text": "Sarebbe possibile avere un tuo parere, se hai tempo?",
     "human": 20,
-    "got": 25,
-    "err": 5,
+    "got": 18,
+    "err": 2,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5274,8 +5288,8 @@
     "cat": "pure_courtesy",
     "text": "Spero di non darti fastidio, ho bisogno di un consiglio",
     "human": 22,
-    "got": 25,
-    "err": 3,
+    "got": 18,
+    "err": 4,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5287,12 +5301,11 @@
     "cat": "pure_courtesy",
     "text": "Potresti gentilmente aiutarmi, per favore?",
     "human": 15,
-    "got": 25,
-    "err": 10,
+    "got": 18,
+    "err": 3,
     "inRange": true,
     "caps": [
       "empty_object",
-      "polite_filler",
       "courtesy_filler"
     ],
     "allObs": [
@@ -5306,11 +5319,12 @@
     "cat": "pure_courtesy",
     "text": "Ti chiedo scusa per il disturbo, ma ho una domanda",
     "human": 20,
-    "got": 50,
-    "err": 30,
-    "inRange": false,
+    "got": 23,
+    "err": 3,
+    "inRange": true,
     "caps": [
-      "no_task"
+      "no_task",
+      "underspecified_short"
     ],
     "allObs": [
       "PL_001"
@@ -5321,11 +5335,12 @@
     "cat": "pure_courtesy",
     "text": "Non voglio essere di disturbo, ma avrei bisogno di supporto",
     "human": 18,
-    "got": 50,
-    "err": 32,
-    "inRange": false,
+    "got": 23,
+    "err": 5,
+    "inRange": true,
     "caps": [
-      "no_task"
+      "no_task",
+      "underspecified_short"
     ],
     "allObs": [
       "PL_001"
@@ -5336,8 +5351,8 @@
     "cat": "pure_courtesy",
     "text": "I hope this isn't too much trouble, but could you help me?",
     "human": 18,
-    "got": 25,
-    "err": 7,
+    "got": 18,
+    "err": 0,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5349,8 +5364,8 @@
     "cat": "pure_courtesy",
     "text": "Sorry to bother you, but could you possibly assist me?",
     "human": 18,
-    "got": 25,
-    "err": 7,
+    "got": 18,
+    "err": 0,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5362,8 +5377,8 @@
     "cat": "pure_courtesy",
     "text": "If it's not too much trouble, could you take a look?",
     "human": 16,
-    "got": 25,
-    "err": 9,
+    "got": 18,
+    "err": 2,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5375,8 +5390,8 @@
     "cat": "pure_courtesy",
     "text": "Thank you so much, would you be so kind as to help?",
     "human": 15,
-    "got": 25,
-    "err": 10,
+    "got": 18,
+    "err": 3,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5388,8 +5403,8 @@
     "cat": "pure_courtesy",
     "text": "I hate to ask, but could you maybe help me out?",
     "human": 16,
-    "got": 25,
-    "err": 9,
+    "got": 18,
+    "err": 2,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5401,8 +5416,8 @@
     "cat": "pure_courtesy",
     "text": "Would you mind helping me if you have a moment?",
     "human": 18,
-    "got": 25,
-    "err": 7,
+    "got": 18,
+    "err": 0,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5416,8 +5431,8 @@
     "cat": "pure_courtesy",
     "text": "Please, if possible, could you assist me with something?",
     "human": 15,
-    "got": 25,
-    "err": 10,
+    "got": 18,
+    "err": 3,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5431,11 +5446,12 @@
     "cat": "pure_courtesy",
     "text": "I apologize for the interruption, but I need help",
     "human": 18,
-    "got": 50,
-    "err": 32,
-    "inRange": false,
+    "got": 23,
+    "err": 5,
+    "inRange": true,
     "caps": [
-      "no_task"
+      "no_task",
+      "underspecified_short"
     ],
     "allObs": [
       "PL_001"
@@ -5446,8 +5462,8 @@
     "cat": "pure_courtesy",
     "text": "Could you perhaps, if you don't mind, help me a little?",
     "human": 14,
-    "got": 25,
-    "err": 11,
+    "got": 18,
+    "err": 4,
     "inRange": true,
     "caps": [
       "courtesy_filler"
@@ -5461,11 +5477,12 @@
     "cat": "pure_courtesy",
     "text": "I wonder if you might be able to help me sometime",
     "human": 15,
-    "got": 50,
-    "err": 35,
-    "inRange": false,
+    "got": 23,
+    "err": 8,
+    "inRange": true,
     "caps": [
-      "no_task"
+      "no_task",
+      "underspecified_short"
     ],
     "allObs": [
       "PL_001"
@@ -5476,11 +5493,12 @@
     "cat": "contradiction",
     "text": "Scrivi una spiegazione sintetica ma esaustiva e completa",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 20,
+    "err": 2,
+    "inRange": true,
     "caps": [
-      "contradiction"
+      "contradiction",
+      "empty_object"
     ],
     "allObs": [
       "OBJ_001",
@@ -5492,11 +5510,12 @@
     "cat": "contradiction",
     "text": "Dammi una risposta breve ma molto dettagliata",
     "human": 25,
-    "got": 29,
-    "err": 4,
+    "got": 20,
+    "err": 5,
     "inRange": true,
     "caps": [
-      "contradiction"
+      "contradiction",
+      "empty_object"
     ],
     "allObs": [
       "OBJ_001",
@@ -5509,8 +5528,8 @@
     "cat": "contradiction",
     "text": "Spiegami in modo semplice ma tecnico e approfondito",
     "human": 25,
-    "got": 35,
-    "err": 10,
+    "got": 23,
+    "err": 2,
     "inRange": true,
     "caps": [
       "contradiction"
@@ -5524,9 +5543,9 @@
     "cat": "contradiction",
     "text": "Scrivi un testo formale ma colloquiale e diretto",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "contradiction"
     ],
@@ -5539,9 +5558,9 @@
     "cat": "contradiction",
     "text": "Crea un contenuto lungo ma conciso",
     "human": 20,
-    "got": 35,
-    "err": 15,
-    "inRange": false,
+    "got": 23,
+    "err": 3,
+    "inRange": true,
     "caps": [
       "contradiction"
     ],
@@ -5581,9 +5600,9 @@
     "cat": "contradiction",
     "text": "Spiegami come a un bambino ma con termini tecnici",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "contradiction"
     ],
@@ -5623,12 +5642,11 @@
     "cat": "contradiction",
     "text": "Dammi un riassunto lungo e dettagliato",
     "human": 30,
-    "got": 30,
-    "err": 0,
+    "got": 20,
+    "err": 10,
     "inRange": true,
     "caps": [
-      "empty_object",
-      "contradiction"
+      "empty_object"
     ],
     "allObs": [
       "OBJ_001"
@@ -5653,11 +5671,10 @@
     "cat": "contradiction",
     "text": "Scrivi qualcosa di originale ma uguale agli esempi",
     "human": 20,
-    "got": 48,
-    "err": 28,
+    "got": 41,
+    "err": 21,
     "inRange": false,
     "caps": [
-      "ambiguity",
       "underspecified_vague"
     ],
     "allObs": [
@@ -5669,9 +5686,9 @@
     "cat": "contradiction",
     "text": "Write a brief but exhaustive explanation",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "contradiction"
     ],
@@ -5684,10 +5701,11 @@
     "cat": "contradiction",
     "text": "Give me a short but very detailed answer",
     "human": 25,
-    "got": 29,
-    "err": 4,
+    "got": 23,
+    "err": 2,
     "inRange": true,
     "caps": [
+      "contradiction",
       "contradiction"
     ],
     "allObs": [
@@ -5717,9 +5735,9 @@
     "cat": "contradiction",
     "text": "Write something formal but casual",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "contradiction"
     ],
@@ -5732,9 +5750,9 @@
     "cat": "contradiction",
     "text": "Make it long but concise",
     "human": 20,
-    "got": 35,
-    "err": 15,
-    "inRange": false,
+    "got": 23,
+    "err": 3,
+    "inRange": true,
     "caps": [
       "contradiction"
     ],
@@ -5774,9 +5792,9 @@
     "cat": "contradiction",
     "text": "Explain like I'm five but use technical terms",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "contradiction"
     ],
@@ -5832,9 +5850,9 @@
     "cat": "contradiction",
     "text": "Write something original that sounds exactly like Shakespeare",
     "human": 22,
-    "got": 54,
-    "err": 32,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "underspecified_short"
     ],
@@ -5845,8 +5863,8 @@
     "cat": "negative_only",
     "text": "Write a product description. Don't be boring. Don't repeat yourself. Don't use clichés.",
     "human": 30,
-    "got": 40,
-    "err": 10,
+    "got": 30,
+    "err": 0,
     "inRange": true,
     "caps": [
       "negative_only_constraints"
@@ -5861,8 +5879,8 @@
     "cat": "negative_only",
     "text": "Create a blog post. Don't make it too long. Don't use jargon. Don't be too casual.",
     "human": 32,
-    "got": 40,
-    "err": 8,
+    "got": 30,
+    "err": 2,
     "inRange": true,
     "caps": [
       "negative_only_constraints"
@@ -5877,8 +5895,8 @@
     "cat": "negative_only",
     "text": "Write an email. Don't sound desperate. Don't be too formal. Don't repeat points.",
     "human": 30,
-    "got": 40,
-    "err": 10,
+    "got": 30,
+    "err": 0,
     "inRange": true,
     "caps": [
       "negative_only_constraints"
@@ -5892,8 +5910,8 @@
     "cat": "negative_only",
     "text": "Write a story. Don't use clichés. Don't make it predictable. Don't use passive voice.",
     "human": 30,
-    "got": 40,
-    "err": 10,
+    "got": 30,
+    "err": 0,
     "inRange": true,
     "caps": [
       "negative_only_constraints"
@@ -5908,9 +5926,9 @@
     "cat": "negative_only",
     "text": "Don't be too verbose. Don't use passive voice. Don't start with 'I'.",
     "human": 25,
-    "got": 40,
-    "err": 15,
-    "inRange": false,
+    "got": 30,
+    "err": 5,
+    "inRange": true,
     "caps": [
       "no_task",
       "negative_only_constraints"
@@ -5925,8 +5943,8 @@
     "cat": "negative_only",
     "text": "Don't make it confusing. Don't lose the reader. Don't go off-topic.",
     "human": 25,
-    "got": 50,
-    "err": 25,
+    "got": 43,
+    "err": 18,
     "inRange": false,
     "caps": [
       "no_task"
@@ -5941,8 +5959,8 @@
     "cat": "negative_only",
     "text": "Whatever you write, don't make it too academic and don't use references.",
     "human": 30,
-    "got": 40,
-    "err": 10,
+    "got": 30,
+    "err": 0,
     "inRange": true,
     "caps": [
       "no_task",
@@ -5958,8 +5976,8 @@
     "cat": "negative_only",
     "text": "Do something creative. Don't copy others. Don't be predictable. Don't use clichés.",
     "human": 32,
-    "got": 40,
-    "err": 8,
+    "got": 30,
+    "err": 2,
     "inRange": true,
     "caps": [
       "negative_only_constraints"
@@ -5989,8 +6007,8 @@
     "cat": "negative_only",
     "text": "Anything is fine but don't use complicated words, don't be boring, and don't use lists.",
     "human": 30,
-    "got": 40,
-    "err": 10,
+    "got": 30,
+    "err": 0,
     "inRange": true,
     "caps": [
       "no_task",
@@ -6007,8 +6025,8 @@
     "cat": "negative_only",
     "text": "Scrivi un articolo. Non essere noioso. Non ripeterti. Non usare cliché.",
     "human": 30,
-    "got": 40,
-    "err": 10,
+    "got": 30,
+    "err": 0,
     "inRange": true,
     "caps": [
       "negative_only_constraints"
@@ -6020,8 +6038,8 @@
     "cat": "negative_only",
     "text": "Crea una email. Non sembrare disperato. Non essere troppo formale. Non ripetere i punti.",
     "human": 30,
-    "got": 40,
-    "err": 10,
+    "got": 30,
+    "err": 0,
     "inRange": true,
     "caps": [
       "negative_only_constraints"
@@ -6035,8 +6053,8 @@
     "cat": "negative_only",
     "text": "Scrivi un testo. Non usare parole difficili. Non fare errori. Non essere lungo.",
     "human": 28,
-    "got": 40,
-    "err": 12,
+    "got": 30,
+    "err": 2,
     "inRange": true,
     "caps": [
       "negative_only_constraints"
@@ -6050,9 +6068,9 @@
     "cat": "negative_only",
     "text": "Non essere troppo verboso. Non usare il passivo. Non iniziare con 'Io'.",
     "human": 25,
-    "got": 40,
-    "err": 15,
-    "inRange": false,
+    "got": 30,
+    "err": 5,
+    "inRange": true,
     "caps": [
       "no_task",
       "negative_only_constraints"
@@ -6067,8 +6085,8 @@
     "cat": "negative_only",
     "text": "Fai qualcosa di creativo. Non copiare. Non essere scontato. Non usare cliché. Non scrivere poesie.",
     "human": 32,
-    "got": 40,
-    "err": 8,
+    "got": 30,
+    "err": 2,
     "inRange": true,
     "caps": [
       "negative_only_constraints"
@@ -6099,8 +6117,8 @@
     "cat": "negative_only",
     "text": "Scrivi quello che vuoi, basta non usare tecnicismi, non annoiare, non essere lungo.",
     "human": 30,
-    "got": 40,
-    "err": 10,
+    "got": 30,
+    "err": 0,
     "inRange": true,
     "caps": [
       "negative_only_constraints"
@@ -6129,8 +6147,8 @@
     "cat": "negative_only",
     "text": "Produce content. Do not write in passive voice. Do not include opinions. Do not exceed 3 paragraphs.",
     "human": 30,
-    "got": 40,
-    "err": 10,
+    "got": 30,
+    "err": 0,
     "inRange": true,
     "caps": [
       "no_task",
@@ -6148,8 +6166,8 @@
     "cat": "negative_only",
     "text": "Produci contenuto. Non usare passivo. Non includere opinioni. Non superare 3 paragrafi.",
     "human": 30,
-    "got": 40,
-    "err": 10,
+    "got": 30,
+    "err": 0,
     "inRange": true,
     "caps": [
       "negative_only_constraints"
@@ -6163,9 +6181,9 @@
     "cat": "morpho_redundancy",
     "text": "Scrivi un testo scritto bene e ben scritto",
     "human": 20,
-    "got": 35,
-    "err": 15,
-    "inRange": false,
+    "got": 21,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "repeated_content_word"
     ],
@@ -6176,8 +6194,8 @@
     "cat": "morpho_redundancy",
     "text": "Please write a written text in writing about dogs",
     "human": 22,
-    "got": 35,
-    "err": 13,
+    "got": 42,
+    "err": 20,
     "inRange": false,
     "caps": [
       "morphological_redundancy"
@@ -6230,9 +6248,9 @@
     "cat": "morpho_redundancy",
     "text": "Fammi un'analisi analitica del problema",
     "human": 20,
-    "got": 40,
-    "err": 20,
-    "inRange": false,
+    "got": 20,
+    "err": 0,
+    "inRange": true,
     "caps": [
       "empty_object"
     ],
@@ -6259,12 +6277,11 @@
     "cat": "morpho_redundancy",
     "text": "Make a summary that summarizes the main summarized points",
     "human": 20,
-    "got": 35,
-    "err": 15,
-    "inRange": false,
+    "got": 20,
+    "err": 0,
+    "inRange": true,
     "caps": [
-      "empty_object",
-      "morphological_redundancy"
+      "empty_object"
     ],
     "allObs": [
       "OBJ_001"
@@ -6275,8 +6292,8 @@
     "cat": "morpho_redundancy",
     "text": "Give me a detailed detail-by-detail breakdown",
     "human": 22,
-    "got": 35,
-    "err": 13,
+    "got": 42,
+    "err": 20,
     "inRange": false,
     "caps": [
       "morphological_redundancy"
@@ -6301,12 +6318,11 @@
     "cat": "morpho_redundancy",
     "text": "Fammi un riassunto riassuntivo dei punti principali",
     "human": 20,
-    "got": 35,
-    "err": 15,
-    "inRange": false,
+    "got": 20,
+    "err": 0,
+    "inRange": true,
     "caps": [
-      "empty_object",
-      "morphological_redundancy"
+      "empty_object"
     ],
     "allObs": [
       "OBJ_001"
@@ -6344,8 +6360,8 @@
     "cat": "morpho_redundancy",
     "text": "Provide a comprehensive comprehension of the topic",
     "human": 22,
-    "got": 35,
-    "err": 13,
+    "got": 42,
+    "err": 20,
     "inRange": false,
     "caps": [
       "morphological_redundancy"
@@ -6361,7 +6377,8 @@
     "err": 13,
     "inRange": false,
     "caps": [
-      "morphological_redundancy"
+      "morphological_redundancy",
+      "low_information_density"
     ],
     "allObs": [
       "VAGUE_001"
@@ -6396,9 +6413,9 @@
     "cat": "morpho_redundancy",
     "text": "Dammi consigli consigliabili su come mi consiglieresti",
     "human": 20,
-    "got": 40,
-    "err": 20,
-    "inRange": false,
+    "got": 20,
+    "err": 0,
+    "inRange": true,
     "caps": [
       "empty_object"
     ],
@@ -6411,11 +6428,12 @@
     "cat": "morpho_redundancy",
     "text": "Plan a planned planning session for the plan",
     "human": 20,
-    "got": 35,
-    "err": 15,
-    "inRange": false,
+    "got": 21,
+    "err": 1,
+    "inRange": true,
     "caps": [
-      "morphological_redundancy"
+      "morphological_redundancy",
+      "repeated_content_word"
     ],
     "allObs": []
   },
@@ -6438,8 +6456,8 @@
     "cat": "morpho_redundancy",
     "text": "Summarize summarizing the summarized key summary points",
     "human": 18,
-    "got": 35,
-    "err": 17,
+    "got": 42,
+    "err": 24,
     "inRange": false,
     "caps": [
       "morphological_redundancy"
@@ -6451,8 +6469,8 @@
     "cat": "morpho_redundancy",
     "text": "Formula una formulazione formulata del problema",
     "human": 20,
-    "got": 35,
-    "err": 15,
+    "got": 42,
+    "err": 22,
     "inRange": false,
     "caps": [
       "morphological_redundancy"
@@ -6478,11 +6496,12 @@
     "cat": "morpho_redundancy",
     "text": "Write something written in a writing style that shows good writing",
     "human": 20,
-    "got": 35,
-    "err": 15,
-    "inRange": false,
+    "got": 21,
+    "err": 1,
+    "inRange": true,
     "caps": [
-      "morphological_redundancy"
+      "morphological_redundancy",
+      "repeated_content_word"
     ],
     "allObs": []
   },
@@ -6491,8 +6510,8 @@
     "cat": "morpho_redundancy",
     "text": "Genera un testo generato da una generazione di idee",
     "human": 18,
-    "got": 35,
-    "err": 17,
+    "got": 42,
+    "err": 24,
     "inRange": false,
     "caps": [
       "morphological_redundancy"
@@ -6504,11 +6523,12 @@
     "cat": "delegation",
     "text": "Scrivi di quello che vuoi",
     "human": 18,
-    "got": 58,
-    "err": 40,
+    "got": 68,
+    "err": 50,
     "inRange": false,
     "caps": [
-      "ambiguity"
+      "short_named_object",
+      "underspecified_named"
     ],
     "allObs": [
       "VAGUE_001"
@@ -6533,11 +6553,10 @@
     "cat": "delegation",
     "text": "Fai come preferisci",
     "human": 15,
-    "got": 55,
-    "err": 40,
+    "got": 43,
+    "err": 28,
     "inRange": false,
     "caps": [
-      "ambiguity",
       "very_short_task"
     ],
     "allObs": [
@@ -6563,11 +6582,10 @@
     "cat": "delegation",
     "text": "Scrivi qualcosa che ritieni interessante",
     "human": 22,
-    "got": 48,
-    "err": 26,
+    "got": 41,
+    "err": 19,
     "inRange": false,
     "caps": [
-      "ambiguity",
       "short_underspecified",
       "underspecified_vague"
     ],
@@ -6608,11 +6626,10 @@
     "cat": "delegation",
     "text": "Proponi tu qualcosa di interessante",
     "human": 22,
-    "got": 48,
-    "err": 26,
+    "got": 41,
+    "err": 19,
     "inRange": false,
     "caps": [
-      "ambiguity",
       "short_underspecified",
       "underspecified_vague"
     ],
@@ -6653,11 +6670,12 @@
     "cat": "delegation",
     "text": "Write whatever you want",
     "human": 18,
-    "got": 58,
-    "err": 40,
+    "got": 68,
+    "err": 50,
     "inRange": false,
     "caps": [
-      "ambiguity"
+      "short_named_object",
+      "underspecified_named"
     ],
     "allObs": [
       "VAGUE_001"
@@ -6668,11 +6686,12 @@
     "cat": "delegation",
     "text": "You choose the topic and write about it",
     "human": 20,
-    "got": 50,
-    "err": 30,
-    "inRange": false,
+    "got": 23,
+    "err": 3,
+    "inRange": true,
     "caps": [
-      "no_task"
+      "no_task",
+      "underspecified_short"
     ],
     "allObs": [
       "PL_001"
@@ -6696,11 +6715,12 @@
     "cat": "delegation",
     "text": "Decide what to do",
     "human": 15,
-    "got": 48,
-    "err": 33,
+    "got": 41,
+    "err": 26,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -6712,8 +6732,8 @@
     "cat": "delegation",
     "text": "Write something you find interesting",
     "human": 22,
-    "got": 48,
-    "err": 26,
+    "got": 41,
+    "err": 19,
     "inRange": false,
     "caps": [
       "short_underspecified",
@@ -6754,8 +6774,8 @@
     "cat": "delegation",
     "text": "Suggest something interesting yourself",
     "human": 22,
-    "got": 48,
-    "err": 26,
+    "got": 41,
+    "err": 19,
     "inRange": false,
     "caps": [
       "short_underspecified",
@@ -6800,8 +6820,8 @@
     "cat": "implicit_ref",
     "text": "Scrivi un articolo simile a quello che hai fatto prima",
     "human": 25,
-    "got": 35,
-    "err": 10,
+    "got": 23,
+    "err": 2,
     "inRange": true,
     "caps": [
       "implicit_prior_reference"
@@ -6813,11 +6833,12 @@
     "cat": "implicit_ref",
     "text": "Continua da dove eravamo rimasti",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 22,
+    "err": 0,
+    "inRange": true,
     "caps": [
-      "implicit_prior_reference"
+      "implicit_prior_reference",
+      "missing_reference"
     ],
     "allObs": [
       "REF_001"
@@ -6828,8 +6849,8 @@
     "cat": "implicit_ref",
     "text": "Confronta i due approcci che ti ho detto",
     "human": 25,
-    "got": 35,
-    "err": 10,
+    "got": 23,
+    "err": 2,
     "inRange": true,
     "caps": [
       "implicit_prior_reference"
@@ -6841,9 +6862,9 @@
     "cat": "implicit_ref",
     "text": "Usa il template che ti ho mandato",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "no_task",
       "implicit_prior_reference"
@@ -6857,9 +6878,9 @@
     "cat": "implicit_ref",
     "text": "Fai come nell'esempio precedente",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "implicit_prior_reference"
     ],
@@ -6870,9 +6891,9 @@
     "cat": "implicit_ref",
     "text": "Prendi i dati che ti ho passato e analizzali",
     "human": 25,
-    "got": 40,
-    "err": 15,
-    "inRange": false,
+    "got": 20,
+    "err": 5,
+    "inRange": true,
     "caps": [
       "empty_object"
     ],
@@ -6899,9 +6920,9 @@
     "cat": "implicit_ref",
     "text": "Continua il racconto che stavamo scrivendo",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "implicit_prior_reference"
     ],
@@ -6912,8 +6933,8 @@
     "cat": "implicit_ref",
     "text": "Come abbiamo discusso, scrivi la sezione 3",
     "human": 28,
-    "got": 35,
-    "err": 7,
+    "got": 23,
+    "err": 5,
     "inRange": true,
     "caps": [
       "implicit_prior_reference"
@@ -6925,9 +6946,9 @@
     "cat": "implicit_ref",
     "text": "Usa lo stile che ti ho mostrato l'altra volta",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "no_task",
       "implicit_prior_reference"
@@ -6941,8 +6962,8 @@
     "cat": "implicit_ref",
     "text": "Write something similar to what you did before",
     "human": 25,
-    "got": 35,
-    "err": 10,
+    "got": 23,
+    "err": 2,
     "inRange": true,
     "caps": [
       "implicit_prior_reference"
@@ -6954,9 +6975,9 @@
     "cat": "implicit_ref",
     "text": "Continue from where we left off",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "no_task",
       "implicit_prior_reference"
@@ -6984,9 +7005,9 @@
     "cat": "implicit_ref",
     "text": "Use the template I sent you",
     "human": 22,
-    "got": 45,
-    "err": 23,
-    "inRange": false,
+    "got": 22,
+    "err": 0,
+    "inRange": true,
     "caps": [
       "missing_reference"
     ],
@@ -6999,9 +7020,9 @@
     "cat": "implicit_ref",
     "text": "Do it like the previous example",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "implicit_prior_reference"
     ],
@@ -7012,8 +7033,8 @@
     "cat": "implicit_ref",
     "text": "Take the data I gave you and analyze it",
     "human": 25,
-    "got": 35,
-    "err": 10,
+    "got": 23,
+    "err": 2,
     "inRange": true,
     "caps": [
       "no_task",
@@ -7042,9 +7063,9 @@
     "cat": "implicit_ref",
     "text": "Continue the story we were writing",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "no_task",
       "implicit_prior_reference"
@@ -7058,8 +7079,8 @@
     "cat": "implicit_ref",
     "text": "As we discussed, write section 3 now",
     "human": 28,
-    "got": 35,
-    "err": 7,
+    "got": 23,
+    "err": 5,
     "inRange": true,
     "caps": [
       "implicit_prior_reference"
@@ -7071,9 +7092,9 @@
     "cat": "implicit_ref",
     "text": "Use the same style as the example I showed you",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "implicit_prior_reference"
     ],
@@ -7152,8 +7173,8 @@
     "cat": "over_constrained",
     "text": "Be extremely concise and also cover every possible aspect of the topic",
     "human": 22,
-    "got": 50,
-    "err": 28,
+    "got": 43,
+    "err": 21,
     "inRange": false,
     "caps": [
       "no_task"
@@ -7197,9 +7218,9 @@
     "cat": "over_constrained",
     "text": "Write something completely original that sounds exactly like Shakespeare",
     "human": 22,
-    "got": 54,
-    "err": 32,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "underspecified_short"
     ],
@@ -7282,9 +7303,9 @@
     "cat": "over_constrained",
     "text": "Rispondimi in una sola parola ma spiegando tutto nei dettagli",
     "human": 18,
-    "got": 35,
-    "err": 17,
-    "inRange": false,
+    "got": 23,
+    "err": 5,
+    "inRange": true,
     "caps": [
       "contradiction"
     ],
@@ -7297,9 +7318,9 @@
     "cat": "over_constrained",
     "text": "Sii estremamente conciso e copri anche ogni possibile aspetto del topic",
     "human": 22,
-    "got": 35,
-    "err": 13,
-    "inRange": false,
+    "got": 23,
+    "err": 1,
+    "inRange": true,
     "caps": [
       "contradiction"
     ],
@@ -7342,11 +7363,10 @@
     "cat": "over_constrained",
     "text": "Scrivi qualcosa di completamente originale che suoni esattamente come Dante",
     "human": 22,
-    "got": 48,
-    "err": 26,
+    "got": 41,
+    "err": 19,
     "inRange": false,
     "caps": [
-      "ambiguity",
       "underspecified_vague"
     ],
     "allObs": [
@@ -7374,8 +7394,8 @@
     "cat": "template_unfilled",
     "text": "Scrivi un articolo su [INSERISCI ARGOMENTO]",
     "human": 8,
-    "got": 18,
-    "err": 10,
+    "got": 10,
+    "err": 2,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -7403,8 +7423,8 @@
     "cat": "template_unfilled",
     "text": "Write a blog post about [YOUR TOPIC HERE]",
     "human": 8,
-    "got": 18,
-    "err": 10,
+    "got": 10,
+    "err": 2,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -7418,8 +7438,8 @@
     "cat": "template_unfilled",
     "text": "Create marketing copy for {{product_name}}",
     "human": 8,
-    "got": 18,
-    "err": 10,
+    "got": 10,
+    "err": 2,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -7433,8 +7453,8 @@
     "cat": "template_unfilled",
     "text": "Genera contenuti per [AZIENDA] nel settore [SETTORE]",
     "human": 10,
-    "got": 18,
-    "err": 8,
+    "got": 10,
+    "err": 0,
     "inRange": true,
     "caps": [
       "repeated_content_word",
@@ -7447,8 +7467,8 @@
     "cat": "template_unfilled",
     "text": "Analyze the performance of [COMPANY] in [YEAR]",
     "human": 10,
-    "got": 18,
-    "err": 8,
+    "got": 10,
+    "err": 0,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -7460,8 +7480,8 @@
     "cat": "template_unfilled",
     "text": "Translate the following text: [INSERT TEXT HERE]",
     "human": 8,
-    "got": 18,
-    "err": 10,
+    "got": 10,
+    "err": 2,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -7475,8 +7495,8 @@
     "cat": "template_unfilled",
     "text": "Crea un piano per {{obiettivo}} entro {{data}}",
     "human": 10,
-    "got": 18,
-    "err": 8,
+    "got": 10,
+    "err": 0,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -7490,8 +7510,8 @@
     "cat": "template_unfilled",
     "text": "Write a speech for [SPEAKER NAME] about [TOPIC]",
     "human": 10,
-    "got": 18,
-    "err": 8,
+    "got": 10,
+    "err": 0,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -7505,8 +7525,8 @@
     "cat": "template_unfilled",
     "text": "Analizza il documento: [DOCUMENTO DA INSERIRE]",
     "human": 8,
-    "got": 18,
-    "err": 10,
+    "got": 10,
+    "err": 2,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -7518,8 +7538,8 @@
     "cat": "template_unfilled",
     "text": "Summarize this article: [PASTE ARTICLE HERE]",
     "human": 8,
-    "got": 18,
-    "err": 10,
+    "got": 10,
+    "err": 2,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -7531,8 +7551,8 @@
     "cat": "template_unfilled",
     "text": "Crea contenuti per il pubblico [TARGET AUDIENCE]",
     "human": 10,
-    "got": 18,
-    "err": 8,
+    "got": 10,
+    "err": 0,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -7544,8 +7564,8 @@
     "cat": "template_unfilled",
     "text": "Generate ideas for {{campaign_name}} targeting {{audience}}",
     "human": 10,
-    "got": 18,
-    "err": 8,
+    "got": 10,
+    "err": 0,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -7559,8 +7579,8 @@
     "cat": "template_unfilled",
     "text": "Scrivi in stile [AUTORE] su [ARGOMENTO]",
     "human": 10,
-    "got": 18,
-    "err": 8,
+    "got": 10,
+    "err": 0,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -7574,8 +7594,8 @@
     "cat": "template_unfilled",
     "text": "Fix this code: [INSERT CODE HERE]",
     "human": 8,
-    "got": 18,
-    "err": 10,
+    "got": 10,
+    "err": 2,
     "inRange": true,
     "caps": [
       "unfilled_template"
@@ -7589,8 +7609,8 @@
     "cat": "meta_unclear",
     "text": "Migliorami questo prompt",
     "human": 30,
-    "got": 55,
-    "err": 25,
+    "got": 43,
+    "err": 13,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -7602,8 +7622,8 @@
     "cat": "meta_unclear",
     "text": "Come posso farti lavorare meglio?",
     "human": 35,
-    "got": 25,
-    "err": 10,
+    "got": 30,
+    "err": 5,
     "inRange": true,
     "caps": [
       "meta_usage_unclear"
@@ -7615,8 +7635,8 @@
     "cat": "meta_unclear",
     "text": "Cosa dovrei chiederti?",
     "human": 28,
-    "got": 25,
-    "err": 3,
+    "got": 30,
+    "err": 2,
     "inRange": true,
     "caps": [
       "meta_usage_unclear"
@@ -7642,8 +7662,8 @@
     "cat": "meta_unclear",
     "text": "Dimmi come usarti al meglio",
     "human": 32,
-    "got": 25,
-    "err": 7,
+    "got": 30,
+    "err": 2,
     "inRange": true,
     "caps": [
       "meta_usage_unclear"
@@ -7655,8 +7675,8 @@
     "cat": "meta_unclear",
     "text": "Puoi suggerirmi una buona domanda da farti?",
     "human": 30,
-    "got": 25,
-    "err": 5,
+    "got": 30,
+    "err": 0,
     "inRange": true,
     "caps": [
       "meta_usage_unclear"
@@ -7668,9 +7688,9 @@
     "cat": "meta_unclear",
     "text": "Cos'è che sai fare meglio?",
     "human": 38,
-    "got": 25,
-    "err": 13,
-    "inRange": false,
+    "got": 30,
+    "err": 8,
+    "inRange": true,
     "caps": [
       "meta_usage_unclear"
     ],
@@ -7681,8 +7701,8 @@
     "cat": "meta_unclear",
     "text": "Ottimizza questa richiesta",
     "human": 30,
-    "got": 55,
-    "err": 25,
+    "got": 43,
+    "err": 13,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -7708,9 +7728,9 @@
     "cat": "meta_unclear",
     "text": "Come dovrei strutturare le mie richieste?",
     "human": 38,
-    "got": 25,
-    "err": 13,
-    "inRange": false,
+    "got": 30,
+    "err": 8,
+    "inRange": true,
     "caps": [
       "meta_usage_unclear"
     ],
@@ -7723,11 +7743,10 @@
     "cat": "meta_unclear",
     "text": "Improve this prompt",
     "human": 30,
-    "got": 55,
-    "err": 25,
+    "got": 43,
+    "err": 13,
     "inRange": false,
     "caps": [
-      "ambiguity",
       "very_short_task"
     ],
     "allObs": [
@@ -7739,8 +7758,8 @@
     "cat": "meta_unclear",
     "text": "How can I make you work better?",
     "human": 35,
-    "got": 25,
-    "err": 10,
+    "got": 30,
+    "err": 5,
     "inRange": true,
     "caps": [
       "meta_usage_unclear"
@@ -7754,8 +7773,8 @@
     "cat": "meta_unclear",
     "text": "What should I ask you?",
     "human": 28,
-    "got": 25,
-    "err": 3,
+    "got": 30,
+    "err": 2,
     "inRange": true,
     "caps": [
       "meta_usage_unclear"
@@ -7795,8 +7814,8 @@
     "cat": "meta_unclear",
     "text": "Can you suggest a good question for me to ask?",
     "human": 30,
-    "got": 25,
-    "err": 5,
+    "got": 30,
+    "err": 0,
     "inRange": true,
     "caps": [
       "meta_usage_unclear"
@@ -7808,9 +7827,9 @@
     "cat": "meta_unclear",
     "text": "What are you best at?",
     "human": 38,
-    "got": 25,
-    "err": 13,
-    "inRange": false,
+    "got": 30,
+    "err": 8,
+    "inRange": true,
     "caps": [
       "meta_usage_unclear"
     ],
@@ -7821,11 +7840,10 @@
     "cat": "meta_unclear",
     "text": "Optimize this request",
     "human": 30,
-    "got": 55,
-    "err": 25,
+    "got": 43,
+    "err": 13,
     "inRange": false,
     "caps": [
-      "ambiguity",
       "very_short_task"
     ],
     "allObs": [
@@ -7851,9 +7869,9 @@
     "cat": "meta_unclear",
     "text": "How should I structure my requests?",
     "human": 38,
-    "got": 25,
-    "err": 13,
-    "inRange": false,
+    "got": 30,
+    "err": 8,
+    "inRange": true,
     "caps": [
       "meta_usage_unclear"
     ],
@@ -7930,12 +7948,11 @@
     "cat": "short_but_good",
     "text": "Codice ISO dell'Italia",
     "human": 88,
-    "got": 38,
-    "err": 50,
+    "got": 43,
+    "err": 45,
     "inRange": false,
     "caps": [
-      "no_task",
-      "very_short_no_task"
+      "no_task"
     ],
     "allObs": [
       "PL_001"
@@ -7979,11 +7996,12 @@
     "cat": "short_but_good",
     "text": "Radice quadrata di 144",
     "human": 90,
-    "got": 48,
-    "err": 42,
+    "got": 41,
+    "err": 49,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -8050,8 +8068,8 @@
     "cat": "short_but_good",
     "text": "Capital of France?",
     "human": 88,
-    "got": 55,
-    "err": 33,
+    "got": 43,
+    "err": 45,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -8074,8 +8092,8 @@
     "cat": "short_but_good",
     "text": "Synonym for 'rapid'",
     "human": 88,
-    "got": 50,
-    "err": 38,
+    "got": 43,
+    "err": 45,
     "inRange": false,
     "caps": [
       "no_task"
@@ -8111,11 +8129,12 @@
     "cat": "short_but_good",
     "text": "ISO code for Italy",
     "human": 88,
-    "got": 48,
-    "err": 40,
+    "got": 41,
+    "err": 47,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -8160,11 +8179,12 @@
     "cat": "short_but_good",
     "text": "Square root of 144",
     "human": 90,
-    "got": 48,
-    "err": 42,
+    "got": 41,
+    "err": 49,
     "inRange": false,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -8176,8 +8196,8 @@
     "cat": "short_but_good",
     "text": "Opposite of 'fast'",
     "human": 88,
-    "got": 50,
-    "err": 38,
+    "got": 43,
+    "err": 45,
     "inRange": false,
     "caps": [
       "no_task"
@@ -8312,8 +8332,8 @@
     "cat": "question",
     "text": "Perché dormiamo?",
     "human": 82,
-    "got": 55,
-    "err": 27,
+    "got": 43,
+    "err": 39,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -8336,8 +8356,8 @@
     "cat": "question",
     "text": "Cos'è la coscienza?",
     "human": 78,
-    "got": 55,
-    "err": 23,
+    "got": 43,
+    "err": 35,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -8481,8 +8501,8 @@
     "cat": "question",
     "text": "What is consciousness?",
     "human": 78,
-    "got": 55,
-    "err": 23,
+    "got": 43,
+    "err": 35,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -9016,8 +9036,8 @@
     "cat": "well_spec",
     "text": "Scrivi regex Python per validare email con domini .it o .com. Includi: la regex, spiegazione di ogni parte, 3 esempi validi e 3 non validi.",
     "human": 88,
-    "got": 35,
-    "err": 53,
+    "got": 42,
+    "err": 46,
     "inRange": false,
     "caps": [
       "morphological_redundancy"
@@ -9471,8 +9491,8 @@
     "cat": "code_task",
     "text": "Write a Python function that reads a CSV file and returns a dict of column_name → list of values. Handle missing values as None.",
     "human": 92,
-    "got": 92,
-    "err": 0,
+    "got": 93,
+    "err": 1,
     "inRange": true,
     "caps": [],
     "allObs": [
@@ -9512,8 +9532,8 @@
     "cat": "code_task",
     "text": "Write a Python function to find the two numbers in a list that sum to a target value. Return their indices. Handle edge cases.",
     "human": 90,
-    "got": 91,
-    "err": 1,
+    "got": 92,
+    "err": 2,
     "inRange": true,
     "caps": [],
     "allObs": [
@@ -9978,12 +9998,10 @@
     "cat": "good_with_typos",
     "text": "Quali sono le migliori prattiche per il codice pulito?",
     "human": 76,
-    "got": 58,
-    "err": 18,
+    "got": 89,
+    "err": 13,
     "inRange": false,
-    "caps": [
-      "ambiguity"
-    ],
+    "caps": [],
     "allObs": [
       "AMB_002"
     ]
@@ -10077,11 +10095,10 @@
     "cat": "mixed_quality",
     "text": "Scrivi qualcosa sulla sostenibilità ambientale",
     "human": 45,
-    "got": 48,
-    "err": 3,
+    "got": 41,
+    "err": 4,
     "inRange": true,
     "caps": [
-      "ambiguity",
       "short_underspecified",
       "underspecified_vague"
     ],
@@ -10183,9 +10200,9 @@
     "cat": "mixed_quality",
     "text": "Tell me about the best practices for coding",
     "human": 50,
-    "got": 38,
-    "err": 12,
-    "inRange": true,
+    "got": 32,
+    "err": 18,
+    "inRange": false,
     "caps": [
       "vague_topic_question"
     ],
@@ -10237,9 +10254,9 @@
     "cat": "mixed_quality",
     "text": "Scrivi una risposta alla sua email",
     "human": 48,
-    "got": 40,
-    "err": 8,
-    "inRange": true,
+    "got": 20,
+    "err": 28,
+    "inRange": false,
     "caps": [
       "empty_object"
     ],
@@ -10279,8 +10296,8 @@
     "cat": "mixed_quality",
     "text": "Write something that will go viral",
     "human": 38,
-    "got": 48,
-    "err": 10,
+    "got": 41,
+    "err": 3,
     "inRange": true,
     "caps": [
       "short_underspecified",
@@ -10304,12 +10321,10 @@
     "cat": "mixed_quality",
     "text": "Improve this text: [paste here]",
     "human": 48,
-    "got": 58,
-    "err": 10,
-    "inRange": true,
-    "caps": [
-      "ambiguity"
-    ],
+    "got": 90,
+    "err": 42,
+    "inRange": false,
+    "caps": [],
     "allObs": [
       "AMB_002"
     ]
@@ -10347,8 +10362,8 @@
     "cat": "conversational_good",
     "text": "Puoi abbreviarlo?",
     "human": 88,
-    "got": 55,
-    "err": 33,
+    "got": 43,
+    "err": 45,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -10360,8 +10375,8 @@
     "cat": "conversational_good",
     "text": "Rendilo più formale",
     "human": 88,
-    "got": 55,
-    "err": 33,
+    "got": 43,
+    "err": 45,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -10373,12 +10388,11 @@
     "cat": "conversational_good",
     "text": "Ora in italiano",
     "human": 90,
-    "got": 38,
-    "err": 52,
+    "got": 43,
+    "err": 47,
     "inRange": false,
     "caps": [
-      "no_task",
-      "very_short_no_task"
+      "no_task"
     ],
     "allObs": [
       "PL_001"
@@ -10389,8 +10403,8 @@
     "cat": "conversational_good",
     "text": "Aggiungi un esempio concreto",
     "human": 88,
-    "got": 40,
-    "err": 48,
+    "got": 20,
+    "err": 68,
     "inRange": false,
     "caps": [
       "empty_object"
@@ -10440,8 +10454,8 @@
     "cat": "conversational_good",
     "text": "Toglici i tecnicismi",
     "human": 86,
-    "got": 55,
-    "err": 31,
+    "got": 43,
+    "err": 43,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -10500,12 +10514,11 @@
     "cat": "conversational_good",
     "text": "Now in French",
     "human": 90,
-    "got": 38,
-    "err": 52,
+    "got": 43,
+    "err": 47,
     "inRange": false,
     "caps": [
-      "no_task",
-      "very_short_no_task"
+      "no_task"
     ],
     "allObs": [
       "PL_001"
@@ -10530,12 +10543,10 @@
     "cat": "conversational_good",
     "text": "Simplify it for a non-technical audience",
     "human": 88,
-    "got": 58,
-    "err": 30,
-    "inRange": false,
-    "caps": [
-      "ambiguity"
-    ],
+    "got": 87,
+    "err": 1,
+    "inRange": true,
+    "caps": [],
     "allObs": [
       "AMB_001"
     ]
@@ -10567,8 +10578,8 @@
     "cat": "conversational_good",
     "text": "Remove the jargon",
     "human": 86,
-    "got": 55,
-    "err": 31,
+    "got": 43,
+    "err": 43,
     "inRange": false,
     "caps": [
       "very_short_task"
@@ -10593,12 +10604,10 @@
     "cat": "conversational_good",
     "text": "Rewrite it as a question",
     "human": 86,
-    "got": 58,
-    "err": 28,
-    "inRange": false,
-    "caps": [
-      "ambiguity"
-    ],
+    "got": 79,
+    "err": 7,
+    "inRange": true,
+    "caps": [],
     "allObs": [
       "AMB_001"
     ]
@@ -10608,8 +10617,8 @@
     "cat": "system_prompt",
     "text": "You are an AI assistant. Answer questions clearly and concisely.",
     "human": 55,
-    "got": 30,
-    "err": 25,
+    "got": 21,
+    "err": 34,
     "inRange": false,
     "caps": [
       "role_without_task"
@@ -10621,8 +10630,8 @@
     "cat": "system_prompt",
     "text": "Sei un assistente AI che aiuta gli utenti a scrivere email.",
     "human": 60,
-    "got": 30,
-    "err": 30,
+    "got": 21,
+    "err": 39,
     "inRange": false,
     "caps": [
       "no_task",
@@ -10637,11 +10646,12 @@
     "cat": "system_prompt",
     "text": "Be a helpful coding assistant.",
     "human": 38,
-    "got": 48,
-    "err": 10,
+    "got": 41,
+    "err": 3,
     "inRange": true,
     "caps": [
       "no_task",
+      "short_underspecified",
       "underspecified_vague"
     ],
     "allObs": [
@@ -10667,9 +10677,9 @@
     "cat": "system_prompt",
     "text": "You are an AI.",
     "human": 35,
-    "got": 30,
-    "err": 5,
-    "inRange": true,
+    "got": 21,
+    "err": 14,
+    "inRange": false,
     "caps": [
       "no_task",
       "role_without_task"
@@ -10722,8 +10732,8 @@
     "cat": "system_prompt",
     "text": "You are a code review assistant for a Python team. Review for: bugs, performance, security, PEP 8. Output: sections [Bug], [Performance], [Security], [Style]. If none: 'None found.' Do not rewrite entire functions — suggest specific changes with line numbers. Never approve code with security issues.",
     "human": 91,
-    "got": 35,
-    "err": 56,
+    "got": 23,
+    "err": 68,
     "inRange": false,
     "caps": [
       "contradiction"
@@ -10780,8 +10790,8 @@
     "cat": "system_prompt",
     "text": "Sei un assistente per un'app fitness. Aiuta gli utenti con i loro allenamenti.",
     "human": 50,
-    "got": 30,
-    "err": 20,
+    "got": 21,
+    "err": 29,
     "inRange": false,
     "caps": [
       "role_without_task"
@@ -10942,12 +10952,11 @@
     "cat": "few_shot",
     "text": "Classifica il sentiment come positivo, negativo o misto, e spiega perché in 5 parole.\n\nEsempi:\n\"Amo il nuovo design ma le performance sono terribili.\" → Misto: design buono, performance pessime\n\"Il servizio era veloce e il personale incredibilmente utile.\" → Positivo: veloce, personale utile\n\nClassifica:\n1. \"Il cibo era ottimo ma l'attesa insopportabile.\"\n2. \"Prodotto assolutamente brillante, funziona esattamente come descritto.\"\n3. \"Non era quello che mi aspettavo, molto deluso.\"",
     "human": 93,
-    "got": 58,
-    "err": 35,
+    "got": 60,
+    "err": 33,
     "inRange": false,
     "caps": [
-      "vague_adjectives",
-      "ambiguity"
+      "vague_adjectives"
     ],
     "allObs": [
       "VAGUE_002"
@@ -10969,12 +10978,10 @@
     "cat": "few_shot",
     "text": "Riscrivi ogni frase in registro formale.\n\nEsempi:\nInformale: \"Dai, facciamo questa cosa!\" → Formale: \"Procederei con questa iniziativa.\"\nInformale: \"È una roba complicata.\" → Formale: \"Si tratta di una questione di una certa complessità.\"\n\nRiscrivi:\n1. \"Il capo ha detto che dobbiamo sbrigarci.\"\n2. \"Non mi piace per niente questa proposta.\"\n3. \"Ci vediamo dopo per aggiornare la situazione.\"",
     "human": 93,
-    "got": 48,
-    "err": 45,
-    "inRange": false,
-    "caps": [
-      "ambiguity"
-    ],
+    "got": 88,
+    "err": 5,
+    "inRange": true,
+    "caps": [],
     "allObs": [
       "PL_009",
       "AMB_003",
@@ -11243,8 +11250,8 @@
     "cat": "multiline_structured",
     "text": "Context: I'm a solo developer, SaaS for freelancers, launch MVP in 6 weeks.\nCurrent: core feature built, no landing page, no payment system.\nTask: Week-by-week launch plan.\nFor each of 6 weeks: key deliverables, risks, one success metric.\nWeeks: 1-2 build/integrate, 3-4 soft launch prep, 5 beta, 6 public launch.",
     "human": 93,
-    "got": 50,
-    "err": 43,
+    "got": 43,
+    "err": 50,
     "inRange": false,
     "caps": [
       "no_task"
@@ -11380,8 +11387,8 @@
     "cat": "long_complex",
     "text": "I'm preparing for a senior PM interview at a Series B fintech (payments infrastructure, developer-facing products). Need help with:\n1. Product sense: 3 estimation questions they might ask with frameworks\n2. Execution: 3 hardest execution challenges in developer products and how to frame my answers\n3. Leadership: 2 STAR story structures (not content — I'll fill in my experience)\n4. Technical: 5 key payment infrastructure concepts I should know cold\n5. Questions to ask them: 5 sharp, insightful questions to stand out",
     "human": 92,
-    "got": 50,
-    "err": 42,
+    "got": 43,
+    "err": 49,
     "inRange": false,
     "caps": [
       "no_task"
@@ -11438,8 +11445,8 @@
     "cat": "long_complex",
     "text": "I'm a first-time manager who took over a struggling customer support team of 8 people. Issues: low morale, resolution time 48h (industry avg 8h), 3 people quit in 2 months. First team meeting in 48 hours.\n\nHelp: 1) what NOT to do in the first meeting 2) agenda for the first 30-minute meeting 3) 5 diagnostic questions to understand root causes 4) quick wins for week 1 to signal positive change 5) how to communicate up to my manager without blaming my team.",
     "human": 91,
-    "got": 92,
-    "err": 1,
+    "got": 93,
+    "err": 2,
     "inRange": true,
     "caps": [],
     "allObs": [
@@ -11576,8 +11583,8 @@
     "cat": "very_long_detailed",
     "text": "CONTEXT:\nI am the CTO of a 40-person SaaS company (Series A, $5M ARR). Monolithic Ruby on Rails app, 800k lines, 7 years old. 6 backend engineers. 2,000 business customers. Response times degraded from 200ms to 800ms over 18 months. Single PostgreSQL DB (1.2TB), no message queue, all synchronous, 40% test coverage, Heroku deployment weekly.\n\nConsidering microservices migration but skeptical about timing.\n\nNeed:\n1. Assessment: is microservices right at our stage? Realistic risks?\n2. Alternative approaches: 3 alternatives to microservices for our performance problems\n3. If proceeding: safest sequence, which domain to extract first and why\n4. Team impact: hiring or training needed\n5. Timeline: realistic 12-month roadmap with decision points\n6. Success metrics: how to know migration is working vs creating new problems\n\nBe direct about risks and trade-offs. I don't need enthusiasm — I need honest engineering judgment.",
     "human": 96,
-    "got": 50,
-    "err": 46,
+    "got": 43,
+    "err": 53,
     "inRange": false,
     "caps": [
       "no_task"
