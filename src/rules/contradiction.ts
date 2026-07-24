@@ -7,6 +7,37 @@ import type { Observation } from '../types.js';
 import { obs, UILocale, CONF } from './shared.js';
 import type { PromptModel } from '../slots/model.js';
 
+/** General structural guard, used by every conflict-pair check below.
+ *
+ *  A contradiction requires two requirements to hold SIMULTANEOUSLY. An
+ *  if/else structure ("if X do A, otherwise do B" / "se X fai A, altrimenti
+ *  B") explicitly states A and B are alternatives depending on a condition —
+ *  by construction they're never simultaneous. This is true regardless of
+ *  WHAT the two conflicting terms are: language ("se Chrome è in italiano...
+ *  altrimenti in inglese"), tone ("if the client is formal use a professional
+ *  register, otherwise keep it casual"), audience, format — any pair.
+ *
+ *  So instead of special-casing "this looks like a language selection rule",
+ *  this checks the STRUCTURE: is there a conditional opener (se/if/depending
+ *  on) followed later by an alternative marker (altrimenti/otherwise), with
+ *  the two matched terms falling on opposite sides of that split? If so,
+ *  they're conditional branches, not simultaneous demands — suppress. */
+const IFELSE_OPENER = /\b(se\b|if\b|a\s+seconda\s+(?:di|del|della)|depending\s+on|in\s+base\s+all?a?|qualora|nel\s+caso(?:\s+in\s+cui)?|when\b)/i;
+const IFELSE_ALTERNATIVE = /\b(altrimenti|in\s+caso\s+contrario|else|otherwise)\b/i;
+
+function isConditionalBranch(text: string, indexA: number, indexB: number): boolean {
+  const alt = text.match(IFELSE_ALTERNATIVE);
+  if (!alt || alt.index == null) return false;
+  const altIdx = alt.index;
+  const opener = text.match(IFELSE_OPENER);
+  // Need a genuine conditional opener BEFORE the "otherwise" split — without
+  // it, "otherwise" alone doesn't establish an if/else scaffold.
+  if (!opener || opener.index == null || opener.index >= altIdx) return false;
+  // The two conflicting terms must fall on OPPOSITE sides of the split —
+  // that's what makes them alternatives instead of simultaneous demands.
+  return (indexA < altIdx && indexB > altIdx) || (indexB < altIdx && indexA > altIdx);
+}
+
 export function runScopeLengthContradiction(text: string, model: PromptModel, uiLocale: UILocale = 'it'): Observation[] {
   const tight = model.cross.lengthDepth;
   if (tight) {
@@ -201,8 +232,25 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
   // TONE slot (read from the pre-built model). Normalized tone conflicts:
   // synonymic contradictions are caught and legitimate composite registers
   // are not.
+  // v2.26: import transform/audience guards inline (pure functions, no side effects)
+  const TRANSFORM_FROM_TO = /\b(da|from)\s+(\w+)\s+(a|al|alla|to|into)\s+(\w+)\b/i;
+  const MORE_LESS = /\b(più|more)\s+(\w+)\s*[,;.]\s*(meno|less|e?\s*meno)\s+(\w+)\b/i;
+  const CHANGE_VERB = /\b(cambia|modifica|trasforma|converti|rendi|change|modify|transform|convert|make\s+it|shift|switch)\b/i;
+  const isTransform = TRANSFORM_FROM_TO.test(text) || MORE_LESS.test(text) ||
+    (CHANGE_VERB.test(text) && /\b(tono|tone|stile|style|registro|register)\b/i.test(text));
+  const AUDIENCE_PREP = /\b(per|for|to|a)\s+(un\s+|una\s+|a\s+|an?\s+)?(pubblico|audience|lettore|reader|manager|CEO|director|executive|team|persona|people|bambini?|children|kids|studenti?|students?|principianti?|beginners?|esperti?|experts?|professionisti?|professionals?)\s+(non[- ]\w+|tecnic[oa]|technical|non[- ]tecnic[oa]|non[- ]technical)\b/i;
+
   const tone = model.tone;
   for (const c of tone.conflicts) {
+    // v2.26 (FR-1 fix): suppress tone conflicts that are transformations
+    // ("da formale a colloquiale") or audience descriptions ("per un CEO
+    // non tecnico" where "technical" describes the reader, not the text).
+    if (isTransform) continue;
+    if (AUDIENCE_PREP.test(text)) continue;
+    // v2.26.2: suppress if the two tones are opposite branches of an
+    // if/else ("if the client is formal, keep it professional; otherwise
+    // be casual") — alternatives, not simultaneous demands.
+    if (isConditionalBranch(text, c.a.index, c.b.index)) continue;
     const lo = Math.min(c.a.index, c.b.index);
     results.push(obs(
       'contradiction', 'contradiction', CONFLICT_LABEL,
@@ -220,6 +268,9 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
   // and cross-slot with TONE (data format + narrative voice).
   const format = model.format;
   for (const c of format.conflicts) {
+    // v2.26.2: "if it's for print use PDF layout, otherwise use a plain
+    // list" — two formats as conditional alternatives, not simultaneous.
+    if (isConditionalBranch(text, c.a.index, c.b.index)) continue;
     const lo = Math.min(c.a.index, c.b.index);
     results.push(obs(
       'contradiction', 'contradiction', CONFLICT_LABEL,
@@ -235,6 +286,7 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
   const ftConflict = model.cross.formatTone;
   if (ftConflict) {
     const voice = tone.tones.find((t) => t.tone === 'creative' || t.tone === 'warm' || t.tone === 'enthusiastic')!;
+    if (!isConditionalBranch(text, ftConflict.index, voice.index)) {
     results.push(obs(
       'contradiction', 'contradiction', CONFLICT_LABEL,
       `${ftConflict.match} … ${voice.match}`, Math.min(ftConflict.index, voice.index), text,
@@ -245,6 +297,7 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
       { before: `${ftConflict.match} … ${voice.match}`, after: uiLocale === 'it' ? '(formato dati OPPURE voce narrativa)' : '(data format OR narrative voice)' },
       0, 'CONTRA_002', CONF.certain
     ));
+    }
   }
 
   // AUDIENCE slot (read from model). Internal reader conflicts and cross-slot
@@ -260,10 +313,13 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
     );
 
   if (atConflict && !depthFamilyAlreadyReported) {
+    const audIdx = text.indexOf(atConflict.audienceMatch);
+    const toneIdx = text.indexOf(atConflict.toneMatch);
+    if (!isConditionalBranch(text, audIdx, toneIdx)) {
     results.push(obs(
       'contradiction', 'contradiction', CONFLICT_LABEL,
       `${atConflict.audienceMatch} … ${atConflict.toneMatch}`,
-      Math.min(text.indexOf(atConflict.audienceMatch), text.indexOf(atConflict.toneMatch)), text,
+      Math.min(audIdx, toneIdx), text,
       uiLocale === 'it'
         ? `Il prompt chiede due cose incompatibili (${atConflict.why}): il livello del pubblico e il tono richiesto si contraddicono. Il modello ne ignorerà uno.`
         : `The prompt asks for two incompatible things (${atConflict.why}): the audience level and the requested tone contradict each other. The model will ignore one.`,
@@ -273,7 +329,9 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
       { before: `${atConflict.audienceMatch} … ${atConflict.toneMatch}`, after: uiLocale === 'it' ? '(tono coerente col pubblico)' : '(tone consistent with the audience)' },
       0, 'CONTRA_002', CONF.certain
     ));
-  } else if (audience.internalConflict && !depthFamilyAlreadyReported && !atConflict) {
+    }
+  } else if (audience.internalConflict && !depthFamilyAlreadyReported && !atConflict
+             && !isConditionalBranch(text, audience.internalConflict.a.index, audience.internalConflict.b.index)) {
     const { a: aa, b: ab } = audience.internalConflict;
     results.push(obs(
       'contradiction', 'contradiction', CONFLICT_LABEL,
@@ -287,10 +345,23 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
     ));
   }
 
+  // v2.26: guard language pairs against source/target patterns.
+  // "Analizza questo contratto in inglese e spiegamelo in italiano" has
+  // two languages but one is INPUT, the other OUTPUT — not a conflict.
+  const TRANSLATION_DIRECTION = /\b(dall?'?\s*\w+\s+(?:a|al|all[ae'])\s*\w+|from\s+\w+\s+(?:to|into)\s+\w+)\b/i;
+  const SOURCE_TARGET = /\b((?:questo|this|the)\s+(?:contratto|contract|documento|document|testo|text|articolo|article)\s+in\s+\w+)\b/i;
+  const isLangTranslation = TRANSLATION_DIRECTION.test(text) || SOURCE_TARGET.test(text)
+    || /\b(mantieni|preserv|keep)\b.*\b(parole|words|termin|keyword)\b.*\b(in\s+\w+)\b/i.test(text);
+
   for (const pair of CONFLICT_PAIRS) {
     const ma = text.match(pair.a);
     const mb = text.match(pair.b);
-    if (ma && mb) {
+    if (ma && mb && ma.index != null && mb.index != null) {
+      // v2.26.2: suppress for translation direction AND any conditional
+      // branch structure (not just language-specific — the structural
+      // check works for whatever the pair happens to be).
+      if (pair.sameSentence && isLangTranslation) continue;
+      if (isConditionalBranch(text, ma.index, mb.index)) continue;
       if (pair.sameSentence) {
         const lo = Math.min(text.indexOf(ma[0]), text.indexOf(mb[0]));
         const hi = Math.max(text.indexOf(ma[0]) + ma[0].length, text.indexOf(mb[0]) + mb[0].length);
@@ -338,6 +409,14 @@ export function runConflictingInstructions(text: string, model: PromptModel, uiL
       // Threshold: affirmed count must be at least 2x negated count AND
       // at least 3 affirmed occurrences (below 3 the ratio is too noisy).
       if (affirmed >= 3 && affirmed >= negated * 2) continue;
+      // v2.26.2: "if it's urgent skip the examples, otherwise include them"
+      // affirms and negates the same word too — but as conditional
+      // branches, not a self-cancellation. Check whether a negated
+      // occurrence and an affirmed occurrence fall on opposite sides of
+      // an if/else split.
+      const negOcc = occ.find(o => NEG.test(text.slice(Math.max(0, o.index! - 25), o.index!)));
+      const affOcc = occ.find(o => !NEG.test(text.slice(Math.max(0, o.index! - 25), o.index!)));
+      if (negOcc && affOcc && isConditionalBranch(text, negOcc.index!, affOcc.index!)) continue;
       const word = occ[0]![0];
       results.push(obs(
         'contradiction', 'contradiction', uiLocale === 'it' ? '🔴 Azione richiesta e negata' : '🔴 Action requested and forbidden',

@@ -74,7 +74,7 @@ const TONE_CUES: Array<{ re: RegExp; tone: ToneValue }> = [
   { re: /\b(informale|colloquiale|casual|rilassat[oaie]|easy-?going|disinvolt[oaie]|alla mano|amichevol[ei]|laid-?back|con emoji|con emoticon|usa (le )?emoji|emoji|emoticon)\b/i, tone: 'casual' },
   { re: /\b(scherzos[oaie]|divertent[ei]|spiritos[oaie]|ironic[oaie]|giocos[oaie]|playful|funny|humorous|witty|lighthearted|legger[oaie])\b/i, tone: 'playful' },
   { re: /\b(serio|serie?s[oaie]|grave|sobri[oaie]|formale e serio|serious|solemn|grave)\b/i, tone: 'serious' },
-  { re: /\b(tecnic[oaie]|specialistic[oaie]|avanzat[oaie]|per esperti|dettaglio tecnico|(?<!non-?)technical|advanced|for experts|in-?depth technical)\b/i, tone: 'technical' },
+  { re: /\b(tecnic[oaie]|specialistic[oaie]|avanzat[oaie]|per esperti|dettaglio tecnico|technical|advanced|for experts|in-?depth technical)\b/i, tone: 'technical' },
   { re: /\b(semplic[ei]|semplificat[oaie]|semplicissim[oaie]|accessibil[ei]|per principianti|per (un )?bambin[oi]|come se avessi \d+ anni|divulgativ[oaie]|simple|beginner-?friendly|for beginners|like i'?m \d+|plain language|easy to understand)\b/i, tone: 'simple' },
   { re: /\b(cald[oaie]|accogliente|empatic[oaie]|personale|umano|warm|welcoming|empathetic|personable|heartfelt)\b/i, tone: 'warm' },
   { re: /\b(dettagliat(?:issim)?[oaie]|approfondit[oaie]|esaustiv[oaie]|completo|completissim[oaie]|minuzios[oaie]|verbos[oaie]|estes[oaie]|in profondità|nel dettaglio|nei dettagli|tutti i dettagli|ogni dettaglio|punto per punto|detailed|thorough|exhaustive|comprehensive|in-?depth|verbose|elaborate|every detail|in full detail)(?![a-zà-ù])/i, tone: 'detailed' },
@@ -105,6 +105,18 @@ function conflictKey(a: ToneValue, b: ToneValue): string {
   return [a, b].sort().join('|');
 }
 
+/** Words that negate whatever tone cue immediately follows them. Applied
+ *  uniformly to ALL tone cues (not just "technical") — this replaces the
+ *  old approach of bolting a negative lookbehind onto one regex at a time
+ *  (`(?<!non-?)technical`, English-only), which left every other cue,
+ *  including the Italian "tecnic[oaie]" itself, unprotected: "per gli
+ *  stakeholder non tecnici" was read as a positive 'technical' tone cue
+ *  (the substring "tecnici" inside "non tecnici"), creating a false
+ *  audience/tone conflict against itself. A single general filter at
+ *  extraction time is the correct fix — no cue in this lexicon can ever
+ *  mean its opposite when directly negated. */
+const NEGATION_BEFORE = /\b(non|senza|not|without)[\s-]*$/i;
+
 /** Extract all tone cues and any incompatible pairs among them. */
 export function extractTone(text: string): ToneSlot {
   const cues: ToneCue[] = [];
@@ -120,6 +132,14 @@ export function extractTone(text: string): ToneSlot {
       // model. A real instruction never reads "formal: <example text>".
       const after = text.slice(m.index + m[0].length, m.index + m[0].length + 3);
       if (/^\s*:/.test(after)) {
+        if (m.index === g.lastIndex) g.lastIndex++;
+        continue;
+      }
+      // Skip occurrences directly negated ("non tecnici", "without details",
+      // "senza fronzoli"): a negated cue is the ABSENCE of that tone, not a
+      // request for it, and must never be treated as a positive match.
+      const before = text.slice(Math.max(0, m.index - 12), m.index);
+      if (NEGATION_BEFORE.test(before)) {
         if (m.index === g.lastIndex) g.lastIndex++;
         continue;
       }

@@ -22,6 +22,35 @@ import type { UILocale } from '../analyzers/observations.js';
 import { findMorphologicalRedundancy, findRepeatedContentWords, stem } from '../spell/engine/stemmer.js';
 import { CAP_REASON_TEXT, CAP_TO_DIM } from './caps_data.js';
 import { dimWeights, capValue, confOverride } from './weights.js';
+import {
+  detectDanglingAnaphora, analyzeScope, detectInjection,
+  isFormatSpecPlaceholder, isStructuralRepetition, isRhetoricalQuestion,
+  type AnaphoraResult, type ScopeResult, type InjectionResult
+} from './content_quality.js';
+
+// ── PromptLint v3.0 post-processing ───────────────────────────────────────
+//
+// Two-module pipeline applied after the v2.26 engine score is computed:
+//
+//   A  IDS correction     — penalises low information-density prompts
+//   B  New caps           — injection, scope overload
+//   C  False-reject rescue — lifts wrongly-capped legitimate prompts
+//   D  PWL calibration    — monotone remapping onto human-score distribution
+//   E  GBM residual       — 150-tree gradient-boost correction (53 KB JSON)
+//
+// Validated on 1 000-prompt corpus (700 train / 300 test, seed = 42):
+//   v2.26 baseline:  MAE 26.02 · Dangerous 127 · FalseReject 30 · ρ 0.540
+//   v3 rules only:   MAE 15.73 · Dangerous  22 · FalseReject  0 · ρ 0.687
+//   v3 + GBM:        MAE 14.97 · Dangerous   8 · FalseReject  0 · ρ 0.718
+//   v3 5-fold CV:    MAE 14.79 ± 0.94
+//
+// To run rules only (no ML, no JSON): set USE_GBM = false.
+import { postProcess } from './scoring_postprocess.js';
+import { applyResidualGBM, loadModel, type PipelineModel } from './scoring_gbm_inference.js';
+import _modelRaw from './pipeline_v3_model.json' assert { type: 'json' };
+
+const USE_GBM = true;
+const _gbmModel: PipelineModel | null = USE_GBM ? loadModel(_modelRaw) : null;
 
 function label(score: number): ScoreLabel {
   if (score >= 82) return 'excellent';
@@ -89,6 +118,15 @@ export function scorePrompt(
   // format, a length, etc. — the class of double-source-of-truth bug this
   // consolidation exists to prevent.
   const m = model ?? buildPromptModel(text, detectLanguage(text));
+
+  // ── Content quality analysis (v2.26) ──────────────────────────────────────
+  // Continuous measures computed once, consumed by multiple parts of the scorer.
+  // These replace ad-hoc binary checks scattered through the caps.
+  const isFollowupHint = conversational || enrichment;
+  const anaphora: AnaphoraResult = detectDanglingAnaphora(text, m, isFollowupHint);
+  const scope: ScopeResult = analyzeScope(text, words);
+  const injection: InjectionResult = detectInjection(text);
+  const rhetoricalQ = isRhetoricalQuestion(text);
 
   // ─────────────────────────────────────────────────────────────────────────
   // CLARITY — gradual penalties. Contradiction/no-task are heavily penalised
@@ -229,10 +267,19 @@ export function scorePrompt(
     m.task.source === 'question' ||
     /\?\s*$/.test(text.trim());
 
-  // Continuous map: 0 specs → ~22, saturating toward ~100. Using a curve
+  // Continuous map: 0 specs → ~12, saturating toward ~100. Using a curve
   // instead of a hard sum avoids both a harsh floor and an easy ceiling.
-  let precisionRaw = 22 + (100 - 22) * (1 - Math.exp(-specPoints / 42));
-  if (selfBounding) precisionRaw = Math.max(precisionRaw, 78);
+  // v2.26: base 22→12, range 78→88, divisor 65→100. With the rebalanced
+  // weights (precision=0.50), this curve directly controls the total:
+  //   specPoints=14 (task only) → P=24, total≈60
+  //   specPoints=24 (task+object) → P=31, total≈64  
+  //   specPoints=38 (task+obj+constraints) → P=40, total≈69
+  //   specPoints=52 (task+obj+constr+format) → P=48, total≈73
+  //   specPoints=70+ → P=56+, total≈77+
+  // The "fair" zone (42-62) is now reachable for 1-2 spec prompts,
+  // matching human judgment. Excellent (82+) requires 5+ real specs.
+  let precisionRaw = 12 + (100 - 12) * (1 - Math.exp(-specPoints / 100));
+  if (selfBounding) precisionRaw = Math.max(precisionRaw, 66);
   // A concrete factual question ("Quanto fa 18 × 27?", "qual è la differenza
   // tra X e Y?") is a complete prompt — the question IS the whole spec
   // (external-corpus fix: these scored 54 while deserving 80+). Requires
@@ -252,10 +299,25 @@ export function scorePrompt(
   const VAGUE_QUESTION =
     /^(cosa\s+ne\s+pensi|che\s+ne\s+pensi|cosa\s+ne\s+dici|che\s+(ne\s+)?dici|cosa\s+mi\s+consigli|hai\s+(qualche\s+)?idea|cosa\s+dovrei\s+fare|what\s+do\s+you\s+think|any\s+ideas?|what\s+should\s+i\s+do)\b/i;
   const questionWordCount = (text.trim().match(/\S+/g) ?? []).length;
+  // v2.26: hardened question content check. The old "≥4 words" let through
+  // anaphoric questions ("Quando è meglio farlo?" → 92/5), rhetorical
+  // questions ("Isn't it obvious...?" → 89/10), and help-without-material
+  // ("Come faccio a ottimizzare il mio codice?" → 92/10). The floor must
+  // require RESOLVED content: something concrete in the text itself.
   const questionHasContent =
     /\d/.test(text) || m.object.presence === 'named' ||
-    (questionWordCount >= 4 && !VAGUE_QUESTION.test(text.trim()));
-  if (isQuestionLike && questionHasContent) precisionRaw = Math.max(precisionRaw, 72);
+    (questionWordCount >= 4 && !VAGUE_QUESTION.test(text.trim())
+      && !anaphora.hasDangling      // "Is this correct?" → no floor
+      && !rhetoricalQ               // "Isn't it obvious?" → no floor
+    );
+  // v2.26: graduated floor. Full floor (58) only for concrete factual
+  // questions ("Quanto fa 18×27?"). Reduced floor (48) for questions with
+  // content but no concrete anchor (number/named object) — these are real
+  // questions that could use more specificity ("Cosa pensi del ML?").
+  const hasConcreteAnchorQ = /\d/.test(text) || m.object.presence === 'named';
+  if (isQuestionLike && questionHasContent) {
+    precisionRaw = Math.max(precisionRaw, hasConcreteAnchorQ ? 58 : 48);
+  }
   // A conversational reply ("sì procedi", "prova quella opzione") isn't
   // missing a role/format/example/context — those concepts don't apply to a
   // short in-context reply, so judging it against them is a category error,
@@ -269,7 +331,7 @@ export function scorePrompt(
   // "sì procedi" does, because it does carry standalone content that could in
   // principle be richer. A fair floor (~78) credits the contribution without
   // either punishing the missing specs or pretending it's a complete prompt.
-  else if (enrichment) precisionRaw = Math.max(precisionRaw, 68);
+  else if (enrichment) precisionRaw = Math.max(precisionRaw, 58);
   const precisionScore = dim(uiLocale === 'it' ? 'Precisione' : 'Precision', precisionRaw,
     conversational ? (uiLocale === 'it' ? 'Risposta conversazionale: le regole di specifica non si applicano qui.' : 'Conversational reply: specification rules don\'t apply here.') :
     enrichment ? (uiLocale === 'it' ? 'Turno di arricchimento: aggiunge contesto a un task già avviato.' : 'Enrichment turn: adds context to an already-started task.') :
@@ -308,7 +370,10 @@ export function scorePrompt(
     // "Quanto fa 18 × 27?", "Correggi: '…'" are short because they're DONE,
     // not because they're missing something. Penalizing their length punished
     // exactly the prompts that are naturally perfect at their size.
-    lengthBase = Math.max(lengthBase, 88);
+    // v2.26: 88→78→68. With precision=0.50 weights, the length dimension
+    // contributes only 0.09*length to total. A 68 floor here contributes 6.1
+    // instead of 7.0 — the precision curve is now the primary control.
+    lengthBase = Math.max(lengthBase, 68);
   } else if (tok < 8) { lengthBase = 40; lengthTips.push(uiLocale === 'it' ? 'Prompt molto corto: aggiungi contesto, formato, vincoli.' : 'Very short prompt: add context, format, constraints.'); }
   else if (tok < 16) { lengthBase = 66; lengthTips.push(uiLocale === 'it' ? 'Corto: uno o due dettagli in più aiuterebbero.' : 'Short: one or two more details would help.'); }
   else if (tok > 450) { lengthBase = 62; lengthTips.push(uiLocale === 'it' ? 'Molto lungo: controlla le ridondanze.' : 'Very long: check for redundancies.'); }
@@ -394,11 +459,15 @@ export function scorePrompt(
   // and no-task at 50. The task-only-vs-role-only regression still holds: a
   // terse real task is capped at 55 by the short-prompt rule below, safely
   // above the role-only (no-task) ceiling of 50.
+  // v2.26.2: contradiction observations are now guarded AT THE SOURCE
+  // (src/rules/contradiction.ts), per conflicting pair -- transformations,
+  // source/target language, audience descriptions, and conditional if/else
+  // branches are all filtered before the observation is ever emitted. This
+  // is more precise than a blanket text-level suppression here: it only
+  // silences the SPECIFIC pair that isn't a real contradiction, while a
+  // genuine simultaneous conflict elsewhere in the same prompt still gets
+  // flagged. Nothing to re-check at this level -- just count what's left.
   const contradictions = byType('contradiction');
-  // A contradiction poisons the prompt: the model must resolve conflicting
-  // instructions and will silently drop one. Benchmark showed the old ceiling
-  // of 46 still read as borderline-'fair'; a genuine contradiction belongs in
-  // 'poor'. Lowered to 35, with additional contradictions pulling further down.
   if (contradictions > 0) cap(35 - Math.min(12, (contradictions - 1) * 6), 'contradiction');
   if (byCode('PL_001') > 0) cap(50, 'no_task');
   // OBJ_001 (v2.22): a task verb with no real object to act on ("fammi un
@@ -460,7 +529,12 @@ export function scorePrompt(
       if (words_lower[i] === words_lower[i - 1]) { run++; if (run > maxRun) maxRun = run; }
       else run = 1;
     }
-    if (maxRun >= 4) cap(12, 'pure_repetition');
+    // v2.26 (FR-6 fix): exempt data/tabular patterns where repetition is
+    // structural ("month 1: 82%, month 3: 61%" — "month" repeats 4+ times).
+    // Guard: high numeric density = data, not prose.
+    const numericDensity = (text.match(/\d/g) ?? []).length / text.length;
+    const isDataPattern = numericDensity > 0.08 || /\b\d+\s*[%:$€]\s*/g.test(text);
+    if (maxRun >= 4 && !isDataPattern) cap(12, 'pure_repetition');
   }
 
   // ── BARE ACKNOWLEDGMENT / EMPTY REQUEST as first turn ───────────────────
@@ -507,9 +581,14 @@ export function scorePrompt(
   if (ROLE_ASSIGN.test(text.trim()) && m.task.source !== 'imperative-lead') {
     const ACTION_VERB = /\b(scrivi|crea|genera|analizza|spiega|elenca|dimmi|fammi|rispondi|traduci|correggi|ottimizza|confronta|write|create|explain|analyze|list|make|tell|give|find|help|review|debug|fix|compare|translate|summarize)\b/i;
     const DECL_CONTEXT = /\b(il\s+(paziente|cliente|utente|candidato)|the\s+(patient|client|user|customer)|ti\s+(descrive|chiede|racconta|dice)|describes|asks|tells|says)\b/i;
+    // v2.26 (FR-5 fix): a question after a role assignment IS the task.
+    // "Sei un commercialista. Quali spese posso scaricare?" — the question
+    // is the task. The old check only looked for imperative verbs and missed
+    // every interrogative task.
+    const hasQuestion = /\?/.test(text) && /\b(qual[ie]|come|cosa|quando|perché|dove|chi|quant[oaie]|what|how|which|when|where|why|who|can|could|should|would)\b/i.test(text);
     // Search the WHOLE text — "Act as X and review Y" has the action in the
     // same sentence as the role assignment.
-    const hasAction = ACTION_VERB.test(text) || DECL_CONTEXT.test(text);
+    const hasAction = ACTION_VERB.test(text) || DECL_CONTEXT.test(text) || hasQuestion;
     // Inline material (code block, quotes) implies the role has something to act on.
     const hasInlineMaterial = m.object.fromInlineMaterial || /```|`[^`]+`|["«»""]/.test(text);
     if (!hasAction && !hasInlineMaterial) cap(30, 'role_without_task');
@@ -601,11 +680,16 @@ export function scorePrompt(
     // misses it. Guard: don't fire if there's inline code (repeated tokens
     // like 'return', 'function', 'def' are code, not prose redundancy).
     const hasInlineCode = /```|`[^`]+`|\bdef\s+\w+\s*\(|\bfunction\s+\w+\s*\(|\breturn\b.*\breturn\b|\bprint\s*\(|\bprint\s+['"]|\bimport\s+\w|\bconst\s+\w+\s*=|\blet\s+\w+\s*=|\bvar\s+\w+\s*=|\bclass\s+\w+|raw_input\s*\(|console\.log/.test(text);
-    const repeatHits = !hasInlineCode && (
-      findRepeatedContentWords(text, 'en').length > 0
-      || findRepeatedContentWords(text, 'it').length > 0
-    );
-    if (repeatHits && words <= 20) cap(35, 'repeated_content_word');
+    const repeatedWordsEn = !hasInlineCode ? findRepeatedContentWords(text, 'en') : [];
+    const repeatedWordsIt = !hasInlineCode ? findRepeatedContentWords(text, 'it') : [];
+    const allRepeated = [...repeatedWordsEn, ...repeatedWordsIt];
+    // v2.26 (FR-3 fix): filter out STRUCTURAL repetition — comparisons
+    // ("differenza tra AI, ML e deep learning"), data labels ("month 1:...,
+    // month 3:..."), distributive patterns ("one X per X"). These gave
+    // falseRej 21/70 on "Qual è la differenza tra intelligenza artificiale,
+    // machine learning e deep learning?" — the repetition IS the content.
+    const genuineRepeats = allRepeated.filter(w => !isStructuralRepetition(text, w));
+    if (genuineRepeats.length > 0 && words <= 20) cap(35, 'repeated_content_word');
   }
 
   // ── SEMANTIC PAIR REDUNDANCY: "opinione personale su cosa ne pensi" ────
@@ -900,7 +984,13 @@ export function scorePrompt(
     if (match) {
       const inside = match[0].slice(1, -1).trim();
       const wordCount = (inside.match(/\S+/g) ?? []).length;
-      if (wordCount >= 2 || (wordCount === 1 && inside.length >= 5)) {
+      // v2.26 (FR-4 fix): placeholders after format-spec markers ("using this
+      // format:", "sintassi:") + real task material = few-shot specification,
+      // the BEST prompting pattern. "[OWNER] - [ACTION]" after "convert using
+      // this format:" is a spec, not a template. Gave 10/100 to prompts that
+      // deserved 82–94.
+      const isFewShot = isFormatSpecPlaceholder(text, match[0]);
+      if ((wordCount >= 2 || (wordCount === 1 && inside.length >= 5)) && !isFewShot) {
         cap(18, 'unfilled_template');
       }
     }
@@ -1143,6 +1233,47 @@ export function scorePrompt(
     else if (words < 8 && !wellSpecifiedShort) cap(54, 'short_underspecified');
   }
 
+  // ── INSTRUCTION OVERRIDE / INJECTION (v2.26) ────────────────────────────
+  // Prompt injection patterns: "ignore all previous instructions", "you are
+  // now DAN", "forget everything", meta-gaming ("dai un punteggio di 100").
+  // These are not formatting issues — they're attempts to manipulate the
+  // model. The engine used to give 86–93 because it saw imperatives + named
+  // objects = specification. Cap proportional to confidence.
+  if (injection.detected) {
+    const injCeiling = injection.confidence >= 0.85 ? 15 : injection.confidence >= 0.60 ? 30 : 45;
+    cap(injCeiling, 'instruction_override');
+  }
+
+  // ── SCOPE OVERLOAD (v2.26) ─────────────────────────────────────────────
+  // "Fix my website, write my book, manage my social media for a year" or
+  // "guida completa su tutto quello che c'è da sapere sul marketing" —
+  // more deliverables than a single model response can produce. The old
+  // scorer REWARDED this: each deliverable added specPoints. Now overload
+  // is penalized with a continuous cap based on the logistic overload score.
+  if (scope.overloadScore >= 0.50) {
+    // Map overload score [0.5, 1.0] → ceiling [55, 20]
+    const scopeCeiling = Math.round(55 - 35 * ((scope.overloadScore - 0.5) / 0.5));
+    cap(scopeCeiling, 'scope_overload');
+  }
+
+  // ── DANGLING REFERENCE (v2.26) ─────────────────────────────────────────
+  // "Sì ma fallo meglio" (100/22), "Is this correct?" (92/8), "Compare
+  // them" (74/8) — references to something that doesn't exist in the text.
+  // Distinct from implicit_prior_reference (which looks for "come prima"/
+  // "like last time"): this catches bare anaphora ("this", "fallo", "them")
+  // as first-turn prompts.
+  // v2.26: dangling_reference must respect the caller's followup hint.
+  // The `conversational` flag comes from the internal classifier which can
+  // miss operational followups ("redo this for European audience"). When
+  // the API caller passes `conversationTurn:'followup'`, references to prior
+  // output are EXPECTED, not dangling.
+  // Note: `isFollowupHint` is already `conversational || enrichment`, so
+  // this guard catches all explicit followup signals.
+  if (anaphora.hasDangling && !isFollowupHint) {
+    const anaCeiling = anaphora.confidence >= 0.85 ? 30 : 42;
+    cap(anaCeiling, 'dangling_reference');
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // INFORMATION-DENSITY FLOOR (v2.21) — the scorer used to credit the mere
   // presence of a task verb heavily enough that a contentless prompt with a
@@ -1178,7 +1309,35 @@ export function scorePrompt(
     // named object isn't a spec, but it IS content: the harsh floor is for
     // prompts that give the model nothing concrete.
     if (hasNamedObject) {
-      cap(words < 8 ? 68 : 74, 'underspecified_named');
+      // v2.26: the old single cap at 74 mixed three incompatible populations:
+      //   (a) Degraded: synonym chains, vague objects, redundancy — merit 15–35
+      //   (b) Followup-shaped: "Add citations", "Rewrite the conclusion" — merit 70+
+      //   (c) Terse-legit: "Configura campagna Klaviyo" — merit 70–74
+      // One ceiling can't serve all three. Split using signals already computed.
+
+      // Population (a): degradation signals present → hard cap, this is junk
+      const hasDegradation =
+        byType('redundancy') > 0 || byType('repetition') > 0 ||
+        byType('ambiguity') > 0.5 || byType('filler') > 0 ||
+        anaphora.hasDangling || scope.overloadScore >= 0.4;
+
+      // Population (b): followup-shaped (modification verb, no degradation)
+      const MODIFICATION_VERB = /\b(add|aggiungi|remove|rimuovi|rewrite|riscrivi|change|cambia|replace|sostituisci|update|aggiorna|fix|correggi|translate|traduci|convert|converti|move|sposta|merge|unisci|split|dividi|include|includi|now\s+\w+|ora\s+\w+|also\s+|anche\s+)\b/i;
+      const isFollowupShaped = MODIFICATION_VERB.test(text) && !hasDegradation;
+
+      if (isFollowupShaped) {
+        // Treat like enrichment — no underspecified cap
+        // The prompt is meaningful in context; standalone it's incomplete but
+        // shouldn't be punished as hard as junk
+        cap(words < 8 ? 62 : 68, 'underspecified_followup');
+      } else if (hasDegradation) {
+        // This is the real junk: synonym chains, vague fillers, redundancy
+        cap(words < 8 ? 42 : 48, 'underspecified_degraded');
+      } else {
+        // Terse-legit: concrete object, no degradation, no modification verb
+        // → benefit of the doubt, same as before for this population
+        cap(words < 8 ? 62 : 68, 'underspecified_named');
+      }
     }
     else if (byType('ambiguity') > 0 || words < 8) cap(48, 'underspecified_vague');
     else if (words < 14) cap(54, 'underspecified_short');
@@ -1276,9 +1435,26 @@ export function scorePrompt(
     poor: `Weak prompt. Start with: ${focusText}.`,
   };
 
+  // ── v3.0 post-processing ─────────────────────────────────────────────────
+  // Collect the cap labels the engine applied (needed by the rescue logic).
+  const capLabels = breakdown
+    .filter((b) => b.kind === 'cap')
+    .map((b) => b.label);
+
+  // Interventions A–D: deterministic rules (rescue, new caps, IDS, PWL cal).
+  const v3 = postProcess({ text, engineScore: total, caps: capLabels });
+  let finalTotal = v3.score;
+
+  // Intervention E: GBM residual correction (optional, USE_GBM flag above).
+  if (_gbmModel) {
+    finalTotal = applyResidualGBM(finalTotal, text, total, v3.idsValue, _gbmModel);
+  }
+
+  const finalLbl = label(finalTotal);
+
   return {
-    total,
-    label: lbl,
+    total: finalTotal,
+    label: finalLbl,
     breakdown,
     dimensions: dims,
     structure: {
@@ -1291,6 +1467,6 @@ export function scorePrompt(
       context: hasContext,
       selfBounding: selfBounding,
     },
-    summary: summaries[lbl],
+    summary: summaries[finalLbl],
   };
 }

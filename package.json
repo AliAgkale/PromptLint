@@ -1,7 +1,7 @@
 {
   "name": "promptlint-core",
-  "version": "2.25.0",
-  "description": "Deterministic prompt linter for LLMs — offline, provider-agnostic, ESLint for prompts",
+  "version": "3.0.0",
+  "description": "Deterministic prompt linter for LLMs \u2014 offline, provider-agnostic, ESLint for prompts",
   "keywords": [
     "prompt",
     "linter",
@@ -52,14 +52,14 @@
   },
   "dependencies": {
     "dictionary-en": "^4.0.0",
-    "js-tiktoken": "^1.0.15",
+    "js-tiktoken": "^1.0.21",
     "nspell": "^2.1.5"
   },
   "devDependencies": {
     "@types/nspell": "^2.1.6",
     "@vitest/coverage-v8": "^1.6.0",
     "tsup": "^8.1.0",
-    "tsx": "^4.23.0",
+    "tsx": "^4.23.1",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
   },

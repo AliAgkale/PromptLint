@@ -23,6 +23,8 @@ export default defineConfig([
       opts.banner = {
         js: '/* promptlint-core/full — web/CLI/VSCode build */',
       };
+      // Bundle the GBM model JSON so it's available at runtime
+      opts.loader = { ...opts.loader, '.json': 'json' };
     },
   },
 
@@ -40,6 +42,7 @@ export default defineConfig([
       opts.banner = {
         js: '/* promptlint-core/lite — Chrome extension build (zero external deps) */',
       };
+      opts.loader = { ...opts.loader, '.json': 'json' };
     },
   },
 
@@ -63,6 +66,7 @@ export default defineConfig([
       opts.banner = {
         js: '/* promptlint-core/chrome (EXPERIMENTAL) — nspell + full IT dict, single-file */',
       };
+      opts.loader = { ...opts.loader, '.json': 'json' };
     },
   },
 ]);

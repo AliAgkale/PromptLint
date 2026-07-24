@@ -59,6 +59,12 @@ export const CAP_REASON_TEXT: Record<string, { it: string; en: string }> = {
   impossible_budget: { it: 'limite di lunghezza incompatibile con il numero di elementi richiesti', en: 'length constraint incompatible with the number of items requested' },
   impossible_temporal: { it: 'vincolo temporale irrealistico per un modello', en: 'unrealistic time constraint for a model' },
   vague_topic_question: { it: 'domanda su un argomento vago, senza deliverable concreto', en: 'question about a vague topic, with no concrete deliverable' },
+  // v2.26 new caps
+  instruction_override: { it: 'tentativo di manipolazione o injection del prompt', en: 'prompt injection or manipulation attempt' },
+  scope_overload: { it: 'troppe richieste per una singola risposta', en: 'too many deliverables for a single response' },
+  dangling_reference: { it: 'riferimento a qualcosa non presente nel prompt', en: 'reference to something not in the prompt' },
+  underspecified_degraded: { it: 'oggetto presente ma contenuto degradato (ridondanza, vaghezza)', en: 'object present but degraded content (redundancy, vagueness)' },
+  underspecified_followup: { it: 'sembra un followup — in contesto potrebbe essere valido', en: 'looks like a followup — may be valid in context' },
 };
 
 // ─── Cap → dimension mapping (coherence projection) ──────────────────────────
@@ -93,6 +99,11 @@ export const CAP_TO_DIM: Record<string, 'clarity' | 'precision' | 'redundancy'> 
   underspecified_short:      'precision',
   underspecified:            'precision',
   underspecified_named:      'precision',
+  underspecified_degraded:  'precision',
+  underspecified_followup:  'precision',
+  instruction_override:     'clarity',
+  scope_overload:           'precision',
+  dangling_reference:       'clarity',
   courtesy_filler:           'precision',
   polite_filler:             'precision',
   bare_acknowledgment:       'precision',

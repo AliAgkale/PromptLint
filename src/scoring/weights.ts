@@ -50,11 +50,17 @@ export interface Weights {
 
 export const DEFAULT_WEIGHTS: Weights = {
   dims: {
-    clarity: 0.30,
-    precision: 0.30,
-    length: 0.13,
-    redundancy: 0.14,
-    readability: 0.13,
+    // v2.26: rebalanced. For prompt quality assessment, precision (what you
+    // actually specified) IS the dominant signal. The old 0.30/0.30 split gave
+    // clarity+redundancy+readability a 57-point fixed floor, making scores
+    // below 70 mathematically unreachable without a cap. With precision at
+    // 0.50, the precision curve directly controls where a prompt lands, and
+    // the 45-68 "fair" zone becomes reachable for 1-2 spec prompts.
+    clarity: 0.23,
+    precision: 0.50,
+    length: 0.09,
+    redundancy: 0.10,
+    readability: 0.08,
   },
   // Calibrated v2.24 (benchmark/calibrate.mjs, 2026-07-22).
   // Coordinate descent on the 601-prompt train split, hierarchical loss
