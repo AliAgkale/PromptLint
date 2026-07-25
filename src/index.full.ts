@@ -24,6 +24,7 @@ import { runAllObservations, makeLangState, resolveConversational, resolveEnrich
 import { buildPromptModel } from './slots/model.js';
 import { compressText } from './compression/index.js';
 import { scorePrompt } from './scoring/index.js';
+import { capsToObservations, refineObservationLevels } from './scoring/postprocess.js';
 import { getAutocorrectSuggestions } from './autocorrect/index.js';
 import { getNspellAdapter } from './spell/adapters/NspellAdapter.js';
 import { getTiktokenAdapter } from './tokenizer/adapters/TiktokenAdapter.js';
@@ -97,7 +98,7 @@ function buildResult(
   // model so it doesn't redo either.
   // See index.ts for why this matches costs[0] instead of a hardcoded rate.
   const cheapestInputRate = Math.min(...modelPrices.map(m => m.inputPer1M));
-  const observations = runAllObservations(
+  let observations = runAllObservations(
     text, disabledRules, spell, cheapestInputRate, langState, language, conversationTurn,
     { detected: detectedLang, model: promptModel }, uiLocale,
   );
@@ -110,6 +111,19 @@ function buildResult(
   const enrichment = resolveEnrichment(text, promptModel, conversationTurn);
 
   const score = scorePrompt(text, observations, tokens, conversational, promptModel, enrichment, uiLocale);
+
+  // Surface the diagnosis. A cap that lowers the score without saying why
+  // leaves the user with a number and no way to act on it; measured on the
+  // pooled corpus, 52% of weak prompts got exactly that, and two thirds of
+  // them had a cap naming the problem. refineObservationLevels then demotes
+  // red flags that the prompt's own determinacy evidence contradicts.
+  observations = refineObservationLevels([
+    ...observations,
+    ...capsToObservations(
+      (score.breakdown ?? []).filter((b) => b.kind === 'cap').map((b) => b.label),
+      text, uiLocale, observations,
+    ),
+  ], text, score.total);
   const costs = estimateCosts(tokenCount, outputRatio, modelPrices);
   // Was called with no spell adapter at all — the full build's real nspell
   // dictionary was loaded and used for the SPELL_001 rule, but as-you-type

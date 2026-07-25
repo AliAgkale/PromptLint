@@ -28,29 +28,17 @@ import {
   type AnaphoraResult, type ScopeResult, type InjectionResult
 } from './content_quality.js';
 
-// ── PromptLint v3.0 post-processing ───────────────────────────────────────
+// ── v3.0 post-processing (interventions A, B, C) ──────────────────────────
+// Rule-based only: no calibration layer, no learned model, no external file.
+// A PWL calibration + 150-tree residual GBM were built, measured and removed —
+// both made the project's own loss (10·D + 25·FR + MAE) worse on every corpus.
+// Full rationale and numbers in src/scoring/postprocess.ts.
 //
-// Two-module pipeline applied after the v2.26 engine score is computed:
-//
-//   A  IDS correction     — penalises low information-density prompts
-//   B  New caps           — injection, scope overload
-//   C  False-reject rescue — lifts wrongly-capped legitimate prompts
-//   D  PWL calibration    — monotone remapping onto human-score distribution
-//   E  GBM residual       — 150-tree gradient-boost correction (53 KB JSON)
-//
-// Validated on 1 000-prompt corpus (700 train / 300 test, seed = 42):
-//   v2.26 baseline:  MAE 26.02 · Dangerous 127 · FalseReject 30 · ρ 0.540
-//   v3 rules only:   MAE 15.73 · Dangerous  22 · FalseReject  0 · ρ 0.687
-//   v3 + GBM:        MAE 14.97 · Dangerous   8 · FalseReject  0 · ρ 0.718
-//   v3 5-fold CV:    MAE 14.79 ± 0.94
-//
-// To run rules only (no ML, no JSON): set USE_GBM = false.
-import { postProcess } from './scoring_postprocess.js';
-import { applyResidualGBM, loadModel, type PipelineModel } from './scoring_gbm_inference.js';
-import _modelRaw from './pipeline_v3_model.json' assert { type: 'json' };
-
-const USE_GBM = true;
-const _gbmModel: PipelineModel | null = USE_GBM ? loadModel(_modelRaw) : null;
+// Pooled 1863-prompt corpus (corpus-1000 + benchmark-863):
+//   v2.26      MAE 19.41 · Dangerous 138 · FalseReject 32 · L 2199.4
+//   v3.0       MAE 14.36 · Dangerous  22 · FalseReject  1 · L  259.4
+//   Wilcoxon p = 2.1e-33 · McNemar on Dangerous p < 1e-16
+import { postProcess, capLabelsFrom } from './postprocess.js';
 
 function label(score: number): ScoreLabel {
   if (score >= 82) return 'excellent';
@@ -1346,7 +1334,7 @@ export function scorePrompt(
 
   total = clamp(total);
 
-  const lbl = label(total);
+  // (engine-level label; final label is computed after post-processing below)
 
   // ── COERENCE PROJECTION (v2.23) ─────────────────────────────────────────
   // A poison cap can pin the total at a low value (e.g. 22 on
@@ -1435,22 +1423,25 @@ export function scorePrompt(
     poor: `Weak prompt. Start with: ${focusText}.`,
   };
 
-  // ── v3.0 post-processing ─────────────────────────────────────────────────
-  // Collect the cap labels the engine applied (needed by the rescue logic).
-  const capLabels = breakdown
-    .filter((b) => b.kind === 'cap')
-    .map((b) => b.label);
-
-  // Interventions A–D: deterministic rules (rescue, new caps, IDS, PWL cal).
-  const v3 = postProcess({ text, engineScore: total, caps: capLabels });
-  let finalTotal = v3.score;
-
-  // Intervention E: GBM residual correction (optional, USE_GBM flag above).
-  if (_gbmModel) {
-    finalTotal = applyResidualGBM(finalTotal, text, total, v3.idsValue, _gbmModel);
-  }
-
+  // ── v3.0 post-processing ────────────────────────────────────────────────
+  const post = postProcess({
+    text,
+    engineScore: total,
+    caps: capLabelsFrom(breakdown),
+  });
+  const finalTotal = post.score;
   const finalLbl = label(finalTotal);
+
+  // Keep the audit trail complete: every point of the reported total must be
+  // traceable in `breakdown`. Without this entry the post-processing would
+  // move the total silently and `decisiveCap` below would stop resolving.
+  if (finalTotal !== total) {
+    breakdown.push({
+      label: post.interventions[0] ?? 'postprocess',
+      effect: finalTotal,
+      kind: 'cap',
+    });
+  }
 
   return {
     total: finalTotal,

@@ -15,6 +15,7 @@ import { runAllObservations, resolveConversational, resolveEnrichment, resolveLa
 import { buildPromptModel } from './slots/model.js';
 import { compressText } from './compression/index.js';
 import { scorePrompt } from './scoring/index.js';
+import { capsToObservations, refineObservationLevels } from './scoring/postprocess.js';
 import { getAutocorrectSuggestions } from './autocorrect/index.js';
 
 /**
@@ -82,7 +83,7 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
   // re-detected (non-sticky) for scoring.
   const detectedLang = resolveLanguageForAnalysis(text, undefined, language);
   const promptModel = buildPromptModel(text, detectedLang);
-  const obsAll    = runAllObservations(
+  let obsAll    = runAllObservations(
     text, disabledRules, undefined, cheapestInputRate, undefined, language, conversationTurn,
     { detected: detectedLang, model: promptModel }, uiLocale,
   );
@@ -99,6 +100,18 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
   // shared function rather than logic duplicated (and previously
   // diverged) here and in index.full.ts.
   const compressed = compressText(text, obsAll);
+
+  // Surface the diagnosis. A cap that lowers the score without saying why
+  // leaves the user with a number and no way to act on it; measured on the
+  // pooled corpus, 52% of weak prompts got exactly that. Cap-derived
+  // observations carry no token impact, so they are added after compression
+  // and savings are computed. refineObservationLevels then demotes red flags
+  // that the prompt's own determinacy evidence contradicts.
+  const capObs = capsToObservations(
+    (score.breakdown ?? []).filter((b) => b.kind === 'cap').map((b) => b.label),
+    text, uiLocale, obsAll,
+  );
+  obsAll = refineObservationLevels([...obsAll, ...capObs], text, score.total);
 
   // Group by line
   const byLine = new Map<number, Observation[]>();
