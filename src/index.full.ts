@@ -18,6 +18,7 @@
 import type { AnalysisResult, AnalyzeOptions } from './types.js';
 import { EMPTY_STRUCTURE } from './types.js';
 import { detectIntent } from './analyzers/intent.js';
+import { buildScaffold } from './scaffold/index.js';
 import { analyzeTokens } from './tokenizer/index.js';
 import { estimateCosts, DEFAULT_PRICES } from './tokenizer/costs.js';
 import { runAllObservations, makeLangState, resolveConversational, resolveEnrichment, resolveLanguageForAnalysis, type LangState } from './analyzers/observations.js';
@@ -109,8 +110,9 @@ function buildResult(
 
   const conversational = resolveConversational(text, conversationTurn);
   const enrichment = resolveEnrichment(text, promptModel, conversationTurn);
+  const _intent = detectIntent(text);
 
-  const score = scorePrompt(text, observations, tokens, conversational, promptModel, enrichment, uiLocale);
+  const score = scorePrompt(text, observations, tokens, conversational, promptModel, enrichment, uiLocale, conversationTurn);
 
   // Surface the diagnosis. A cap that lowers the score without saying why
   // leaves the user with a number and no way to act on it; measured on the
@@ -121,7 +123,7 @@ function buildResult(
     ...observations,
     ...capsToObservations(
       (score.breakdown ?? []).filter((b) => b.kind === 'cap').map((b) => b.label),
-      text, uiLocale, observations,
+      text, uiLocale, observations, conversational,
     ),
   ], text, score.total);
   const costs = estimateCosts(tokenCount, outputRatio, modelPrices);
@@ -158,7 +160,8 @@ function buildResult(
     compressedText: compressText(text, observations), autocorrect,
     analysisDurationMs: Date.now() - start,
     engineReady: spell.ready && tokenizer.ready,
-    intent: detectIntent(text),
+    intent: _intent,
+    scaffold: buildScaffold(text, _intent, score.structure, uiLocale),
     conversational,
   };
 }

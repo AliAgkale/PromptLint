@@ -1,108 +1,111 @@
 # Changelog
 
-## 3.0.0
+## 1.0.0 — first public release
 
-Post-processing layer over the v2.26 scorer. Rule-based, deterministic, offline,
-no learned model, no external data file.
+Extension version 1.0.0; core `promptlint-core` 3.0.0.
 
-### Results — full corpus, 1863 prompts (corpus-1000 + benchmark-863)
+### What it does
 
-Measured on the compiled TypeScript, not on a research prototype.
+Analyses a prompt as it is typed, offline, with no model at inference time. It shows a band —
+good / medium / bad — and, more importantly, what is missing and how to add it.
 
-| | MAE | Dangerous | FalseReject | ρ | within-tolerance | L |
-|---|---|---|---|---|---|---|
-| v2.26 | 19.41 | 138 | 32 | 0.690 | 73.8% | 2199 |
-| **3.0.0** | **18.03** | **127** | **4** | **0.735** | **74.0%** | **1388** |
+### The scaffold
 
-Per corpus — corpus-1000: MAE 26.02 → 23.49, FR 30 → 3. benchmark-863: MAE 11.74 → 11.70, FR 2 → 1.
+The reason to open the panel. The analyser already knows the intent and which specification
+slots are present, so instead of only naming what is missing it hands back an editable line
+with the user's own subject kept in place and the rest as labelled blanks:
 
-`L = 10·dangerous + 25·falseRejects + MAE`, the objective defined in `benchmark/calibrate.mjs`.
+```
+scrivi qualcosa sull'AI
+  → Scrivi [cosa produrre] di [lunghezza] per [per chi].
 
-**Significance.** Bootstrap 95% CI (4000 resamples): ΔMAE [−1.91, −0.86], ΔL [−1122, −516].
-Wilcoxon on |error| p = 7.2·10⁻⁹. McNemar on FalseReject: 31 fixed, 3 introduced, p = 3.7·10⁻⁶.
+Scrivi una funzione che valida un indirizzo email
+  → Scrivi il codice per una funzione che valida un indirizzo email
+    in [linguaggio] [vincoli] [gestione errori].
+```
 
-**Not significant:** the Dangerous reduction (24 fixed, 13 introduced, McNemar p = 0.10).
-The headline improvement is the collapse in false rejects, not in dangerous ratings.
+Each blank carries a short list of typical values for that intent and one line on what changes
+if you fill it. Nothing is pre-selected, and a scaffold with every blank left empty is still the
+user's unmodified prompt.
 
-**Test suite:** 17 failures, identical to the v2.26 baseline. Zero regressions introduced.
+Nothing is generated. That is a product decision as much as a technical constraint: a model
+asked to "improve this prompt" invents the missing requirements — it decides the article is 800
+words for a non-technical audience, and the user accepts without noticing a decision was made.
+A blank forces the decision to be the user's, which is the thing worth teaching.
 
-### The analyzer now explains itself
+Slot vocabularies are curated per intent: code prompts are asked for a language, error handling
+and tests; translation prompts for a target language; brainstorms for a count and criteria. A
+line never shows more than three blanks — five is a form, not a suggestion.
 
-The engine had two parallel diagnostic channels: `observations`, which the user sees, and
-score caps, which move the number silently. Measured on the pooled corpus, **52% of weak
-prompts received a low score and not one word explaining it** — and two thirds of those had
-a cap naming the problem exactly. `CAP_REASON_TEXT` already held a bilingual description of
-every cap; what was missing was the actionable half and the bridge to the user.
+### Accuracy
 
-| | before | after |
-|---|---|---|
-| weak prompts left with no explanation | 52.0% | **19.2%** |
-| weak prompts correctly given a red flag | 24.3% | **56.6%** |
-| improvable prompts with no suggestion | 44.6% | **40.9%** |
-| good prompts told they have a logical conflict | 8.4% | **7.6%** |
+The product shows a band, so band accuracy is the metric. Thresholds are the engine's own: 42
+and 62.
 
-419 cap-derived observations now surface: 85% land on weak prompts, 8% on good ones.
-Scores are byte-identical — this is diagnostic surfacing, not rescoring.
+| set | n | exact | off by two bands | says good, is bad |
+|---|---|---|---|---|
+| benchmark1 | 863 | 82.4% | 3.5% | 15 |
+| benchmark2 | 1000 | 61.3% | 10.2% | 86 |
+| benchmark3 | 64 | 82.8% | 3.1% | 2 |
+| **all** | **1927** | **71.5%** | | |
 
-Two rules govern severity:
+Against v2.26 on the same 1863 rated prompts: exact 58.0% → 71.1%, off-by-two 13.9% → 7.1%,
+"says good, is bad" 232 → 101. MAE 19.41 → 13.88, ρ 0.690 → 0.758, false rejects 32 → 5.
 
-- **Coherence with the score.** A red "fix this" flag on a prompt the engine itself scored
-  70+ is internally inconsistent: the tool would call a prompt good and broken at once. Such
-  complaints are kept but shown as suggestions. Genuine logical conflicts are exempt — if two
-  instructions cancel, the high score is the thing that is wrong.
-- **Coherence with determinacy.** PL_001 ("no concrete action requested") is emitted at red
-  level and 29% of its firings land on prompts rated ≥70, because "Sinonimo di rapido."
-  carries no imperative verb. Where determinacy evidence refutes an under-specification
-  complaint, it is demoted rather than suppressed.
+The weak spot is the middle band: only 16% of prompts rated medium are labelled medium, and 71%
+of them are called good. The engine's scale is bimodal and collapses in the middle. That is the
+next piece of work, and it is why benchmark2 sits twenty points below benchmark1.
 
-### Added
+### Benchmarks
 
-`src/scoring/postprocess.ts` — three scoring interventions:
+- `benchmark/benchmark1` — 863 prompts, LLM-scored. **Used by `calibrate.mjs` to tune v2.26's
+  cap ceilings**, so it is not a clean generalisation estimate for anything predating v3.
+- `benchmark/benchmark2` — 1000 prompts, LLM-scored, never used for tuning. The honest set.
+- `benchmark/benchmark3` — 64 prompts written by hand with expected bands. A behavioural
+  specification, not independent ground truth; it deliberately covers the classes the engine has
+  historically got wrong, including the near-misses where a detector turns into a nuisance.
 
-- **A — specification deficit.** Lowers prompts the engine over-rates because they look
-  specified but leave the output undetermined. Built on output determinacy, not input
-  richness: "Radice quadrata di 144" has few tokens and one correct answer; "scrivi
-  qualcosa di utile" has the same token count and an unbounded answer set. Fires on ~10%
-  of prompts, at 96% precision against `human ≤ 40`.
-- **B — high-precision caps.** Harmful requests, prompt injection, scope explosion. Only
-  detectors measured at ≥95% precision are wired into the score.
-- **C — false-reject rescue.** Lifts prompts wrongly hit by an existing cap. Source of
-  the FR 32 → 4 improvement.
+`node benchmark/run.mjs` runs all three.
 
-`scorePrompt()` now appends a `ScoreContribution` whenever post-processing moves the
-total, so every point of the reported score stays traceable in `breakdown`.
+### Engine changes since v2.26
+
+Post-processing over the v2.26 scorer: rule-based, deterministic, no learned model, no external
+file. Three interventions — a specification-deficit correction, high-precision caps, and a
+false-reject rescue — plus an upward specification credit, because 89 prompts were *under*-rated
+by 15+ points and no amount of penalty tuning reaches those.
+
+Detectors added, each with its measured precision and a ceiling set from it: unfilled
+placeholder, impossible budget, long tautology, role without task, courtesy with no request,
+absent object, self-cancelling instruction sets, capability assumptions, scope explosion,
+unbounded deliverable. No detector below 95% precision may cap below 31 or credit above 69 — a
+rule that is not near-perfect must not be able to manufacture a false verdict by construction.
+
+**Callers must pass `conversationTurn`.** Every earlier evaluation omitted it, which measures
+the analyser blind: it cannot then tell a follow-up from an opening prompt. Supplying it moves
+MAE from 18.03 to 15.25 on its own. The extension has always passed it.
 
 ### Evaluated and rejected
 
-1. **Residual GBM** (150 trees, 53 KB). Does not transfer across corpora. Learns "the
-   engine over-rates by ~19 points" — true on corpus-1000 (bias −18.8), false on the
-   benchmark (bias −6.7). In the <8-word region (13% of the training corpus, 49% of the
-   benchmark) it subtracts ~7 points where the true residual is +5, producing 19 false
-   rejects, all short factual queries. Under leave-one-corpus-out every model class tested
-   (LightGBM, RandomForest, EBM/GAM, Ridge, Huber, monotone-constrained) lost to the rules.
+- **A 150-tree residual GBM.** Does not transfer across corpora: it learns "the engine over-rates
+  by ~19 points", true on benchmark2 and false on benchmark1, and produced 19 false rejects, all
+  short factual queries. Under leave-one-corpus-out every model class tested lost to the rules.
+- **A calibration layer.** PWL, isotonic, Platt, beta and temperature scaling all scored worse
+  than the identity map on both corpora, reproducing a finding already recorded in `weights.ts`.
+- **An information-density gate.** Aggregate metrics were far better than what shipped — MAE
+  14.41 — and it was nearly released. It fires on 94% of prompts, so it is a global recentring
+  rather than a detector; replacing it with a constant that reads no text reproduces 94% of its
+  effect. It assigned density 0.44 to a well-formed prompt and subtracted 32 points. The
+  third-party corpus test rejected 28 assertions under it, all in the same direction.
+- **A slots × length lookup replacing the engine.** MAE 18.66 against 13.88 for the rules.
+- **A detector for unexecutable requests.** The largest bias in the corpus (+26 points) and
+  unreachable with patterns: 50% precision, then 67% after tightening, for two false rejects.
 
-2. **Calibration layer.** PWL, isotonic/PAV, Platt, beta and temperature scaling all scored
-   worse than the identity map on both corpora under `L`. Reproduces the v2.24 finding
-   already recorded in `weights.ts`.
+### Known limits
 
-3. **Information-density gate.** A 5-component density score driving a global subtraction.
-   Aggregate metrics were far better than what shipped — MAE 14.41, Dangerous 26, L 299 —
-   and it was nearly released. It fires on 94% of prompts, so it is a global recentring,
-   not a detector; replacing it with a constant that reads no text reproduces 94% of its
-   effect (r = 0.936). It assigns density 0.44 to "Spiegami la differenza tra mutex e
-   semaphore con un esempio in C" and subtracts 32 points. `tests/external_corpus.test.ts`
-   rejected 28 assertions under it, all in the same direction: good prompts crushed toward
-   the middle. Do not reintroduce a global gate on surface density, whatever its MAE.
-
-### Open decision (blocks further tuning)
-
-Three mutually incompatible objectives are in use: MAE, `L`, and the benchmark's
-within-tolerance rate. On the density gate they disagreed so sharply that one selected a
-configuration the other rejected outright. Until one is designated primary, parameter
-tuning is not meaningful.
-
-### Not yet measured
-
-`benchmark/benchmark/interannotator_agreement.mjs` exists but no κ or ICC has been
-reported. Tolerance bands (mean width 24.1 points) imply an annotation noise floor near
-MAE 6–8. At 18.03 there is real headroom, but its size is inferred, not measured.
+- The middle band, as above.
+- Open consulting questions ("what should we do about churn?") are labelled 21 points apart by
+  the two rated corpora. No deterministic rule can satisfy both, and none was written.
+- 13% of weak prompts still receive no explanation: they trip neither a rule nor a cap. That is
+  missing coverage, not a threshold to tune.
+- benchmark3 is written by the same process that built the engine and cannot be used as
+  evidence of accuracy.

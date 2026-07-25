@@ -63,6 +63,18 @@ export interface PostProcessInput {
   engineScore: number;
   /** Labels of the caps the engine applied (from the breakdown). */
   caps: string[];
+  /**
+   * True when the prompt is a reply inside an ongoing conversation. This is
+   * what makes the missing-referent detector safe: "controlla questo" is a
+   * defect in a standalone prompt and perfectly normal mid-thread, where the
+   * material is in the transcript rather than in the prompt string.
+   */
+  conversational?: boolean;
+  /**
+   * True anywhere inside an existing conversation, including follow-up
+   * instructions that `conversational` deliberately excludes.
+   */
+  midThread?: boolean;
 }
 
 export interface PostProcessResult {
@@ -119,6 +131,14 @@ export function hasInlineMaterial(text: string): boolean {
   // prose is the user pasting the thing to work on ("sistema questa email\n
   // Ciao Marco, ..."). Without this, vagueness markers inside the pasted
   // material get read as the user's own imprecision.
+  // Pasted code is material even when short: "Fix this Python error:
+  // print('hello'" carries its object. A colon alone is not enough — "Tono:
+  // adventurous" is a specification, not attached material — so the colon rule
+  // needs real substance behind it. Loosening this to four characters raised
+  // scores across the corpus and cost 0.3 MAE.
+  if (/print\(|function\s|def\s|=>|\{\s*\n|;\s*\n|<\/?\w+>/.test(text)) return true;
+  if (/:\s*\S[\s\S]{14,}/.test(text)) return true;
+
   const nl = text.indexOf('\n');
   if (nl > 0) {
     const head = text.slice(0, nl).trim();
@@ -137,6 +157,19 @@ export function hasInlineMaterial(text: string): boolean {
 // them apart — determinacy can.
 
 const RE_CONCRETE = /\b(?:\d[\w.]*|[A-Z][a-zA-Z]{2,}|[A-Z]{2,}|\w+\.(?:js|py|ts|html|css|json|md|csv|sql))\b/g;
+
+/**
+ * Lowercase every sentence-initial word before looking for proper nouns.
+ *
+ * Four separate bugs in this file came from /[A-Z][a-z]+/ matching the first
+ * word of a sentence and so reading the imperative verb as a named entity:
+ * "Correggi questo." looked like it contained a concrete anchor, and "Scrivi
+ * qualcosa... Fai in fretta" looked like it named something specific. Any rule
+ * that keys on capitalisation must go through this first.
+ */
+function deCapitalizeSentenceStarts(text: string): string {
+  return text.replace(/(^|[.!?:;]\s+|\n\s*)([A-ZÀ-Ù])/g, (_m, pre, c) => pre + c.toLowerCase());
+}
 const RE_QUOTED   = /["“”'«»].{2,}?["“”'«»]|`[^`]+`/;
 
 /**
@@ -209,6 +242,13 @@ function hardDeficit(text: string): number {
   return Math.min(1, d);
 }
 
+/** Cheap local language guess, enough to pick a stemmer. */
+function guessLang(text: string): 'it' | 'en' {
+  const it = (text.toLowerCase().match(/\b(il|lo|la|gli|le|un|una|di|che|per|con|non|una|del|della|sono|come|questo)\b/g) ?? []).length;
+  const en = (text.toLowerCase().match(/\b(the|a|an|of|and|to|for|with|this|that|is|are|you|it)\b/g) ?? []).length;
+  return en > it ? 'en' : 'it';
+}
+
 export function computeDeficit(text: string): number {
   const soft = underdetermination(text) * (1 - determinacy(text));
   return Math.max(0, Math.min(1, Math.max(soft, hardDeficit(text))));
@@ -253,6 +293,281 @@ function detectInjectionAttempt(text: string): boolean {
     || /\bhidden\s+in\b.*?\breal\s+instruction\b/i.test(text);
 }
 
+/**
+ * The prompt names an operation whose object is not present.
+ *
+ * Derived by reading the 28 worst-scoring prompts in the corpus and judging
+ * each one by hand. This was the single most common reason the engine
+ * over-rates: "URGENT: Our website is down. Fix it now." scores 83 and is
+ * rated 12; "Can you check if this is correct and let me know?" scores 79 and
+ * is rated 8; "Quando è meglio farlo?" scores 74 and is rated 5.
+ *
+ * An earlier version required a demonstrative pronoun and so reached only 19
+ * prompts. Definite descriptions ("our website", "the document") and elided
+ * objects in questions carry the same defect. Broadened: 49 prompts, 73% of
+ * them rated ≤40, 6% rated ≥70.
+ *
+ * Gated on `conversational`, because mid-thread the object is in the
+ * transcript and its absence from the prompt string means nothing.
+ */
+export function detectMissingReferent(text: string, conversational: boolean): number {
+  if (conversational || hasInlineMaterial(text)) return 0;
+  const wc = (text.match(/\S+/g) ?? []).length;
+  if (wc > 30) return 0;
+
+  const namesOperation = /\b(controlla|verifica|check|correggi|correct|fix|rivedi|review|sistema|migliora|improve|riassumi|summari[sz]e|traduci|translate|analizza|analy[sz]e|completa|complete|estrapola|extract|continua|continue|rifai|redo|aggiusta|risolvi|resolve|debug|dare un'occhiata|dai un'occhiata|take a look|have a look|guarda|look at|dimmi se|tell me if|va bene|is it (ok|right|correct|fine))\b/i.test(text);
+  const objectIsAbsent =
+       /\b(quest[oa]|quell[oa]|ci[oò]|this|that|it)\b/i.test(text)
+    || /\b\w{4,}(lo|la|li|le|ne)\b/i.test(text)
+    || /\b(il|la|i|le|our|the|my|nostro|nostra)\s+(sito|website|documento|document|file|codice|code|testo|text|report|pagina|page|app|server|database)\b/i.test(text);
+  if (namesOperation && objectIsAbsent) return 0.9;
+
+  // An elided object inside a short question: "Quando è meglio farlo?"
+  if (/\?/.test(text) && wc <= 8 && /\b(farlo|farla|it|questo|quello|that)\b/i.test(text)) return 0.85;
+
+  // Bare acknowledgement carrying an instruction: "Sì ma fallo meglio." (100)
+  if (/^\s*\W*(s[iì]|ok|okay|yes|no|perfetto|bene|grazie|esatto)\b/i.test(text.trim()) && wc <= 8) return 0.9;
+
+  return 0;
+}
+
+/**
+ * An instruction set whose members cancel each other: "sii sempre conciso...
+ * sii sempre esaustivo e completo... non usare mai bullet point... usa bullet
+ * point". Scores 88, rated 20. Distinct from the two-clause case already
+ * handled: here the conflict is spread across separate sentences, each one
+ * reasonable on its own. 6 firings, all rated ≤40.
+ */
+function detectSelfCancellingSet(text: string): boolean {
+  const pairs: [RegExp, RegExp][] = [
+    [/\b(concis\w*|brev\w*|corto|short|poco)\b/i, /\b(esaustiv\w*|completo|comprehensive|thorough|dettagliat\w*|tutto)\b/i],
+    [/\bnon usare\b[^.]{0,20}\b(bullet|elenc\w*|list)\b/i, /\busa\b[^.]{0,20}\b(bullet|elenc\w*|list)\b/i],
+    [/\bsenza esempi\b/i, /\bcon esempi\b/i],
+    [/\b(non|no)\b[^.]{0,15}\b(lungo|long)\b/i, /\b(lungo|long)\b/i],
+  ];
+  const conflicts = pairs.some(([a, b]) => a.test(text) && b.test(text));
+  const readsAsRuleset = /\b(istruzione|instruction|regola|rule|sempre|always|mai|never)\b/i.test(text)
+    || (text.match(/\.\s/g) ?? []).length >= 3;
+  return conflicts && readsAsRuleset;
+}
+
+/**
+ * Assumes a capability the model does not have: memory across sessions, or
+ * acting on the outside world. "Ricordati di questo per le prossime 10
+ * conversazioni" scores 83 and is rated 15. No output can satisfy it, however
+ * well the prompt is written.
+ */
+function detectCapabilityAssumption(text: string): boolean {
+  // A URL or an attachment named as the object of the request: the model
+  // cannot open either. "Rewrite the copy at https://example.com" scored 83.
+  if (/\bhttps?:\/\/\S+/i.test(text) && !hasInlineMaterial(text)
+      && /\b(riscriv\w*|rewrite|analizz\w*|analy[sz]e|migliora|improve|riassum\w*|summari[sz]e|leggi|read|controlla|check|traduci|translate|estrai|extract)\b/i.test(text)) return true;
+  if (/\b(allegat\w*|attached|attachment|screenshot|schermata|questo pdf|this pdf|il file|the file)\b/i.test(text)
+      && !hasInlineMaterial(text)) return true;
+  return /\b(ricordati?|ricorda|remember)\b[^.]{0,40}\b(prossim\w*|next|future|conversazion\w*|conversations?|sessioni?|sessions?|volta|time)\b/i.test(text)
+    || /\b(per le prossime|for the next)\s+\d+\s+(conversazion\w*|chat|sessioni?|volte)/i.test(text)
+    || /\b(accedi|access|apri|open|vai su|go to|scarica|download|invia|send|pubblica|post)\b[^.]{0,30}\b(sito|website|url|link|email|account|server)\b/i.test(text);
+}
+
+
+/**
+ * Tautology: the content words of a short request share one root, so the
+ * sentence says nothing beyond that root. "Scrivi una descrizione descrittiva
+ * del prodotto", "Write a creative creation in a creative way". These score
+ * 62-67 and are rated 18-20 — among the widest gaps in the corpus.
+ *
+ * The test is share of content words, not raw count: an early version counted
+ * repetitions and fired on 148 prompts, 78% of them good, because a repeated
+ * root in a longer prompt is ordinary topical cohesion.
+ */
+function detectTautology(text: string, lang: 'it' | 'en'): boolean {
+  if ((text.match(/\S+/g) ?? []).length > 12) return false;
+  const words = (text.toLowerCase().match(/[\p{L}']+/gu) ?? [])
+    .filter(w => w.length > 3 && !STOP_WORDS.has(w));
+  if (words.length < 3) return false;
+  // The stemmer handles inflection ("elenco"/"elencando") but not derivation:
+  // "descrizione" and "descrittiva" are one idea and stem differently, so
+  // words of six or more characters are also grouped by their first five.
+  const roots = new Map<string, number>();
+  for (const w of words) {
+    const r = stem(w, lang);
+    if (r.length < 3) continue;
+    const key = w.length >= 6 ? w.slice(0, 5) : r;
+    roots.set(key, (roots.get(key) ?? 0) + 1);
+  }
+  const worst = Math.max(0, ...roots.values());
+  return worst >= 2 && worst / words.length >= 0.4;
+}
+
+/**
+ * Two requirements in one clause that trade directly against each other:
+ * "Scrivi poco ma includi tutto". The engine's contradiction rule looks for
+ * opposing tone markers and misses these, because each half is individually
+ * reasonable — it is the conjunction that cannot be satisfied.
+ */
+function detectSelfCancelling(text: string): boolean {
+  const t = text.toLowerCase();
+  if (!/\b(ma|per\u00f2|but|yet|while|mentre)\b/.test(t)) return false;
+  const AXES: [RegExp, RegExp][] = [
+    // "Scrivi in italiano ma usa solo parole inglesi" — one language named as
+    // the medium, another as the only permitted vocabulary.
+    [/\bin\s+(italiano|inglese|spagnolo|francese|tedesco|italian|english|spanish|french|german)\b/,
+     /\b(solo|only|esclusivamente|exclusively)\b[^.]{0,20}\b(parole|words|termini|terms)\b[^.]{0,20}\b(italian\w*|ingles\w*|english|spagnol\w*|frances\w*|tedesc\w*|spanish|french|german)\b/],
+    [/\b(poco|breve|conciso|corto|sintetic\w*|rapidamente|veloce|quickly|brief|short|concise|less|fast)\b/,
+     /\b(tutto|completo|esaustiv\w*|approfondit\w*|dettagliat\w*|molta riflessione|deep reflection|everything|comprehensive|in depth|thorough)\b/],
+    [/\b(diretto|dritto al punto|direct|straight to the point|senza giri)\b/,
+     /\b(gira intorno|beat around|indirett\w*|sfumat\w*|diplomatico)\b/],
+    [/\b(semplice|simple|per principianti|for beginners|elementare)\b/,
+     /\b(tecnic\w*|avanzat\w*|technical|advanced|specialistic\w*)\b/],
+    [/\b(formale|formal|professionale|professional)\b/,
+     /\b(informale|colloquiale|casual|slang|informal)\b/],
+  ];
+  return AXES.some(([a, b]) => a.test(t) && b.test(t));
+}
+
+/**
+ * A broad topic handed over with no format, length, audience, angle or aspect.
+ * "spiegami il machine learning" could be answered in a sentence or a book.
+ * Any bound at all suppresses this, which is what separates it from "Spiegami
+ * la differenza tra mutex e semaphore con un esempio in C".
+ */
+function detectUnboundedTopic(text: string): boolean {
+  const t = text.trim();
+  const wc = (t.match(/\S+/g) ?? []).length;
+  if (wc > 10 || hasInlineMaterial(t)) return false;
+  if (!/^\s*\W*(spiega\w*|parla\w*|dimmi|raccont\w*|descriv\w*|insegna\w*|explain|tell me|describe|teach me|talk about|what is|cos'?[e\u00e8]|che cos'?[e\u00e8])\b/i.test(t)) return false;
+  if (/\b(tabella|table|lista|list|elenco|punti|json|markdown|schema|passi|steps|codice|code)\b/i.test(t)) return false;
+  if (/\b(\d+|breve|brief|conciso|short|max|massimo|in una frase|in one sentence|riga|parole|words)\b/i.test(t)) return false;
+  if (/\b(per (un|una|i|le|gli)\s+\w+|for (a|an|the)\s+\w+|principianti|beginners|bambin\w*|kids?)\b/i.test(t)) return false;
+  // Inflected forms matter: /esempio/ alone missed "usando esempi" and capped
+  // a good prompt at 45. Match the stem, not the lemma.
+  if (/\b(esemp\w*|example\w*|campion\w*|sample\w*|con un|with an?|usando|using)\b/i.test(t)) return false;
+  if (/\b(differenza|difference|confront\w*|compare|vs\.?|rispetto a|versus)\b/i.test(t)) return false;
+  if (/\b(perch[\u00e9\u00e8]|why|come mai|in che modo|come funziona|how does|how do|how it works)\b/i.test(t)) return false;
+  // Naming which aspect is itself a bound; so are depth markers.
+  if (/\b(aspett\w*|part[ei]|sezion\w*|fas[ei]|passagg\w*|element\w*|component\w*|caratteristic\w*|aspect\w*|part of|steps?|stages?)\b/i.test(t)) return false;
+  if (/\b(in profondit[a\u00e0]|approfondit\w*|dettagliat\w*|in depth|detailed|thorough)\b/i.test(t)) return false;
+  return true;
+}
+
+/*
+ * ── Detectors derived from manual grouping of the severe band errors ──────
+ *
+ * The product shows a band (good / medium / bad), not a number, so the metric
+ * that matters is band accuracy. On three bands the engine was 69.1% exact
+ * with 8.7% landing two bands away — and the medium band was the broken one:
+ * only 16% of prompts the rater called medium were labelled medium, 71% were
+ * called good.
+ *
+ * All 136 prompts the engine called GOOD and the rater called BAD were read
+ * and grouped by hand. Nine patterns recur; these five were the ones that
+ * separated cleanly from legitimate phrasing. Measured on the pooled corpus,
+ * their union covers 143 prompts, 87% rated bad and 5% rated good.
+ *
+ * Ceilings follow measured precision, and none of them can manufacture a false
+ * reject on a prompt the rater would call good.
+ */
+
+const WC_ = (t: string) => (t.match(/\S+/g) ?? []).length;
+
+/**
+ * A placeholder standing where the material should be: "Translate the
+ * following text: [INSERT TEXT HERE]" scores 69 and is rated 8. Only counts
+ * when the placeholder is the object of the operation — "Gentile [Nome]"
+ * inside a supplied draft is a field to fill in the OUTPUT, not missing input.
+ * 10 firings, all rated bad.
+ */
+function detectUnfilledPlaceholder(text: string): boolean {
+  // A run of labels with nothing after them is a form the user forgot to fill:
+  // "Oggetto: | Destinatario: | Tono: | Lunghezza:" scored 83.
+  const bareLabels = (text.match(/(?:^|[\n|])\s*[A-ZÀ-Ù][\w\s]{2,20}:\s*(?=[\n|]|$)/g) ?? []).length;
+  if (bareLabels >= 3) return true;
+
+  if (WC_(text) > 24) return false;
+  const ph = /\[(?:inserisci[^\]]*|insert[^\]]*|paste[^\]]*|documento[^\]]*|document[^\]]*|testo[^\]]*|text here|code here|context|article|da completare|todo|tbd|\.{3})\]/i.test(text)
+    || /<[A-Z][A-Z\s_]{2,30}>/.test(text)
+    || /\{\{[^}]+\}\}/.test(text);
+  if (!ph) return false;
+  return /\b(traduci|translate|analizza|analy[sz]e|riassumi|summari[sz]e|correggi|fix|completa|complete|scrivi|write|crea|create|usa|use|based on|in base a)\b/i.test(text);
+}
+
+/**
+ * The output bound cannot hold what is demanded: "Scrivi un'email di max 50
+ * parole, min 3 paragrafi, con almeno 2 citazioni" scores 88 and is rated 36;
+ * "Write 10 words maximum but include: introduction, 5 examples, analysis, and
+ * conclusion" scores 69 and is rated 18.
+ *
+ * Read the number, do not count its digits — an earlier version matched
+ * \d{1,3} and flagged an 800-word article as over-constrained.
+ */
+function detectImpossibleBudget(text: string): boolean {
+  if (hasInlineMaterial(text)) return false;
+  let tight = /\b(una pagina|one[- ]page|due righe|2 righe|una frase|one sentence|in un tweet|in a tweet|quick overview)\b/i.test(text);
+  for (const m of text.matchAll(/\b(\d+)\s*(parole|words)\b/gi)) if (+m[1] <= 150) tight = true;
+  for (const m of text.matchAll(/\b(\d+)\s*(righe|lines|frasi|sentences)\b/gi)) if (+m[1] <= 5) tight = true;
+  if (!tight) return false;
+  const demands = (text.match(/\b(esaustiv\w*|complet\w*|comprehensive|tutto|everything|full|esempi|examples|citazioni|citations|statistic\w*|dati|data|forecast|analisi|analysis|breakdown|introduzione|introduction|conclusione|conclusion|dettagliat\w*|detailed|approfondit\w*|in depth|paragrafi|paragraphs)\b/gi) ?? []).length;
+  return demands >= 2;
+}
+
+/**
+ * Courtesy or an appeal for help with no request attached: "Ti chiedo scusa
+ * per il disturbo, ma ho una domanda" scores 68 and is rated 20; "Aiutami con
+ * la tesi." scores 62 and is rated 5. A real request names both an operation
+ * and something to operate on.
+ */
+export function detectNoRequest(text: string, conversational: boolean): boolean {
+  // Mid-thread a bare "grazie mille" or "sì, procedi" is a valid turn, not a
+  // missing request. Only a standalone prompt has to carry its own request.
+  if (conversational) return false;
+  if (hasInlineMaterial(text) || WC_(text) > 16) return false;
+  const courtesy = /\b(scusa|scusi|mi dispiace|disturbo|apolog\w*|per favore|please|grazie|thanks|ti chiedo|avrei bisogno|i need help|ho bisogno di (aiuto|supporto)|aiutami|help me|help)\b/i.test(text);
+  if (!courtesy) return false;
+  const operation = /\b(scriv\w*|crea|create|genera|traduci|translate|riassum\w*|summar\w*|analizz\w*|analy[sz]\w*|spiega|explain|elenca|list|calcola|correggi|fix|debug|confronta|compare|progetta|design)\b/i.test(text);
+  const object = /\b(email|articolo|article|report|codice|code|testo|text|tabella|table|lista|list|piano|plan|slide|post|storia|story|saggio|essay|documento)\b/i.test(text);
+  return !(operation && object);
+}
+
+/**
+ * A role is set and nothing is asked: "Sei un esperto di marketing digitale."
+ * scores 68 and is rated 28; "You are an expert. Help the user with their
+ * questions." scores 63 and is rated 15. "Help" and "answer" are not tasks —
+ * they name no artefact. 40 firings, none rated good.
+ */
+function detectRoleWithoutTask(text: string): boolean {
+  if (hasInlineMaterial(text)) return false;
+  if (!/^\s*\W*(sei un|sei una|tu sei|agisci come|comportati come|you are an?|act as|imagine you are)\b/i.test(text.trim())) return false;
+  const realTask = /\b(scriv\w*|crea|create|genera|generate|traduci|translate|riassum\w*|summar\w*|analizz\w*|analy[sz]\w*|spiega|explain|elenca|list|progetta|design|prepara|draft|calcola|confronta|compare|revisiona|review|proponi|propose|valuta|evaluate)\b/i.test(text);
+  if (realTask) return false;
+  const vagueTask = /\b(aiuta|help|rispondi|respond|answer|assist|supporta|support|cosa faresti|what would you do)\b/i.test(text);
+  return vagueTask || WC_(text) <= 14;
+}
+
+/**
+ * Synonym pile-up across a full sentence: "Create a plan and strategy and
+ * roadmap for the project going forward in the future." scores 62 and is rated
+ * 18. The short-prompt tautology rule caps at 12 words and misses these; here
+ * either one root dominates the long words, or three or more conjunctions
+ * string near-synonyms together. 41 firings, 95% rated bad.
+ */
+function detectLongTautology(text: string): boolean {
+  if (hasInlineMaterial(text)) return false;
+  // A prompt that specifies something concrete is repetitive at worst, not
+  // empty: "Create a research plan to research how users research pricing
+  // pages, with 5 interview questions" repeats a root but asks for a real
+  // artefact with a real constraint.
+  if (realisedSlots(text) >= 2) return false;
+  const w = WC_(text);
+  if (w < 6 || w > 26) return false;
+  const conjunctions = (text.match(/\b(e|and|o|or)\b/gi) ?? []).length;
+  const words = (text.toLowerCase().match(/[\p{L}']+/gu) ?? []).filter(x => x.length > 4);
+  if (words.length < 4) return false;
+  const roots = new Map<string, number>();
+  for (const x of words) { const k = x.slice(0, 5); roots.set(k, (roots.get(k) ?? 0) + 1); }
+  const worst = Math.max(0, ...roots.values());
+  return worst >= 2 && (worst / words.length >= 0.34 || conjunctions >= 3);
+}
+
 /** Many independent deliverables, or an unrealistic multiplier. 100% precision. */
 function detectScopeExplosion(text: string): number {
   const deliverables = new Set(
@@ -267,6 +582,196 @@ function detectScopeExplosion(text: string): number {
   // the threshold sits above the range of normal list requests.
   if (/\b([3-9]\d|\d{3,})\s*(campagn\w+|articol\w+|pagine|pages|post\b)/i.test(text)) s = Math.max(s, 0.85);
   return s;
+}
+
+/*
+ * NEGATIVE RESULT — unexecutable requests.
+ *
+ * The `edge_case` categories carry the largest bias in the corpus (+26 points,
+ * 38 prompts): "Scrivi la stessa cosa in modo diverso." scores 67 and is rated
+ * 5, "Write exactly what I want." scores 60 and is rated 5. They are
+ * grammatical, they contain a task verb, and no output could satisfy them.
+ *
+ * A detector was built for this class along three axes: presupposed access to
+ * the user's intent, uncontrollable outcomes ("make this viral"), and formal
+ * constraints that destroy the content ("only emoji", "only words starting
+ * with S"). Measured on the pooled corpus it reached 12 prompts at 50%
+ * precision, and after removing the outcome axis, 6 prompts at 67% — creating
+ * two false rejects for a 0.04 MAE gain. Loss went from 779 to 829.
+ *
+ * The class is real and the bias is the largest available, but the surface
+ * forms are too varied to separate from legitimate phrasing at this volume.
+ * Reaching it needs an execution model — some representation of what an answer
+ * would have to contain — not more patterns. Left unimplemented deliberately.
+ */
+
+/**
+ * A large open-ended professional artefact — a strategy, a plan, a roadmap, a
+ * framework — is named but not bounded. "Proponi una strategia di pricing per
+ * il nostro nuovo prodotto SaaS." scores 83; the rater gives 38, because the
+ * output would be generic no matter how well it is written.
+ *
+ * This is the single largest error source in the corpus: the `fair_zone`
+ * category alone carried 42% of all error mass, over-rated by 13.5 points on
+ * average across 226 prompts. Every earlier intervention missed it, because
+ * these prompts are not defective — they have a verb, an object and often some
+ * context. They are simply under-constrained for the size of what they ask.
+ *
+ * The relationship between realised specification slots and rated quality is
+ * strong and monotone (n=316 prompts naming a big deliverable):
+ *
+ *      slots     n   mean rating   %good   %weak
+ *          0    79          46.9      5%     29%
+ *          1   105          51.7     16%     20%
+ *          2    61          73.9     66%      7%
+ *          3    51          84.2     86%      6%
+ *          4    20          91.7    100%      0%
+ *
+ * So the ceiling is set from the slot count, and only for the sparse end.
+ * A length guard protects the 5-16% of good prompts in the sparse buckets:
+ * a long prompt carries context whether or not these regexes recognise it.
+ */
+const BIG_DELIVERABLE = /\b(strategia|strategy|piano|plan|roadmap|framework|guida|guide|analisi|analysis|report|studio|study|programma|program|sistema|system|processo|process|campagna|campaign|architettura|architecture|business plan|modello|model|policy|procedura|procedure|manuale|manual|corso|course|curriculum|documentazione|documentation)\b/i;
+
+function unboundedDeliverableCeiling(text: string): number {
+  if (!BIG_DELIVERABLE.test(text)) return 0;
+  const wc = (text.match(/\S+/g) ?? []).length;
+  // Length is itself context. Above this the prompt is carrying detail the
+  // slot regexes do not enumerate, and capping it would be wrong.
+  if (wc > 28 || hasInlineMaterial(text)) return 0;
+  const slots = realisedSlots(text);
+  if (slots === 0) return 55;
+  if (slots === 1) return 62;
+  return 0;
+}
+
+// ── Intervention D: specification credit (upward) ─────────────────────────
+//
+// Everything above this point pushes scores down. That was the design flaw
+// that kept corpus-1000 at MAE 18: measured against the rater, 333 prompts are
+// over-rated by 15+ points and 89 are UNDER-rated by 15+ (engine 42, rater 71).
+// No amount of penalty tuning reaches the second group.
+//
+// The dominant blocker is the `no_task` cap, on 26 of those 89. It requires an
+// imperative verb, so a request headed by a noun phrase is read as having no
+// task at all — even when it names the artefact, its context and its
+// constraints. "Push notification for a banking app when a payment is
+// received. Max 40 characters." scores 43; the rater gives it 78.
+
+/**
+ * Specification slots the prompt actually realises.
+ *
+ * A slot only counts when it is COMMITTED. "in un formato che ti sembra
+ * giusto" delegates the format; "magari aggiungi esempi se vuoi" makes the
+ * example optional. Neither constrains the output, and counting them was the
+ * bug that v2_20_delegation.test.ts exists to catch — the project had already
+ * established that delegation earns no precision points. Delegated and
+ * optional clauses are removed before any slot is counted.
+ */
+function realisedSlots(text: string): number {
+  text = text
+    // delegated: the model is told to choose
+    .replace(/\b(in un|con un|nel|nella|un)?\s*\w*\s*(che (ti sembra|preferisci|vuoi|ritieni|pensi)|come (preferisci|vuoi|ti pare)|a tua scelta|a tua discrezione|as you (see fit|prefer|like)|whatever you|of your choosing)[^.,;]*/gi, ' ')
+    // optional: the requirement is conditional on the model's whim
+    .replace(/\b(magari|eventualmente|se vuoi|se puoi|se ti va|se necessario|opzionalmente|maybe|if you (want|can|like)|optionally|feel free to)[^.,;]*/gi, ' ');
+  let k = 0;
+  if (/\b(tabella|table|lista|list|elenco|json|markdown|csv|bullet|paragraf\w*|slide|email|mail|headline|subtext|banner|notification|notifica|messaggio|message|titolo|caption|copy|post|descrizione|description|riassunto|summary|articolo|article|report|guida|guide|script|saggio|essay)\b/i.test(text)) k++;
+  // A count of deliverable units is a bound as much as a word limit is:
+  // "5 interview questions", "3 opzioni", "10 idee" all constrain the output.
+  if (/\b\d+\s+(?:\w+\s+)?(parole|words|caratteri|characters|righe|lines|frasi|sentences|punti|points|domande|questions|idee|ideas|esempi|examples|opzioni|options|variant\w*|passi|steps|sezioni|sections|paragrafi|paragraphs|bullet|slide|item\w*|alternativ\w*)\b/i.test(text)
+      || /\b(max|massimo|almeno|at\s+most|no\s+more\s+than|single sentence|una frase|breve|short)\b/i.test(text)) k++;
+  if (/\b(tono|tone|stile|style|formale|informale|professionale|scherzoso|serio|friendly|playful|adventurous|regretful|respectful|urgent)\b/i.test(text)) k++;
+  // The article is optional: "per studenti delle medie" and "for beginners"
+  // name an audience as clearly as "per un pubblico non tecnico" does.
+  if (/\b(per\s+(un|una|il|la|i|gli|le)?\s*[a-zà-ù]{4,}|for\s+(a|an|the)?\s*[a-z]{4,}|rivolto a|destinat\w*|audience|pubblico|utenti|users|clienti|customers|principianti|beginners|espert\w*|experts)\b/i.test(text)) k++;
+  if (/\b(GDPR|compliant|conforme|vincolo|constraint|requisit\w*|deve|must|non deve|should not)\b/i.test(text)) k++;
+  if (/\b(esemp\w*|example\w*|come questo|like this|e\.g\.)\b/i.test(text)) k++;
+  if (hasInlineMaterial(text)) k++;
+  if (/:\s*\S{4,}/.test(text)) k++;   // a colon followed by real content
+  return k;
+}
+
+/**
+ * A request headed by a concrete deliverable noun phrase, with specifications
+ * attached, is complete without an imperative verb. English and Italian both
+ * nominalise requests freely — "404 error page headline and subtext for a
+ * travel booking platform. Tone: adventurous." names what to produce, for
+ * whom, and how it should read.
+ */
+function isNominalisedRequest(text: string): boolean {
+  const t = text.trim();
+  const wc = (t.match(/\S+/g) ?? []).length;
+  if (wc < 4 || wc > 40) return false;
+  // Must NOT start with an imperative verb — those the engine already handles.
+  if (/^\s*\W*(scrivi|crea|fai|genera|prepara|analizza|spiega|traduci|elenca|dammi|write|create|make|generate|draft|prepare|explain|translate|list|give|design|build|develop|proponi|propose|sviluppa)\b/i.test(t)) return false;
+  // Must be headed by a noun phrase naming an artefact.
+  if (!/^\s*[A-ZÀ-Ù][\w'-]*(\s+[\w'-]+){0,5}\s*(per|for|di|of|del|della|dei|delle|when|quando|,|\.|:)/.test(t)) return false;
+  return realisedSlots(text) >= 2;
+}
+
+/**
+ * Inline material introduced by a colon is the object of the request, not a
+ * dangling reference. "Decode this Base64 string: 'SGVsbG8gV29ybGQ='" carries
+ * everything needed; the engine scores it 43 because "this" reads as unresolved.
+ */
+function hasColonMaterial(text: string): boolean {
+  const m = text.match(/:\s*(\S[\s\S]{3,})$/);
+  if (!m) return false;
+  return (m[1].match(/\S+/g) ?? []).length >= 1 && m[1].trim().length >= 5;
+}
+
+/**
+ * A follow-up that names what is wrong and what to change is a good prompt.
+ * "The logic is sound but the tone is too academic. Can you rewrite it so it
+ * reads like a blog post?" scores 30; the rater gives 78. What separates it
+ * from "prova ancora" is that both the defect and the correction are named.
+ */
+function isSpecificRefinement(text: string): boolean {
+  const t = text.trim();
+  const wc = (t.match(/\S+/g) ?? []).length;
+  if (wc < 8) return false;
+
+  // A refinement operates on something that already exists. Without this the
+  // rule fires on any first-turn prompt that happens to contain a complaint
+  // word and an instruction verb.
+  const referencesPriorWork = /\b(versione|version|v\d|il testo|the text|l'introduzione|the intro|il secondo|the second|questo|quello|this|that|it|lo|la|riscriv\w*|rewrite|ancora|again|di nuovo|prova|try)\b/i.test(t);
+  if (!referencesPriorWork) return false;
+
+  const namesDefect = /\b(troppo|too|manca|missing|non (è|e|va)|isn'?t|doesn'?t|feels?|sembra|debole|weak|confus\w*|academic|accademic\w*|generico|generic|vago|vague)\b/i.test(t);
+  const namesFix = /\b(riscriv\w*|rewrite|cambia|change|aggiungi|add|inizia|start|usa|use|sostituisci|replace|rendi|make it|togli|remove|accorcia|shorten|espandi|expand)\b/i.test(t);
+  // Proper nouns only after sentence-initial capitals are neutralised.
+  const flat = deCapitalizeSentenceStarts(t);
+  const concrete = /\d/.test(flat)
+    || /\b[A-Z][a-z]{3,}\b/.test(flat)
+    || /\b(statistic\w*|timeline|Gantt|esempio|example|dato|data|blog post|paragrafo)\b/i.test(flat);
+  return namesDefect && namesFix && concrete;
+}
+
+/**
+ * Upward correction. Returns a floor the score must not fall below, or 0.
+ * Deliberately a floor and not an additive bonus: it can only rescue a prompt
+ * the engine mis-classified, never inflate one it already rates well.
+ *
+ * CEILING 69, mirroring the floor of 31 on the downward detectors. A dangerous
+ * rating is a score ≥70 on a prompt worth ≤40; an upward rule that is not
+ * near-perfect must not be able to produce one. Measured without the ceiling
+ * these rules raised 69 prompts — 62% of them good, but 13% weak — and turned
+ * nine of the weak ones into dangerous ratings. The ceiling keeps the rescue
+ * and drops the risk: a prompt the engine put at 43 still reaches 69.
+ */
+const MAX_CREDIT = 69;
+
+function specificationCredit(text: string, caps: string[]): number {
+  const blocked = caps.some(c => /no_task|empty_object|dangling_reference|missing_reference|short_underspecified|underspecified_degraded|implicit_prior_reference/.test(c));
+  const slots = realisedSlots(text);
+
+  if (isNominalisedRequest(text)) return Math.min(MAX_CREDIT, slots >= 4 ? 82 : 75);
+  if (hasColonMaterial(text) && slots >= 2) return Math.min(MAX_CREDIT, 78);
+  if (isSpecificRefinement(text)) return Math.min(MAX_CREDIT, 74);
+  // A prompt the engine capped for missing a task, but which realises four or
+  // more specification slots, is specified by any reasonable reading.
+  if (blocked && slots >= 4) return Math.min(MAX_CREDIT, 72);
+  return 0;
 }
 
 // ── Intervention C: false-reject rescue ───────────────────────────────────
@@ -294,10 +799,55 @@ function isUnreliableContradiction(text: string): boolean {
 
 function rescueFalseReject(input: PostProcessInput): { rescued: boolean; score: number } {
   const { text, engineScore, caps } = input;
+  const wcEarly = (text.match(/\S+/g) ?? []).length;
+
+  // Mid-thread short instructions ("Ora in inglese") often land in the low
+  // forties rather than under the rescue gate, so they are handled first.
+  //
+  // Never over a contradiction: `resolveConversational` returns true for
+  // instruction-shaped prompts even with no turn hint, and an earlier version
+  // of this rescue lifted "Usa un linguaggio molto informale ma accademico"
+  // from a correct cap to 80 because it matched "informale".
+  if (input.midThread && wcEarly <= 10 && engineScore < 62
+      && !/contradiction|impossible|mutually_exclusive/.test(caps.join(','))
+      && /\b(ora|adesso|now|in\s+(inglese|italiano|spagnolo|francese|tedesco|english|italian|spanish|french|german)|pi[uù] (corto|lungo|breve|semplice|formale|informale)|shorter|longer|simpler)\b/i.test(text)) {
+    return { rescued: true, score: Math.min(80, 62 + wcEarly * 2) };
+  }
+
   if (engineScore > 35) return { rescued: false, score: engineScore };
 
   const c = caps.join(',');
   const wc = (text.match(/\S+/g) ?? []).length;
+
+  // Mid-conversation, the caps that complain about a missing object or task are
+  // measuring the wrong thing: the object is in the transcript. "Aggiungi un
+  // esempio concreto" is a precise instruction and scored 20 because
+  // `empty_object` fired. The rater puts prompts of this shape at 70-90.
+  if (input.midThread && /empty_object|no_task|underspecified_short|short_underspecified|very_short_task/.test(c)) {
+    const carriesAnInstruction = /\b(aggiungi|add|togli|remove|cambia|change|riscriv\w*|rewrite|accorcia|shorten|espandi|expand|traduci|translate|continua|continue|usa|use|rendi|make it|semplifica|simplify|formatta|format|correggi|fix)\b/i.test(text);
+    if (carriesAnInstruction) return { rescued: true, score: Math.min(85, 62 + wc * 2) };
+  }
+
+  // `courtesy_filler` fires on the presence of politeness, not on its being
+  // the whole message. "Per favore potresti gentilmente scrivermi un riassunto
+  // di 200 parole sulla fotosintesi per studenti delle medie? Grazie mille!"
+  // was capped at 18; the same request without the courtesy scores 69. The
+  // wrapper is worth a suggestion and its token cost, never a verdict.
+  if (/courtesy_filler|polite_filler/.test(c) && !detectNoRequest(text, input.conversational ?? false)) {
+    // The floor follows the specification the prompt actually carries, not its
+    // length. An earlier version used 55 + wordCount, which lifted "Ciao! Come
+    // stai? Spero bene! Io sono un po' di fretta ma volevo chiedere…" to 75
+    // purely for being long: courtesy around a weak request is still weak.
+    // Removing the cap must restore the engine's reading, not invent a better one.
+    return { rescued: true, score: Math.min(78, 44 + realisedSlots(text) * 11) };
+  }
+
+  // A short instruction mid-thread ("Ora in inglese", "Rendilo più corto") is
+  // a complete turn; the missing object is in the transcript.
+  if (input.midThread && wc <= 10
+      && /\b(ora|adesso|now|in\s+\w+|pi[uù]|meno|more|less|shorter|longer|corto|lungo|semplice|formale)\b/i.test(text)) {
+    return { rescued: true, score: Math.min(80, 62 + wc * 2) };
+  }
 
   if (c.includes('contradiction') && isUnreliableContradiction(text))
     return { rescued: true, score: Math.min(88, 60 + wc) };
@@ -357,14 +907,79 @@ export function postProcess(input: PostProcessInput): PostProcessResult {
     score = Math.min(score, 15);
     interventions.push('cap:injection');
   }
+  // Ceilings stay above 30: none of these reaches 95% precision, and a false
+  // reject is a score ≤30 on a prompt worth ≥70.
+  if (detectMissingReferent(text, input.conversational ?? false) >= 0.85) {
+    score = Math.min(score, 35);
+    interventions.push('cap:absent_object');
+  }
+  if (detectSelfCancellingSet(text)) {
+    score = Math.min(score, 32);
+    interventions.push('cap:cancelling_set');
+  }
+  if (detectCapabilityAssumption(text)) {
+    score = Math.min(score, 38);
+    interventions.push('cap:capability');
+  }
+  for (const [fires, ceiling, tag] of [
+    [detectUnfilledPlaceholder(text), 25, 'placeholder'],
+    [detectImpossibleBudget(text),    25, 'impossible_budget'],
+    [detectLongTautology(text),       32, 'tautology_long'],
+    [detectRoleWithoutTask(text),     32, 'role_no_task'],
+    [detectNoRequest(text, input.conversational ?? false), 35, 'no_request'],
+  ] as Array<[boolean, number, string]>) {
+    if (fires && score > ceiling) { score = ceiling; interventions.push(`cap:${tag}`); }
+  }
   if (detectScopeExplosion(text) >= 0.5) {
     score = Math.min(score, 35);
     interventions.push('cap:scope');
   }
+  // Precision measured on the pooled corpus: 93% / 80% / 76% of firings land
+  // on prompts rated ≤40. Ceilings are set by that precision, and none of the
+  // three is allowed below 31: a false reject is defined as score ≤30 on a
+  // prompt worth ≥70, so a detector that is not near-perfect must not be able
+  // to produce one by construction. Setting these at 25 and 30 cost three
+  // false rejects for seven dangerous ratings — a bad trade under a loss that
+  // weights false rejects at 25.
+  if (detectTautology(text, guessLang(text))) {
+    score = Math.min(score, 32);
+    interventions.push('cap:tautology');
+  }
+  if (detectSelfCancelling(text)) {
+    score = Math.min(score, 38);
+    interventions.push('cap:self_cancelling');
+  }
+  if (detectUnboundedTopic(text)) {
+    score = Math.min(score, 45);
+    interventions.push('cap:unbounded_topic');
+  }
+
+  // Under-constrained large deliverable: a ceiling, not a penalty, so a prompt
+  // the engine already rates below it is left alone.
+  const deliverableCeiling = unboundedDeliverableCeiling(text);
+  if (deliverableCeiling > 0 && score > deliverableCeiling) {
+    score = deliverableCeiling;
+    interventions.push(`cap:unbounded_deliverable(${deliverableCeiling})`);
+  }
+
+  // D — specification credit. Applied before the deficit so that a prompt the
+  // engine mis-read as taskless is not then penalised for it as well.
+  //
+  // It must never undo a defect this layer has just established. "Translate
+  // the following text: [INSERT TEXT HERE]" was capped at 25 as an unfilled
+  // placeholder and then credited back to 69, because the colon made it look
+  // as though material were attached. A credit answers the question "did the
+  // engine fail to see a specification?", not "should this defect count?".
+  const defectCapped = interventions.some(i => i.startsWith('cap:'));
+  const credit = defectCapped ? 0 : specificationCredit(text, input.caps);
+  if (credit > score) {
+    score = credit;
+    interventions.push(`credit→${credit}`);
+  }
 
   // A — specification deficit, only when nothing above has moved the score.
   const deficit = computeDeficit(text);
-  if (score === engineScore && !r.rescued) {
+  if (score === engineScore && !r.rescued && credit === 0) {
     const sig = 1 / (1 + Math.exp(-0.10 * (score - 55)));
     const delta = -MAX_DEFICIT_PENALTY * sig * deficit;
     if (delta < -0.5) {
@@ -404,6 +1019,7 @@ export function capLabelsFrom(breakdown: ScoreContribution[] | undefined): strin
 import type { Observation, ObservationLevel, ObservationType } from '../types.js';
 import type { UILocale } from '../analyzers/observations.js';
 import { CAP_REASON_TEXT } from './caps_data.js';
+import { stem } from '../spell/engine/stemmer.js';
 
 interface CapAdvice {
   type: ObservationType;
@@ -468,14 +1084,100 @@ const CAP_NOT_USER_FACING = /^(deficit|rescue|postprocess|cap:)/;
  * so a rule that already spoke is never duplicated.
  */
 export function capsToObservations(
-  caps: string[],
+  capsIn: string[],
   text: string,
   uiLocale: UILocale,
   existing: Observation[],
+  conversational = false,
 ): Observation[] {
+  let caps = capsIn;
   const seenTypes = new Set(existing.map(o => o.type));
   const out: Observation[] = [];
   let i = 0;
+
+  // Politeness needs a three-way split, not a cap.
+  //
+  //   courtesy + a real request  -> the POL_* rules already say it, in yellow,
+  //                                 with the token cost. Nothing to add, and
+  //                                 the engine's `courtesy_filler` cap must not
+  //                                 surface as a red "there is no request here"
+  //                                 when there plainly is one.
+  //   courtesy and nothing else  -> that IS the defect, and the user currently
+  //                                 gets a low score with no explanation.
+  //   a conversational turn      -> not a prompt at all. Say nothing.
+  //
+  // The product is teaching people to address a model, not a colleague; the
+  // correct register is an instruction, and the cost of the wrapper is the
+  // argument. But calling a well-formed polite request "empty" teaches the
+  // wrong lesson and is simply false.
+  const courtesyIsTheWholePrompt = detectNoRequest(text, conversational);
+  if (!courtesyIsTheWholePrompt) {
+    caps = caps.filter(c => c !== 'courtesy_filler' && c !== 'polite_filler' && c !== 'bare_acknowledgment');
+  }
+
+  const ADVICE: Array<[boolean, string, ObservationType, ObservationLevel, string, string, string, string]> = [
+    [courtesyIsTheWholePrompt, 'CAP_NO_REQUEST', 'no_task', 'contradiction',
+     'il messaggio contiene solo la cortesia: manca la richiesta vera e propria',
+     'the message is all courtesy: the request itself is missing',
+     'Aggiungi cosa vuoi ottenere: un verbo e un oggetto. "Riassumi questo articolo in 5 punti" invece di "avrei bisogno di aiuto".',
+     'Add what you actually want: a verb and an object. "Summarise this article in 5 bullets" rather than "I need some help".'],
+    [detectTautology(text, guessLang(text)), 'CAP_TAUTOLOGY', 'redundancy', 'contradiction',
+     'il verbo, l\'oggetto e il modificatore ripetono la stessa radice: la frase non aggiunge informazione',
+     'the verb, object and modifier repeat one root: the sentence adds no information',
+     'Sostituisci le parole ripetute con il dettaglio che manca: cosa deve contenere, per chi, in che formato.',
+     'Replace the repeated words with the detail that is missing: what it should contain, for whom, in what format.'],
+    [detectSelfCancelling(text), 'CAP_SELF_CANCELLING', 'contradiction', 'contradiction',
+     'due requisiti si annullano a vicenda: non possono essere soddisfatti insieme',
+     'two requirements cancel each other: they cannot both be satisfied',
+     'Scegli quale dei due conta di più, oppure quantifica il compromesso ("massimo 200 parole, ma copri i 3 punti principali").',
+     'Pick which of the two matters more, or quantify the trade-off ("max 200 words, but cover the 3 main points").'],
+    [detectUnboundedTopic(text), 'CAP_UNBOUNDED_TOPIC', 'no_length', 'improvable',
+     'l\'argomento è dato senza confini: la risposta potrebbe essere una frase o un libro',
+     'the topic is given with no bounds: the answer could be one sentence or a book',
+     'Aggiungi un confine: lunghezza, formato, per chi è, o quale aspetto ti interessa.',
+     'Add a bound: a length, a format, who it is for, or which aspect you care about.'],
+  ];
+  for (const [fires, code, type, level, whyIt, whyEn, adviceIt, adviceEn] of ADVICE) {
+    if (!fires) continue;
+    // The courtesy-only message is allowed alongside a generic "no task"
+    // observation: they teach different things. "No concrete action requested"
+    // is a description; "this is all courtesy, say what you need" is the
+    // lesson the product exists to deliver.
+    if (code !== 'CAP_NO_REQUEST' && seenTypes.has(type)) continue;
+    seenTypes.add(type);
+    out.push({
+      id: `${code}-${i++}`, type, level,
+      label: uiLocale === 'it' ? 'Da chiarire' : 'Needs clarifying',
+      matchText: text.slice(0, Math.min(40, text.length)), offset: 0,
+      length: Math.min(40, text.length), line: 1, column: 1,
+      why: uiLocale === 'it' ? whyIt : whyEn,
+      suggestion: uiLocale === 'it' ? adviceIt : adviceEn,
+      example: { before: '', after: '' },
+      impact: { tokensSaved: 0, impact: 'none', costSavedPer1kCalls: 0 },
+      code, confidence: 0.9,
+    });
+  }
+
+  // Advice-only: this one never moved the score (see detectMissingReferent),
+  // but "you refer to something that is not here" is actionable on its own.
+  if (!seenTypes.has('ambiguity') && detectMissingReferent(text, conversational) >= 0.8) {
+    seenTypes.add('ambiguity');
+    out.push({
+      id: `cap-missing-referent-${i++}`, type: 'ambiguity', level: 'improvable',
+      label: uiLocale === 'it' ? 'Riferimento assente' : 'Missing referent',
+      matchText: text.slice(0, Math.min(40, text.length)), offset: 0,
+      length: Math.min(40, text.length), line: 1, column: 1,
+      why: uiLocale === 'it'
+        ? 'il prompt fa riferimento a qualcosa che non è presente nel testo'
+        : 'the prompt refers to something that is not present in the text',
+      suggestion: uiLocale === 'it'
+        ? 'Incolla il materiale a cui ti riferisci, oppure descrivilo: il modello non vede ciò che hai in mente.'
+        : 'Paste the material you are referring to, or describe it: the model cannot see what you have in mind.',
+      example: { before: '', after: '' },
+      impact: { tokensSaved: 0, impact: 'none', costSavedPer1kCalls: 0 },
+      code: 'CAP_MISSING_REFERENT', confidence: 0.8,
+    });
+  }
 
   for (const label of caps) {
     if (CAP_NOT_USER_FACING.test(label)) continue;

@@ -73,7 +73,15 @@ export function scorePrompt(
   conversational = false,
   model?: PromptModel,
   enrichment = false,
-  uiLocale: UILocale = 'it'
+  uiLocale: UILocale = 'it',
+  /**
+   * The raw turn hint from the caller. `conversational` above is narrower —
+   * it is true only for chatty replies ("sì", "grazie"), not for follow-up
+   * INSTRUCTIONS like "aggiungi un esempio concreto". The rescue below needs
+   * to know whether we are mid-thread at all, because that is what makes the
+   * missing-object caps unreliable.
+   */
+  conversationTurn?: 'first' | 'followup',
 ): PromptScore {
   // ── Confidence-weighted counts (v2.25) ─────────────────────────────────
   // byType and byCode sum per-observation `confidence` (0..1) instead of
@@ -1428,6 +1436,8 @@ export function scorePrompt(
     text,
     engineScore: total,
     caps: capLabelsFrom(breakdown),
+    conversational,
+    midThread: conversational || conversationTurn === 'followup',
   });
   const finalTotal = post.score;
   const finalLbl = label(finalTotal);

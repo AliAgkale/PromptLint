@@ -287,6 +287,12 @@ export interface AnalysisResult {
   costs: CostEstimate[];
   /** Potential token savings if all suggestions applied */
   potentialSavings: number;
+  /**
+   * A fill-in-the-blank completion for this prompt: which specification slots
+   * the intent wants, which ones are already covered, and an editable line
+   * with the user's own subject kept and the rest as labelled blanks.
+   */
+  scaffold?: import('./scaffold/index.js').PromptScaffold;
   /** Compressed text with all suggestions auto-applied */
   compressedText: string;
   /** Autocorrect suggestions (spelling + compression) */

@@ -22,12 +22,14 @@
 import type { AnalysisResult, AnalyzeOptions } from './types.js';
 import { EMPTY_STRUCTURE } from './types.js';
 import { detectIntent } from './analyzers/intent.js';
+import { buildScaffold } from './scaffold/index.js';
 import { analyzeTokens } from './tokenizer/index.js';
 import { estimateCosts, DEFAULT_PRICES } from './tokenizer/costs.js';
 import { runAllObservations, resolveConversational, resolveEnrichment, resolveLanguageForAnalysis } from './analyzers/observations.js';
 import { buildPromptModel } from './slots/model.js';
 import { compressText } from './compression/index.js';
 import { scorePrompt } from './scoring/index.js';
+import { capsToObservations, refineObservationLevels } from './scoring/postprocess.js';
 import { getAutocorrectSuggestions } from './autocorrect/index.js';
 import { detectLanguage } from './spell/language.js';
 import { getLiteSpellAdapter } from './spell/adapters/LiteSpellAdapter.js';
@@ -73,14 +75,28 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
   // scoring, and autocorrect instead of three independent detectLanguage calls.
   const detectedLang = resolveLanguageForAnalysis(text, undefined, language);
   const promptModel = buildPromptModel(text, detectedLang);
-  const observations = runAllObservations(
+  let observations = runAllObservations(
     text, disabledRules, _spell, cheapestInputRate, undefined, language, conversationTurn,
     { detected: detectedLang, model: promptModel }, uiLocale,
   );
   const tokens = analyzeTokens(text);
   const conversational = resolveConversational(text, conversationTurn);
   const enrichment = resolveEnrichment(text, promptModel, conversationTurn);
-  const score = scorePrompt(text, observations, tokens, conversational, promptModel, enrichment, uiLocale);
+  const _intent = detectIntent(text);
+  const score = scorePrompt(text, observations, tokens, conversational, promptModel, enrichment, uiLocale, conversationTurn);
+
+  // Surface the diagnosis. A cap that lowers the score without saying why
+  // leaves the user with a band and no way to act on it; measured on the
+  // pooled corpus that was 52% of weak prompts, two thirds of which had a cap
+  // naming the problem exactly. refineObservationLevels then demotes red flags
+  // the prompt's own determinacy — or the score itself — contradicts.
+  observations = refineObservationLevels([
+    ...observations,
+    ...capsToObservations(
+      (score.breakdown ?? []).filter((b) => b.kind === 'cap').map((b) => b.label),
+      text, uiLocale, observations, conversational,
+    ),
+  ], text, score.total);
   const costs = estimateCosts(tokens.tokenCount, outputRatio, modelPrices);
   const autocorrect = includeAutocorrect ? getAutocorrectSuggestions(text, undefined, detectedLang) : [];
   const potentialSavings = observations.reduce((n, o) => n + o.impact.tokensSaved, 0);
@@ -102,7 +118,8 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
     analysisDurationMs: Date.now() - start,
     // Lite build ships its dictionaries in-bundle (synchronous) — always ready.
     engineReady: true,
-    intent: detectIntent(text),
+    intent: _intent,
+    scaffold: buildScaffold(text, _intent, score.structure, uiLocale),
     conversational,
   };
 }

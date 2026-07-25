@@ -9,6 +9,7 @@
 import type { AnalysisResult, AnalyzeOptions, Observation, ObservationType } from './types.js';
 import { EMPTY_STRUCTURE } from './types.js';
 import { detectIntent } from './analyzers/intent.js';
+import { buildScaffold } from './scaffold/index.js';
 import { analyzeTokens } from './tokenizer/index.js';
 import { estimateCosts, DEFAULT_PRICES } from './tokenizer/costs.js';
 import { runAllObservations, resolveConversational, resolveEnrichment, resolveLanguageForAnalysis } from './analyzers/observations.js';
@@ -89,7 +90,8 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
   );
   const conversational = resolveConversational(text, conversationTurn);
   const enrichment = resolveEnrichment(text, promptModel, conversationTurn);
-  const score     = scorePrompt(text, obsAll, tokens, conversational, promptModel, enrichment, uiLocale);
+  const _intent = detectIntent(text);
+  const score     = scorePrompt(text, obsAll, tokens, conversational, promptModel, enrichment, uiLocale, conversationTurn);
   const costs     = estimateCosts(tokens.tokenCount, outputRatio, modelPrices);
   const autocorr  = includeAutocorrect ? getAutocorrectSuggestions(text) : [];
 
@@ -143,7 +145,8 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
     analysisDurationMs: Date.now() - start,
     // Base build uses in-bundle synchronous dictionaries — always ready.
     engineReady: true,
-    intent: detectIntent(text),
+    intent: _intent,
+    scaffold: buildScaffold(text, _intent, score.structure, uiLocale),
     conversational,
   };
 }
