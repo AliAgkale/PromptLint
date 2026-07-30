@@ -27,6 +27,7 @@ import { analyzeTokens } from './tokenizer/index.js';
 import { estimateCosts, DEFAULT_PRICES } from './tokenizer/costs.js';
 import { runAllObservations, resolveConversational, resolveEnrichment, resolveLanguageForAnalysis } from './analyzers/observations.js';
 import { buildPromptModel } from './slots/model.js';
+import { normaliseForAnalysis } from './analyzers/input-guard.js';
 import { compressText } from './compression/index.js';
 import { scorePrompt } from './scoring/index.js';
 import { capsToObservations, refineObservationLevels } from './scoring/postprocess.js';
@@ -73,10 +74,19 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
   // SINGLE POINT OF TRUTH (C1 fix, same as the other three entrypoints):
   // resolve language once, build the model once, reuse for observations,
   // scoring, and autocorrect instead of three independent detectLanguage calls.
-  const detectedLang = resolveLanguageForAnalysis(text, undefined, language);
-  const promptModel = buildPromptModel(text, detectedLang);
+  // Developers paste logs. A single token thousands of characters long — a
+  // base64 blob, a minified bundle, a URL with a huge query string — used to
+  // exhaust the heap inside spell checking and take the tab with it. This is
+  // the build that runs as a content script, so that failure would be the
+  // user's tab. The analysers read a normalised copy in which such tokens are
+  // blanked to same-length filler; `text` itself is untouched, so offsets and
+  // everything the caller sees are unchanged.
+  const analysisText = normaliseForAnalysis(text).text;
+
+  const detectedLang = resolveLanguageForAnalysis(analysisText, undefined, language);
+  const promptModel = buildPromptModel(analysisText, detectedLang);
   let observations = runAllObservations(
-    text, disabledRules, _spell, cheapestInputRate, undefined, language, conversationTurn,
+    analysisText, disabledRules, _spell, cheapestInputRate, undefined, language, conversationTurn,
     { detected: detectedLang, model: promptModel }, uiLocale,
   );
   const tokens = analyzeTokens(text);
@@ -94,7 +104,7 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
     ...observations,
     ...capsToObservations(
       (score.breakdown ?? []).filter((b) => b.kind === 'cap').map((b) => b.label),
-      text, uiLocale, observations, conversational,
+      text, uiLocale, observations, conversational, score.total, conversationTurn,
     ),
   ], text, score.total);
   const costs = estimateCosts(tokens.tokenCount, outputRatio, modelPrices);

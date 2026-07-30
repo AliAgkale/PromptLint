@@ -1,0 +1,80 @@
+{"id":"g001","band":"buono","turn":"first","fam":"scrittura","text":"Scrivi un articolo di 800 parole sul lavoro da remoto per un pubblico non tecnico, tono divulgativo, con tre esempi concreti.","why":"compito, lunghezza, pubblico, tono, esempi: niente da indovinare"}
+{"id":"g002","band":"buono","turn":"first","fam":"scrittura","text":"Scrivi tre oggetti email per una newsletter su strumenti di produttività. Tono diretto, sotto i 50 caratteri, senza punti esclamativi.","why":"quantità, formato, lunghezza e vincoli espliciti"}
+{"id":"g003","band":"buono","turn":"first","fam":"scrittura","text":"Scrivi una email formale all'ufficio risorse umane per chiedere un'aspettativa di tre mesi, sotto le 200 parole.","why":"destinatario, scopo, registro e lunghezza"}
+{"id":"g004","band":"buono","turn":"first","fam":"scrittura","text":"Riscrivi questo paragrafo in italiano più scorrevole, senza cambiarne il significato tecnico: \"Il sistema effettua la processazione dei dati in modalità batch.\"","why":"materiale incluso, operazione e vincolo chiari"}
+{"id":"g005","band":"buono","turn":"first","fam":"scrittura","text":"Scrivi la descrizione di un prodotto per un e-commerce di scarpe da trekking, 120 parole, rivolta a chi cammina in montagna nei weekend.","why":"lunghezza e pubblico dati"}
+{"id":"g006","band":"buono","turn":"first","fam":"codice","text":"Scrivi una funzione Python che prende una lista di dizionari e li raggruppa per la chiave \"categoria\". Includi type hints e una docstring.","why":"linguaggio, firma, comportamento e requisiti accessori"}
+{"id":"g007","band":"buono","turn":"first","fam":"codice","text":"Trova il bug in questa funzione:\n\n```python\ndef media(xs):\n    return sum(xs) / len(xs) - 1\n```","why":"codice incluso, compito unico"}
+{"id":"g008","band":"buono","turn":"first","fam":"codice","text":"Converti questa query SQL in Prisma:\n\nSELECT id, name FROM users WHERE created_at > NOW() - INTERVAL 30 DAY ORDER BY name;","why":"sorgente, target e materiale presenti"}
+{"id":"g009","band":"buono","turn":"first","fam":"codice","text":"Scrivi un test unitario in Jest per una funzione che valida un IBAN italiano, coprendo checksum errato, lunghezza errata e input vuoto.","why":"framework e casi da coprire elencati"}
+{"id":"g010","band":"buono","turn":"first","fam":"codice","text":"Spiega la differenza fra let e const in JavaScript a chi arriva da Python. Due paragrafi, con un esempio per ciascuno.","why":"pubblico, lunghezza e formato"}
+{"id":"g011","band":"buono","turn":"first","fam":"traduzione","text":"Traduci 'break a leg' in italiano mantenendo il senso idiomatico, non letterale.","why":"materiale, direzione e vincolo di resa"}
+{"id":"g012","band":"buono","turn":"first","fam":"traduzione","text":"Traduci in francese il paragrafo qui sotto, registro informale: \"Il gatto dorme sul divano tutto il giorno.\"","why":"materiale incluso, lingua e registro"}
+{"id":"g013","band":"buono","turn":"first","fam":"traduzione","text":"Puoi tradurre in francese il paragrafo qui sotto, registro informale: \"Il gatto dorme sul divano tutto il giorno.\"","why":"regola 3: forma modale, stesso prompt di g012"}
+{"id":"g014","band":"buono","turn":"first","fam":"traduzione","text":"Il paragrafo qui sotto va tradotto in francese, registro informale: \"Il gatto dorme sul divano tutto il giorno.\"","why":"regola 3: forma passiva, stesso prompt di g012"}
+{"id":"g015","band":"buono","turn":"first","fam":"traduzione","text":"Traduci 'hello' in italiano.","why":"compito auto-delimitato, risposta unica"}
+{"id":"g016","band":"buono","turn":"first","fam":"fattuale","text":"Qual è la capitale del Perù?","why":"risposta unica"}
+{"id":"g017","band":"buono","turn":"first","fam":"fattuale","text":"Converti 180 libbre in chili.","why":"calcolo chiuso"}
+{"id":"g018","band":"buono","turn":"first","fam":"fattuale","text":"In che anno è stata firmata la Costituzione italiana?","why":"risposta unica"}
+{"id":"g019","band":"buono","turn":"first","fam":"fattuale","text":"Sinonimi di \"resiliente\" in italiano formale.","why":"compito ellittico ma chiuso"}
+{"id":"g020","band":"buono","turn":"first","fam":"analisi","text":"Elenca i pro e i contro di migrare da REST a GraphQL per un team di 4 persone con un'app mobile già in produzione.","why":"formato, oggetto e contesto vincolante"}
+{"id":"g021","band":"buono","turn":"first","fam":"analisi","text":"Elenca i pro e i contro di PostgreSQL rispetto a MySQL per un blog.","why":"confronto delimitato con un caso d'uso"}
+{"id":"g022","band":"buono","turn":"first","fam":"analisi","text":"Scusa il disturbo. Elenca i pro e i contro di PostgreSQL rispetto a MySQL per un blog.","why":"regola 3: la cortesia è forma, stesso voto di g021"}
+{"id":"g023","band":"buono","turn":"first","fam":"analisi","text":"Riassumi questo articolo in 5 punti elenco, uno per argomento principale, massimo 20 parole ciascuno.","why":"formato, quantità e lunghezza per punto"}
+{"id":"g024","band":"buono","turn":"first","fam":"analisi","text":"Comportati come un revisore ostile e trova i tre punti più deboli di questo abstract:\n\n\"Proponiamo un metodo per ridurre la latenza di inferenza del 40% tramite quantizzazione dinamica.\"","why":"ruolo funzionale, quantità e materiale"}
+{"id":"g025","band":"buono","turn":"first","fam":"analisi","text":"Fai il diavolo dell'avvocato contro questa tesi, in 5 argomenti: \"il remote work riduce la produttività\".","why":"tesi data, quantità data"}
+{"id":"g026","band":"buono","turn":"first","fam":"classificazione","text":"Classifica queste email come urgenti o non urgenti.\n\nEsempio:\n\"Il server è down\" → urgente\n\"Aggiornamento roadmap Q3\" → non urgente\n\nOra classifica: \"Il cliente minaccia di annullare il contratto\"","why":"few-shot, etichette chiuse, materiale presente"}
+{"id":"g027","band":"buono","turn":"first","fam":"classificazione","text":"Estrai da questo testo nome, email e azienda in JSON:\n\n\"Buongiorno, sono Marco Rossi di Acme Srl, mi trova a m.rossi@acme.it\"","why":"campi, formato e materiale"}
+{"id":"g028","band":"buono","turn":"first","fam":"correzione","text":"Correggi la grammatica di questa frase senza cambiarne il tono: \"Se avrei saputo, non ci sarei andato.\"","why":"materiale e vincolo"}
+{"id":"g029","band":"buono","turn":"first","fam":"correzione","text":"Correggi gli errori di battitura nel testo che segue, senza riformulare nulla:\n\n\"Il prgetto è stato conseganto in ritrado per problemi tecnci.\"","why":"materiale incluso e vincolo esplicito"}
+{"id":"g030","band":"buono","turn":"first","fam":"creativo","text":"Genera 10 nomi per una startup di consegne in bicicletta. Devono essere pronunciabili in italiano, massimo 3 sillabe.","why":"quantità e vincoli verificabili"}
+{"id":"g031","band":"buono","turn":"first","fam":"creativo","text":"Scrivi un haiku sull'autunno in italiano, rispettando 5-7-5.","why":"forma chiusa e vincolo metrico"}
+{"id":"g032","band":"buono","turn":"first","fam":"lavoro","text":"Fammi 5 domande da porre a un candidato per un ruolo di data engineer, mirate a capire se sa debuggare pipeline in produzione.","why":"quantità, ruolo e obiettivo della selezione"}
+{"id":"g033","band":"buono","turn":"first","fam":"lavoro","text":"Prepara l'ordine del giorno di una retrospettiva di sprint per un team di 6 persone, durata 60 minuti, con i tempi per ogni punto.","why":"formato, vincoli e durata"}
+{"id":"g034","band":"buono","turn":"first","fam":"lavoro","text":"Buongiorno, avrei bisogno di una checklist per il lancio di una landing page, divisa fra SEO tecnico e contenuto.","why":"formato dichiarato (checklist divisa in due sezioni)"}
+{"id":"g035","band":"buono","turn":"first","fam":"personale","text":"Dammi un'idea per un regalo di laurea, budget 50 euro, per qualcuno che ama la fotografia analogica.","why":"budget e destinatario circoscritto"}
+{"id":"g036","band":"buono","turn":"first","fam":"personale","text":"Suggerisci un menù per una cena per 6 persone di cui due vegetariane, tempo di preparazione massimo un'ora.","why":"vincoli numerici e dietetici"}
+{"id":"g037","band":"buono","turn":"first","fam":"spiegazione","text":"Spiega come funziona il protocollo TCP a uno studente del primo anno, in due paragrafi, senza formule.","why":"pubblico, lunghezza e vincolo"}
+{"id":"g038","band":"buono","turn":"first","fam":"spiegazione","text":"Spiega la ricorsione a un principiante con una metafora, in due paragrafi, senza codice.","why":"pubblico, forma, lunghezza e vincolo"}
+{"id":"g039","band":"buono","turn":"first","fam":"refusi","text":"Riassumi questo artcolo in 5 punti elenco, uno per argomento principale.","why":"regola 5: un refuso non sposta la banda"}
+{"id":"g040","band":"buono","turn":"first","fam":"refusi","text":"Scrivi una email formale al fornitroe per un ritardo di consegna, sotto le 200 parole.","why":"regola 5: refuso, contenuto determinato"}
+{"id":"g041","band":"buono","turn":"followup","fam":"followup","text":"Aggiungi una sezione sui costi.","why":"regola 2: istruzione completa in contesto"}
+{"id":"g042","band":"buono","turn":"followup","fam":"followup","text":"Add citations in APA format.","why":"formato citazionale esplicito"}
+{"id":"g043","band":"buono","turn":"followup","fam":"followup","text":"Più corto, la metà.","why":"direzione misurabile"}
+{"id":"g044","band":"buono","turn":"followup","fam":"followup","text":"Ora in inglese.","why":"operazione chiara in contesto"}
+{"id":"g045","band":"buono","turn":"followup","fam":"followup","text":"Dividilo in due sezioni con i titoli.","why":"struttura richiesta esplicita"}
+{"id":"g046","band":"buono","turn":"followup","fam":"followup","text":"No, intendevo per il pubblico italiano, non americano.","why":"correzione di rotta precisa"}
+{"id":"g047","band":"buono","turn":"followup","fam":"followup","text":"Riscrivi la conclusione in tono più ottimista.","why":"parte e direzione indicate"}
+{"id":"g048","band":"buono","turn":"followup","fam":"followup","text":"Ora fai lo stesso per il mercato tedesco.","why":"operazione nota, nuovo parametro"}
+{"id":"g049","band":"buono","turn":"followup","fam":"followup","text":"Non mi convince il terzo punto, riformulalo.","why":"regola 2: il terzo punto è un referente in contesto"}
+{"id":"g050","band":"buono","turn":"followup","fam":"followup","text":"Togli gli esempi e lascia solo la definizione.","why":"due operazioni precise"}
+{"id":"g051","band":"medio","turn":"first","fam":"aperta","text":"Cos'è il machine learning?","why":"regola 1: domanda chiara, taglio da indovinare"}
+{"id":"g052","band":"medio","turn":"first","fam":"aperta","text":"Cosa pensi del cambiamento climatico?","why":"regola 1: ben posta, ampiezza indeterminata"}
+{"id":"g053","band":"medio","turn":"first","fam":"aperta","text":"Quando è giusto fare la cosa sbagliata?","why":"regola 1: domanda filosofica chiara"}
+{"id":"g054","band":"medio","turn":"first","fam":"aperta","text":"Spiega come funziona un database.","why":"compito chiaro, pubblico e profondità assenti"}
+{"id":"g055","band":"medio","turn":"first","fam":"aperta","text":"Spiegami come funziona il sistema immunitario. In modo completo.","why":"\"completo\" non è un confine misurabile"}
+{"id":"g056","band":"medio","turn":"first","fam":"deliverable","text":"Scrivimi un saggio lungo su Napoleone.","why":"si sa cosa produrre, non quanto né su quale aspetto"}
+{"id":"g057","band":"medio","turn":"first","fam":"deliverable","text":"Explain machine learning in 5000 words.","why":"lunghezza data, pubblico e taglio no"}
+{"id":"g058","band":"medio","turn":"first","fam":"deliverable","text":"Scrivi un post per il blog aziendale sulla sicurezza informatica.","why":"oggetto chiaro, nessun confine"}
+{"id":"g059","band":"medio","turn":"first","fam":"deliverable","text":"Help me write a business plan for a coffee shop.","why":"deliverable noto, contesto e sezioni assenti"}
+{"id":"g060","band":"medio","turn":"first","fam":"deliverable","text":"Write a go-to-market strategy for a new enterprise software product.","why":"prodotto e mercato non caratterizzati"}
+{"id":"g061","band":"medio","turn":"first","fam":"deliverable","text":"Proponi una strategia di pricing per il nostro nuovo prodotto SaaS.","why":"manca tutto ciò che determina il prezzo, ma il compito è chiaro"}
+{"id":"g062","band":"medio","turn":"first","fam":"deliverable","text":"Draft a partnership proposal for two companies looking to collaborate.","why":"forma nota, parti non identificate"}
+{"id":"g063","band":"medio","turn":"first","fam":"creativo","text":"Scrivi un haiku sull'autunno.","why":"forma nota, nessun taglio; senza il vincolo metrico di g031"}
+{"id":"g064","band":"medio","turn":"first","fam":"creativo","text":"Write a poem about autumn.","why":"stessa forma di g063 in inglese"}
+{"id":"g065","band":"medio","turn":"first","fam":"creativo","text":"Write a tweet like Elon Musk would. Topic: AI regulation.","why":"stile, formato e argomento presenti; angolo assente"}
+{"id":"g066","band":"medio","turn":"first","fam":"codice","text":"Write a SQL query.","why":"compito noto, nessuno schema né obiettivo"}
+{"id":"g067","band":"medio","turn":"first","fam":"codice","text":"Come faccio a ottimizzare il mio codice?","why":"nessun codice né metrica di ottimizzazione"}
+{"id":"g068","band":"medio","turn":"first","fam":"codice","text":"Come faccio a implementare il pattern Repository in Java?","why":"linguaggio e pattern concreti, contesto assente"}
+{"id":"g069","band":"medio","turn":"first","fam":"analisi","text":"Ho un dataset di 10.000 recensioni di prodotto. Come lo analizzo?","why":"oggetto e dimensione dati, obiettivo dell'analisi no"}
+{"id":"g070","band":"medio","turn":"first","fam":"analisi","text":"Ho 3 idee per la mia startup ma non so quale scegliere: A) marketplace B) SaaS B2B C) community. Cosa ne pensi?","why":"opzioni elencate, criteri di scelta assenti"}
+{"id":"g071","band":"medio","turn":"first","fam":"analisi","text":"Fammi una CRO analysis.","why":"compito riconoscibile, oggetto assente"}
+{"id":"g072","band":"medio","turn":"first","fam":"personale","text":"Sono un freelance. Lavoro tanto. Non sono soddisfatto. Cosa faccio?","why":"contesto personale dato, obiettivo non definito"}
+{"id":"g073","band":"medio","turn":"first","fam":"personale","text":"Help me prepare for a difficult conversation with my manager about a promotion.","why":"situazione nota, dettagli decisivi assenti"}
+{"id":"g074","band":"medio","turn":"first","fam":"personale","text":"Consigliami un libro da leggere questa estate.","why":"compito chiaro, gusti non dichiarati"}
+{"id":"g075","band":"medio","turn":"first","fam":"lavoro","text":"You are a financial advisor. My portfolio is down 15% this year. Help.","why":"ruolo e situazione concreti, richiesta vaga"}
+{"id":"g076","band":"medio","turn":"first","fam":"lavoro","text":"Scrivimi un report di valutazione immobiliare.","why":"deliverable noto, immobile assente"}
+{"id":"g077","band":"medio","turn":"first","fam":"lavoro","text":"Prepara una presentazione per il consiglio di amministrazione.","why":"pubblico dato, argomento no"}
+{"id":"g078","band":"medio","turn":"first","fam":"scrittura","text":"Scrivi una descrizione per il mio profilo LinkedIn.","why":"compito chiaro, nessun dato sulla persona"}
+{"id":"g079","band":"medio","turn":"first","fam":"scrittura","text":"Rendi questo testo più professionale:\n\n\"ciao, volevo dirti che il progetto è in ritardo, scusa\"","why":"materiale presente, \"professionale\" ammette molti esiti"}
+{"id":"g080","band":"medio","turn":"followup","fam":"followup","text":"scegli tu in autonomia","why":"delega legittima in thread, nessun criterio"}

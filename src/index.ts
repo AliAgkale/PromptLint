@@ -8,6 +8,7 @@
 
 import type { AnalysisResult, AnalyzeOptions, Observation, ObservationType } from './types.js';
 import { EMPTY_STRUCTURE } from './types.js';
+import { normaliseForAnalysis } from './analyzers/input-guard.js';
 import { detectIntent } from './analyzers/intent.js';
 import { buildScaffold } from './scaffold/index.js';
 import { analyzeTokens } from './tokenizer/index.js';
@@ -82,10 +83,19 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
   // once, build the model once, pass both into runAllObservations instead of
   // letting it resolve language internally while this function separately
   // re-detected (non-sticky) for scoring.
-  const detectedLang = resolveLanguageForAnalysis(text, undefined, language);
-  const promptModel = buildPromptModel(text, detectedLang);
+  // Developers paste logs. A single token thousands of characters long — a
+  // base64 blob, a minified bundle, a URL with a huge query string — used to
+  // exhaust the heap inside spell checking and take the tab with it. The
+  // analysers read a normalised copy in which such tokens are blanked to
+  // same-length filler; `text` itself is untouched, so offsets and everything
+  // the caller sees are unchanged.
+  const guard = normaliseForAnalysis(text);
+  const analysisText = guard.text;
+
+  const detectedLang = resolveLanguageForAnalysis(analysisText, undefined, language);
+  const promptModel = buildPromptModel(analysisText, detectedLang);
   let obsAll    = runAllObservations(
-    text, disabledRules, undefined, cheapestInputRate, undefined, language, conversationTurn,
+    analysisText, disabledRules, undefined, cheapestInputRate, undefined, language, conversationTurn,
     { detected: detectedLang, model: promptModel }, uiLocale,
   );
   const conversational = resolveConversational(text, conversationTurn);
@@ -111,7 +121,7 @@ export function analyze(text: string, options: AnalyzeOptions = {}): AnalysisRes
   // that the prompt's own determinacy evidence contradicts.
   const capObs = capsToObservations(
     (score.breakdown ?? []).filter((b) => b.kind === 'cap').map((b) => b.label),
-    text, uiLocale, obsAll,
+    text, uiLocale, obsAll, conversational, score.total, conversationTurn,
   );
   obsAll = refineObservationLevels([...obsAll, ...capObs], text, score.total);
 

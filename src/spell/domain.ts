@@ -169,3 +169,27 @@ export function domainSuggestions(word: string, max = 3): string[] {
     .slice(0, max)
     .map(s => s.term);
 }
+
+/**
+ * Words never offered as a correction.
+ *
+ * `dicts` — an ordinary Python term in an ordinary prompt — was answered with
+ * "Forse intendevi: dicks, dices, dicta, ducts?". The suggestion engine ranks
+ * by edit distance and frequency, and by those measures it is a good answer;
+ * it is still not one a tool shows a person at work. The list is deliberately
+ * short and covers the forms an edit-distance search actually reaches from
+ * ordinary technical vocabulary, rather than attempting to be a profanity
+ * filter in general — that is a different problem with a different failure
+ * mode, and a long blocklist here would start hiding legitimate corrections.
+ */
+const NEVER_SUGGEST = new Set<string>([
+  'dick', 'dicks', 'cock', 'cocks', 'cunt', 'cunts', 'twat', 'twats',
+  'fuck', 'fucks', 'shit', 'shits', 'piss', 'pisses', 'tits', 'wank',
+  'cazzo', 'cazzi', 'figa', 'fighe', 'merda', 'merde', 'stronzo', 'stronzi',
+  'troia', 'troie', 'puttana', 'puttane', 'coglione', 'coglioni', 'minchia',
+]);
+
+/** Drops suggestions no tool should put in front of a user at work. */
+export function filterSuggestions(words: string[]): string[] {
+  return words.filter((w) => !NEVER_SUGGEST.has(w.toLowerCase()));
+}

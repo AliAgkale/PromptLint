@@ -29,6 +29,14 @@ const RULES: IntentRule[] = [
   // ── Highly specific verb-based intents ───────────────────────────────────
   { intent: 'translate', re: /\b(translate|traduci|traducimi|traduzione)\b/i },
   { intent: 'summarize', re: /\b(summarize|summarise|riassumi|riassumimi|riassunto|riepiloga|riepilogami|sintetizza)\b/i },
+  // Repairing something that exists is a different task from producing
+  // something new, and it wants different questions: what counts as broken,
+  // and what must not change. Checked before generate_code so "correggi questa
+  // funzione" is not read as a request to write one.
+  {
+    intent: 'fix',
+    re: /\b(correggi|corregg\w*|sistema|sistemi|aggiusta|ripara|risolvi|debugga|debug|refactor\w*|rifattorizza|ottimizza|optimi[sz]e|trova\s+(il\s+)?(bug|errore|problema)|fix|repair|troubleshoot|find\s+the\s+(bug|error|issue))\b/i,
+  },
   {
     intent: 'generate_code',
     re: /\b(write|create|generate|implement|build|scrivi|crea|genera|implementa|costruisci|sviluppa)\b[^.?!\n]{0,40}\b(function|script|code|codice|funzione|api|endpoint|class|classe|component|componente|query|regex|snippet|programma|program|algorithm|algoritmo|modulo|module)\b|```/i,
@@ -56,8 +64,25 @@ const RULES: IntentRule[] = [
  * Returns `'other'` when nothing matches confidently (a normal, common
  * result — not itself a quality signal).
  */
+/**
+ * A word inside quotation marks is mentioned, not used.
+ *
+ * "Spiegami cosa succede se scrivo \"fix\" in un prompt" is a question about
+ * the word, and reading it as a repair request inverts the meaning of the
+ * sentence. The use/mention distinction is old and the fix is cheap: blank the
+ * quoted spans before matching intent verbs.
+ *
+ * Only the intent scan is affected. The quoted text still counts as content
+ * elsewhere — a pasted error message or a sample sentence is exactly the
+ * material the prompt is about, and must keep earning its specification credit.
+ */
+function blankQuoted(text: string): string {
+  return text.replace(/"[^"]{1,120}"|«[^»]{1,120}»|“[^”]{1,120}”|`[^`]{1,120}`|(?<![\\p{L}])'[^']{1,120}'(?![\\p{L}])/gu,
+    (m) => ' '.repeat(m.length));
+}
+
 export function detectIntent(text: string): PromptIntent {
-  const t = text.trim();
+  const t = blankQuoted(text).trim();
   if (!t) return 'other';
   for (const rule of RULES) {
     if (rule.re.test(t)) return rule.intent;

@@ -25,7 +25,8 @@ import nspell from 'nspell';
 import type { SpellAdapter } from './SpellAdapter.js';
 import type { SupportedLanguage } from '../language.js';
 import { EN_AFF, EN_DIC } from '../dictionaryEn.data.js';
-import { isDomainTerm, domainSuggestions } from '../domain.js';
+import { isDomainTerm, domainSuggestions, filterSuggestions } from '../domain.js';
+import { DICTIONARY_IT } from '../dictionary.it.js';
 import { freqRankEn } from '../freqEn.js';
 import { LiteSpellAdapter } from './LiteSpellAdapter.js';
 import {
@@ -84,6 +85,11 @@ export class NspellBrowserAdapter implements SpellAdapter {
       const big = correctItBig(word);
       if (big === null) return true; // not loaded yet — optimistic, never a false positive
       if (big) return true;
+      // The curated lite list, as an ACCEPT-list only. See the matching block
+      // in NspellAdapter: once the big dictionary loads it answers false and
+      // nothing downstream consulted DICTIONARY_IT, so every word added to it
+      // after a real report had no effect in this build either.
+      if (DICTIONARY_IT.has(word.toLowerCase())) return true;
       // Same productive-morphology + elision fallback as NspellAdapter (full
       // build) — kept identical across builds so "testabile", "tipizzata",
       // "un'email" behave the same whether the user is on the web app or
@@ -97,7 +103,42 @@ export class NspellBrowserAdapter implements SpellAdapter {
     return this._spellEn.correct(word);
   }
 
+  /**
+   * Longest word worth searching corrections for. Both nspell's suggest and
+   * the Italian one run an edit-distance search whose cost grows with the word
+   * length, and a token this long is a URL, a hash or a paste accident rather
+   * than a misspelling. Without the bound a single 300-character word took
+   * 6.2 s and 1500 characters exhausted the heap. See the matching constant in
+   * spell/index.ts.
+   */
+  private static readonly MAX_SUGGESTABLE = 24;
+
+  /**
+   * Suggestions are memoised for the lifetime of the adapter.
+   *
+   * nspell's suggest walks the affixed dictionary, and measured here it costs
+   * 360-440 ms for a word it cannot match. That is survivable once and ruinous
+   * on text with many unknown words, where the same tokens are also re-checked
+   * on every keystroke: a 300-character nonsense word took 27 s of wall clock
+   * through the full analyzer, and 1500 characters exhausted the heap.
+   *
+   * The bound is 24 characters — past the longest ordinary word in either
+   * language, so nothing suggestible is lost — and the cache means a token is
+   * paid for once rather than once per analysis.
+   */
+  private _suggestCache = new Map<string, string[]>();
+
+  /** Bounded so a long session cannot grow it without limit. */
+  private _cacheSuggest(key: string, value: string[]): void {
+    if (this._suggestCache.size > 2000) this._suggestCache.clear();
+    this._suggestCache.set(key, value);
+  }
+
   suggest(word: string, max = 5): string[] {
+    if (word.length > NspellBrowserAdapter.MAX_SUGGESTABLE) return [];
+    const cacheKey = `${this._activeLang}:${word.toLowerCase()}:${max}`;
+    const cached = this._suggestCache.get(cacheKey);
+    if (cached) return cached;
     const dom = domainSuggestions(word, 3);
     const take = (arr: string[]) => {
       const out: string[] = []; const seen = new Set<string>();
@@ -107,11 +148,15 @@ export class NspellBrowserAdapter implements SpellAdapter {
         seen.add(k); out.push(w);
         if (out.length >= max) break;
       }
-      return out;
+      // Applied here rather than at each call site: take() is the single point
+      // every suggestion passes through in both adapters.
+      return filterSuggestions(out);
     };
     if (this._activeLang === 'it') {
       const big = suggestItBig(word, max);
-      return take(big !== null ? big : this._liteFallback.suggest(word, max));
+      const outIt = take(big !== null ? big : this._liteFallback.suggest(word, max));
+      this._cacheSuggest(cacheKey, outIt);
+      return outIt;
     }
     if (!this._spellEn) return take([]);
     const raw = this._spellEn.suggest(word).slice(0, Math.max(max, 8));
@@ -119,7 +164,9 @@ export class NspellBrowserAdapter implements SpellAdapter {
       .map((w, i) => ({ w, i, f: freqRankEn(w) }))
       .sort((a, b) => (a.f - b.f) || (a.i - b.i))
       .map(x => x.w);
-    return take(ranked);
+    const outEn = take(ranked);
+    this._cacheSuggest(cacheKey, outEn);
+    return outEn;
   }
 
   addWord(word: string): void { addPersonalWord(word); }

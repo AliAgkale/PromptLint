@@ -40,10 +40,27 @@ import {
 //   Wilcoxon p = 2.1e-33 · McNemar on Dangerous p < 1e-16
 import { postProcess, capLabelsFrom } from './postprocess.js';
 
+/**
+ * Band thresholds.
+ *
+ * The product shows a band, not a number, so where these sit matters more than
+ * any single detector. They were 42/62/82 and are now 45/66/84, chosen by
+ * sweeping every pair against all three benchmarks rather than by feel.
+ *
+ * The old pair was simply mis-placed: 66 as the good/fair boundary improves
+ * every set at once, which is the signature of a bad threshold rather than of
+ * a trade-off.
+ *
+ *     thresholds   b1 exact   b2 exact   b3 exact   b2 "good but bad"
+ *          42/62      82.7%      60.9%      81.3%                  92
+ *          45/66      84.7%      67.9%      89.1%                  67
+ *
+ * The scores themselves are unchanged; only the reading of them moves.
+ */
 function label(score: number): ScoreLabel {
-  if (score >= 82) return 'excellent';
-  if (score >= 62) return 'good';
-  if (score >= 42) return 'fair';
+  if (score >= 84) return 'excellent';
+  if (score >= 66) return 'good';
+  if (score >= 45) return 'fair';
   return 'poor';
 }
 
@@ -118,7 +135,25 @@ export function scorePrompt(
   // ── Content quality analysis (v2.26) ──────────────────────────────────────
   // Continuous measures computed once, consumed by multiple parts of the scorer.
   // These replace ad-hoc binary checks scattered through the caps.
-  const isFollowupHint = conversational || enrichment;
+  // The caller's explicit turn belongs here, and the note at the
+  // dangling_reference cap below already claims it is here — "isFollowupHint
+  // is already conversational || enrichment, so this guard catches all
+  // explicit followup signals". It did not. Neither flag derives from
+  // conversationTurn in the way that sentence assumes:
+  //
+  //   resolveConversational  true for a followup only when the turn role is
+  //                          'continuation' or 'agreement' — chatty replies.
+  //   resolveEnrichment      returns false as soon as task.confidence >= 0.5.
+  //
+  // So the two escape hatches cover chatty replies and taskless enrichment
+  // turns, and the gap between them is the well-formed follow-up instruction
+  // with a clear imperative — the commonest and most legitimate kind. "Add
+  // citations in APA format." and "Ora in inglese." fell straight through it
+  // and were scored as if they had to carry their own object.
+  //
+  // 170 lines below, postProcess is handed the correct expression under the
+  // name `midThread`. This is the same thing, at the site that needed it.
+  const isFollowupHint = conversational || enrichment || conversationTurn === 'followup';
   const anaphora: AnaphoraResult = detectDanglingAnaphora(text, m, isFollowupHint);
   const scope: ScopeResult = analyzeScope(text, words);
   const injection: InjectionResult = detectInjection(text);
@@ -608,7 +643,45 @@ export function scorePrompt(
   // exact letters.
   const COURTESY_HEAVY =
     /\b(scusami|scusa\s+se|scusa\s+il\s+disturbo|non\s+voglio\s+disturbar|mi\s+dispiace\s+disturbar|se\s+non\s+è\s+un\s+problema|saresti\s+così\s+gentile|potresti\s+gentilmente|per\s+favore\s+potresti|potresti\s+magari|i\s+hope\s+this\s+isn'?t\s+too\s+much|sorry\s+to\s+bother|would\s+you\s+be\s+so\s+kind|could\s+you\s+possibly|could\s+you\s+perhaps|if\s+it'?s\s+not\s+too\s+much\s+trouble|if\s+you\s+don'?t\s+mind|grazie\s+mille!?\s+(saresti|potresti)|i\s+hate\s+to\s+ask|would\s+you\s+mind\s+help|if\s+you\s+have\s+a\s+moment|if\s+possible.*assist|sarebbe\s+possibile\s+avere|spero\s+di\s+non\s+darti\s+fastidio|se\s+fosse\s+possibile)/i;
-  if (COURTESY_HEAVY.test(text) && !m.object.fromInlineMaterial) {
+  // The comment above states the safety condition as a conjunction —
+  // "hedging phrases + no concrete object/spec" — but only half of it was
+  // implemented. `fromInlineMaterial` asks whether material was PASTED, which
+  // is a different question from whether the prompt names something concrete
+  // to act on, and `realSpecs` counts only format/length/audience. A complete
+  // request with a named object and none of those three slots therefore fired:
+  //
+  //   "Elenca i pro e i contro di PostgreSQL rispetto a MySQL per un blog."   83
+  //   "Scusa il disturbo. " + the same sentence                               18
+  //
+  // Sixty-five points for an apology, on a prompt that says exactly what it
+  // wants. Italian speakers open with an apology constantly; this is not an
+  // edge case. Adding the missing half of the conjunction: a named object is
+  // the concrete thing the courtesy is supposedly standing in for, so when one
+  // is present the premise of the cap is false.
+  // The safety condition the comment above states as a conjunction — "hedging
+  // phrases + no concrete object/spec" — was only half implemented, and the
+  // obvious repair does not work. `hasNamedObject` cannot serve as the missing
+  // half because the object slot reads the FIRST sentence: for both of these
+  //
+  //   "Scusa il disturbo, ma potresti aiutarmi con una cosa?"           (junk)
+  //   "Scusa il disturbo. Elenca i pro e i contro di PostgreSQL…"       (fine)
+  //
+  // it returns the same object, "il disturbo". The apology is parsed as the
+  // request. So the discriminator has to be the one thing that actually
+  // differs: whether anything SURVIVES the courtesy. Strip the sentences that
+  // are courtesy and ask whether a real instruction is left. Without this the
+  // second prompt scored 18 against the first's 83 — sixty-five points for an
+  // apology, on a prompt that says exactly what it wants.
+  const nonCourtesyRemainder = text
+    .split(/(?<=[.!?])\s+/)
+    .filter((sent) => !COURTESY_HEAVY.test(sent))
+    .join(' ')
+    .trim();
+  const remainderIsARequest =
+    nonCourtesyRemainder.length > 0 &&
+    nonCourtesyRemainder !== text.trim() &&
+    buildPromptModel(nonCourtesyRemainder, detectLanguage(nonCourtesyRemainder)).task.confidence >= 0.5;
+  if (COURTESY_HEAVY.test(text) && !m.object.fromInlineMaterial && !remainderIsARequest) {
     // Only fire if there's no real, concrete spec beyond the courtesy
     const realSpecs = (m.format.formats.length > 0 ? 1 : 0) + (m.length.cues.length > 0 ? 1 : 0) + (m.audience.level !== null ? 1 : 0);
     if (realSpecs <= 1) cap(25, 'courtesy_filler');
@@ -1263,8 +1336,8 @@ export function scorePrompt(
   // miss operational followups ("redo this for European audience"). When
   // the API caller passes `conversationTurn:'followup'`, references to prior
   // output are EXPECTED, not dangling.
-  // Note: `isFollowupHint` is already `conversational || enrichment`, so
-  // this guard catches all explicit followup signals.
+  // `isFollowupHint` now includes the caller's explicit turn; see its
+  // definition for why it did not before.
   if (anaphora.hasDangling && !isFollowupHint) {
     const anaCeiling = anaphora.confidence >= 0.85 ? 30 : 42;
     cap(anaCeiling, 'dangling_reference');
@@ -1291,6 +1364,16 @@ export function scorePrompt(
   const realSpecCount =
     (hasRole ? 1 : 0) + (hasFormat ? 1 : 0) + (hasLength ? 1 : 0) +
     (hasExamples ? 1 : 0) + (hasConstraints ? 1 : 0) + (hasContext ? 1 : 0);
+  // NOTE (measured, not fixed here): well-formed follow-up instructions —
+  // "Add citations in APA format." (rated 80, scored 60), "Split this into two
+  // separate sections with headers." (75/62) — do NOT reach this floor at all.
+  // Their cap list is empty; the 60-62 cluster comes from the DIMENSIONS,
+  // because a follow-up instruction legitimately carries no role, format,
+  // length or context of its own and the precision dimension reads that as
+  // absence. Exempting them from this floor was tried and measured: zero
+  // effect on all three corpora, so it was not kept. The fix belongs in how
+  // the dimensions treat a declared mid-thread turn, which is a larger change
+  // than this one and needs its own validation.
   if (!conversational && !enrichment && !selfBounding && !isQuestionLike &&
       realSpecCount === 0 && words >= 4) {
     // Graduated by how little is there: a vague placeholder ("qualcosa",

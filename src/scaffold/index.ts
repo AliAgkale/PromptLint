@@ -31,7 +31,8 @@ export type SlotId =
   | 'artifact' | 'length' | 'audience' | 'tone' | 'structure'
   | 'language' | 'constraints' | 'errors' | 'tests'
   | 'depth' | 'examples' | 'focus' | 'criteria' | 'count'
-  | 'source' | 'target' | 'fields' | 'schema' | 'categories';
+  | 'source' | 'target' | 'fields' | 'schema' | 'categories'
+  | 'defect' | 'preserve' | 'explain_changes';
 
 export interface ScaffoldSlot {
   id: SlotId;
@@ -76,6 +77,20 @@ interface SlotSpec {
 //
 // Values are the ones that actually appear in well-rated prompts for that
 // intent, kept short enough to read in a dropdown.
+
+/**
+ * Whether the prompt already carries the thing to work on. Asking a user to
+ * paste code they have just pasted is the fastest way to make a panel feel
+ * stupid, so this deliberately errs towards "yes, it is here".
+ */
+function hasAttachedMaterial(text: string): boolean {
+  if (text.includes('```')) return true;
+  if (/[{}();]|=>|\bfunction\b|\bdef\b|\bclass\b|\bconst\b|\breturn\b|<\/?\w+>/.test(text)) return true;
+  if (/:\s*\S[\s\S]{20,}/.test(text)) return true;
+  const nl = text.indexOf('\n');
+  if (nl > 0 && (text.slice(nl + 1).match(/\S+/g) ?? []).length >= 8) return true;
+  return false;
+}
 
 /** Nouns that name the thing to produce. */
 const ARTEFACT_NOUN = /\b(articolo|artic[oi]l\w*|email|mail|post|descrizione|elenco|lista|script|saggio|essay|report|relazione|lettera|letter|storia|story|racconto|poesia|poem|slide|presentazione|presentation|riassunto|summary|guida|guide|tutorial|recensione|review|annuncio|caption|titolo|headline|newsletter|comunicato|press release|cv|curriculum|biografia|bio|article|blog post|thread|tweet|landing|copy)\b/i;
@@ -218,7 +233,7 @@ const SLOTS: Record<SlotId, SlotSpec> = {
     why: { it: 'Il modello non vede allegati, link o schermate: il testo va incollato qui.',
            en: 'The model cannot see attachments, links or screenshots — paste the text here.' },
     options: { it: ['(incolla qui il testo)'], en: ['(paste the text here)'] },
-    isFilled: (s) => s.examples || s.context,
+    isFilled: (s, t) => s.examples || s.context || hasAttachedMaterial(t),
   },
   target: {
     id: 'target',
@@ -247,6 +262,33 @@ const SLOTS: Record<SlotId, SlotSpec> = {
                en: ['{ "title": "", "date": "", "value": 0 }', 'one row per record', 'array of objects'] },
     isFilled: (s) => s.examples || s.format,
   },
+  defect: {
+    id: 'defect',
+    label: { it: 'cosa non va', en: 'what is wrong' },
+    why: { it: 'Senza sapere cosa consideri un difetto il modello riscrive a caso: stile, bug e performance sono tre lavori diversi.',
+           en: 'Without knowing what counts as broken the model rewrites at random: style, bugs and performance are three different jobs.' },
+    options: { it: ['il bug che causa l\'errore', 'le performance', 'la leggibilità', 'la sicurezza', 'la gestione degli errori'],
+               en: ['the bug causing the error', 'performance', 'readability', 'security', 'error handling'] },
+    isFilled: (_s, t) => /\b(bug|errore|error|exception|crash|lento|slow|performance|leggibilit[àa]|readability|sicurezza|security|memory leak|non funziona|doesn'?t work|restituisce|returns)\b/i.test(t),
+  },
+  preserve: {
+    id: 'preserve',
+    label: { it: 'cosa non toccare', en: 'what to leave alone' },
+    why: { it: 'Una correzione senza limiti tende a riscrivere tutto, firma inclusa.',
+           en: 'An unbounded fix tends to rewrite everything, signature included.' },
+    options: { it: ['mantieni la firma della funzione', 'non cambiare la logica', 'solo modifiche minime', 'mantieni lo stile esistente'],
+               en: ['keep the function signature', 'do not change the logic', 'minimal changes only', 'keep the existing style'] },
+    isFilled: (_s, t) => /\b(mantieni|mantenendo|preserv\w*|non cambiare|non modificare|senza cambiare|keep|do not change|don'?t change|minimal|solo|only)\b/i.test(t),
+  },
+  explain_changes: {
+    id: 'explain_changes',
+    label: { it: 'spiegazione', en: 'explanation' },
+    why: { it: 'Chiedere il perché di ogni modifica trasforma una patch in qualcosa da cui impari.',
+           en: 'Asking why each change was made turns a patch into something you learn from.' },
+    options: { it: ['spiega ogni modifica', 'solo il codice corretto', 'commenta le righe cambiate'],
+               en: ['explain each change', 'corrected code only', 'comment the changed lines'] },
+    isFilled: (_s, t) => /\b(spiega|spiegando|explain|commenta|comment|perch[ée]|why|motiva)\b/i.test(t),
+  },
   categories: {
     id: 'categories',
     label: { it: 'categorie', en: 'categories' },
@@ -266,7 +308,8 @@ const BY_INTENT: Partial<Record<PromptIntent, SlotId[]>> = {
   explain:       ['depth', 'audience', 'examples', 'length'],
   summarize:     ['source', 'length', 'focus'],
   translate:     ['source', 'target', 'tone'],
-  analyze:       ['source', 'focus', 'artifact', 'depth'],
+  fix:           ['source', 'defect', 'preserve', 'explain_changes'],
+  analyze:       ['source', 'focus', 'depth'],
   brainstorm:    ['count', 'criteria', 'audience'],
   classify:      ['source', 'categories', 'schema'],
   extract:       ['source', 'fields', 'schema'],
@@ -279,7 +322,7 @@ const BY_INTENT: Partial<Record<PromptIntent, SlotId[]>> = {
 
 // ── Subject extraction ─────────────────────────────────────────────────────
 
-const LEADING_VERB = /^\s*\W*(scrivimi|scrivi|creami|crea|generami|genera|fammi|fai|dammi|preparami|prepara|redigi|componi|traducimi|traduci|riassumimi|riassumi|analizzami|analizza|spiegami|spiega|descrivimi|descrivi|elenca|estrai|converti|classifica|write|create|generate|make|give me|draft|prepare|compose|translate|summarise|summarize|analyse|analyze|explain|describe|list|extract|convert|classify)\b\s*/i;
+const LEADING_VERB = /^\s*\W*(scrivimi|scrivi|creami|crea|generami|genera|fammi|fai|dammi|preparami|prepara|redigi|componi|traducimi|traduci|riassumimi|riassumi|analizzami|analizza|spiegami|spiega|descrivimi|descrivi|elenca|estrai|converti|classifica|correggi|correggimi|sistema|sistemami|aggiusta|ripara|risolvi|debugga|refactorizza|rifattorizza|ottimizza|trova|trovami|cerca|cercami|individua|rivedi|rivedimi|revisiona|controlla|verifica|migliora|find|locate|review|check|improve|write|create|generate|make|give me|draft|prepare|compose|translate|summarise|summarize|analyse|analyze|explain|describe|list|extract|convert|classify|fix|debug|refactor|optimise|optimize|repair)\b\s*/i;
 const FILLER_HEAD = /^\s*(per favore|perfavore|potresti|puoi|gentilmente|ti chiedo|vorrei|voglio|mi serve|ho bisogno di|please|could you|can you|kindly|i want|i need|i'?d like)\b[\s,]*/i;
 
 /**
@@ -309,14 +352,14 @@ export function extractSubject(text: string): string {
 const LEAD: Record<Locale, Partial<Record<PromptIntent, string>>> = {
   it: {
     write: 'Scrivi', generate_code: 'Scrivi il codice per', explain: 'Spiega',
-    summarize: 'Riassumi', translate: 'Traduci', analyze: 'Analizza',
+    summarize: 'Riassumi', translate: 'Traduci', analyze: 'Analizza', fix: 'Correggi',
     brainstorm: 'Proponi', classify: 'Classifica', extract: 'Estrai',
     convert: 'Converti', table: 'Metti in tabella', json: 'Restituisci in JSON',
     question: '', other: '',
   },
   en: {
     write: 'Write', generate_code: 'Write the code for', explain: 'Explain',
-    summarize: 'Summarise', translate: 'Translate', analyze: 'Analyse',
+    summarize: 'Summarise', translate: 'Translate', analyze: 'Analyse', fix: 'Fix',
     brainstorm: 'Suggest', classify: 'Classify', extract: 'Extract',
     convert: 'Convert', table: 'Put into a table', json: 'Return as JSON',
     question: '', other: '',
@@ -354,8 +397,21 @@ export function buildScaffold(
   structure: PromptStructure,
   locale: Locale = 'it',
 ): PromptScaffold {
+  // A long prompt has nothing useful to scaffold: the user has already made
+  // the decisions, and echoing 900 words back with three blanks appended is
+  // noise. Found by running this module over its own specification.
+  const wordCount = (text.match(/\S+/g) ?? []).length;
+  if (wordCount > 120) {
+    return { intent, subject: '', slots: [], template: '', filledCount: 0, totalCount: 0 };
+  }
+
   const ids = BY_INTENT[intent] ?? BY_INTENT.other!;
   const subject = extractSubject(text);
+
+  // If the subject still opens with an imperative, the user's own verb is
+  // better than ours — prefixing a lead would read as two verbs in a row
+  // ("Correggi trova il bug in questo script").
+  const subjectLeadsWithVerb = /^\s*\W*(scriv|crea|genera|fai|dammi|prepar|redig|componi|traduc|riassum|analizz|spieg|descriv|elenc|estra|convert|classific|corregg|sistem|aggiust|ripar|risolv|debug|refactor|ottimizz|trov|cerc|individu|rived|revision|controll|verific|migliora|write|create|generate|make|draft|prepare|compose|translate|summari|analy|explain|describe|list|extract|convert|classify|fix|repair|find|locate|review|check|improve)/i.test(subject);
 
   const slots: ScaffoldSlot[] = ids.map((id) => {
     const spec = SLOTS[id];
@@ -383,7 +439,7 @@ export function buildScaffold(
 
   let template = '';
   if (missing.length > 0) {
-    const lead = LEAD[locale][intent] ?? '';
+    const lead = subjectLeadsWithVerb ? '' : (LEAD[locale][intent] ?? '');
     const head: string[] = [];
     const tail: string[] = [];
 

@@ -115,6 +115,8 @@ export function runSpell(text: string, spell: SpellAdapter | undefined, detected
   const re = /[a-zA-Zà-ÿ][a-zA-Zà-ÿ']*[a-zA-Zà-ÿ]|[a-zA-Zà-ÿ]/g;
   let m: RegExpExecArray | null;
   const seen = new Map<string, string[]>();
+  const unknown: Array<{ word: string; index: number }> = [];
+  let checkedCount = 0;
 
   // Exempt regions (code fences + handed-over material) are passed in,
   // computed once in runAllObservations and shared with every other
@@ -145,6 +147,7 @@ export function runSpell(text: string, spell: SpellAdapter | undefined, detected
       (before === '.' && /[a-zA-Zà-ÿ]/.test(beforePrev));         // obj.prop
     if (isPathish) continue;
     if (shouldSkipWord(word)) continue;
+    checkedCount++;
     // Proper-noun heuristic (external-corpus fix): a word with ONLY its first
     // letter capitalized, appearing MID-SENTENCE (not at text start, not
     // after a sentence boundary or newline), is almost certainly a proper
@@ -166,6 +169,36 @@ export function runSpell(text: string, spell: SpellAdapter | undefined, detected
     const correct = spell ? spell.correct(word) : liteIsCorrect(word, fallbackLang);
     if (correct) continue;
 
+    unknown.push({ word, index: m.index });
+  }
+
+  // ── Wrong dictionary, not bad spelling ──────────────────────────────────
+  //
+  // When most of the checked words are unknown, the dictionary is wrong — not
+  // the text. Language detection returns 'en' for "Rendilo migliore" and for
+  // "Confronta i due approcci che ti ho detto", and the English dictionary
+  // then flags every Italian word: both words in the first, four of eight in
+  // the second, including "che" and "detto". Telling an Italian speaker that
+  // correct Italian is misspelled is the most trust-eroding thing an
+  // always-on linter can do.
+  //
+  // It is also where the latency lives. Suggestion generation is an
+  // edit-distance search over the whole dictionary, so a misdetected prompt
+  // pays it once per unknown word: "Rendilo migliore" took 380 ms against a
+  // 0.9 ms median, and the same text with the language forced took 0.7 ms.
+  // Bailing out before the suggestion loop fixes the latency and the false
+  // positives with one test.
+  // The threshold scales with length. On two or three words a single genuine
+  // typo is already half the text ("helo world"), so only a complete miss
+  // counts as evidence of the wrong dictionary; from four words up, half is
+  // enough. "Rendilo migliore" is 2 of 2 and gets suppressed; "helo world" is
+  // 1 of 2 and does not.
+  const ratio = checkedCount > 0 ? unknown.length / checkedCount : 0;
+  const threshold = checkedCount <= 3 ? 1.0 : 0.5;
+  if (checkedCount >= 2 && ratio >= threshold) return results;
+
+  for (const { word, index } of unknown) {
+    const m = { index } as { index: number };
     const lower = word.toLowerCase();
     if (!seen.has(lower)) {
       seen.set(lower, spell ? spell.suggest(lower, 4) : liteGetSuggestions(lower, 4, fallbackLang));

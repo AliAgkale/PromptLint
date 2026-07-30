@@ -198,6 +198,16 @@ export const DICTIONARY_WORDS_IT: readonly string[] = [
   // rule but not by the spell checker itself — two different mechanisms,
   // found not to be in sync via a real test.
   "markdown","json","html","csv","python","javascript","typescript","sql","css","xml","yaml",
+  // ── Trovate dal banco di sonda, non dal corpus ──────────────────────────
+  // Prompt scritti a mano per l'uso reale, non presi da nessun benchmark. Le
+  // regole morfologiche non possono ricavare queste: "riformulare" serve
+  // perché la catena enclitica arrivi a "riformulalo" (riformulalo → -lo →
+  // riformula → riformulare), e le altre sono prestiti tecnici che un
+  // dizionario derivato da sottotitoli non contiene per costruzione.
+  "riformulare","riformula","riformulo","riformulato","riformulazione",
+  "debuggare","debugging","microservizio","microservizi","monolite",
+  "containerizzare","deployare","refactoring","refactorizzare",
+  "scalabilità","observability","idempotente","idempotenza",
   // Common everyday nouns found missing via a real report ("canzone"
   // flagged, no suggestion offered because the target word itself wasn't
   // in the dictionary for the suggestion search to find) — the earlier

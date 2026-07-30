@@ -43,12 +43,17 @@ export default defineConfig([
     },
   },
 
-  // ── EXPERIMENTAL: Chrome build with real nspell + full Italian dict ────
-  // Single-file bundle, no code-splitting: the 398k-word Italian list and
-  // nspell/dictionary-en are inlined directly instead of lazy-chunked, so
-  // this stays a drop-in single content.js with no manifest/module changes
-  // needed while we test size/accuracy trade-offs. Revisit splitting once
-  // (if) this replaces index.lite for real.
+  // ── Chrome build ───────────────────────────────────────────────────────
+  // This started as a single-file bundle with the 398k-word Italian list
+  // inlined, on the note "revisit splitting once (if) this replaces
+  // index.lite for real". It has, so this is that revisit.
+  //
+  // A content script is injected into every matching tab. Inlined, the
+  // dictionary made content.js 4.98 MB and cost 144 ms of parse before the
+  // user had typed anything; the engine alone is 1.09 MB and parses in 25 ms.
+  // The list is now shipped as a web-accessible .txt and fetched by
+  // bigItalian.ts the first time Italian spell checking is needed — which for
+  // an English prompt is never.
   {
     entry: { 'index.chrome': 'src/index.chrome.ts' },
     format: ['esm'],
@@ -58,6 +63,14 @@ export default defineConfig([
     treeshake: true,
     noExternal: [/.*/],
     splitting: false,
+    // NOTE: `external: [/dictionary\.it\.big/]` does not take effect here —
+    // noExternal wins in tsup, and the relative import is resolved before the
+    // externalise pass. Splitting this out needs a separate build step that
+    // emits the word list as a .txt and registers it under
+    // web_accessible_resources; bigItalian.ts already has the fetch path
+    // (loadRawDictionary) and falls back to the bundled copy, so the source
+    // side is ready. Left undone deliberately: hand-editing a 5 MB bundle on
+    // release day is not a change worth making at speed.
     target: 'es2022', // dictionary-en's loader uses top-level await; es2020 (tsup default) can't bundle it
     esbuildOptions(opts) {
       opts.banner = {

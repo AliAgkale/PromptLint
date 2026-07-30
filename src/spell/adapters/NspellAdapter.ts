@@ -37,7 +37,8 @@
 import type { SpellAdapter } from './SpellAdapter.js';
 import type { SupportedLanguage } from '../language.js';
 import { LiteSpellAdapter } from './LiteSpellAdapter.js';
-import { isDomainTerm, domainSuggestions } from '../domain.js';
+import { isDomainTerm, domainSuggestions, filterSuggestions } from '../domain.js';
+import { DICTIONARY_IT } from '../dictionary.it.js';
 import { freqRankEn } from '../freqEn.js';
 import {
   loadBigItalian, isBigItalianReady, correctItBig, suggestItBig,
@@ -136,6 +137,17 @@ export class NspellAdapter implements SpellAdapter {
       // await analyzer.ready() (see index.full.ts / README).
       if (big === null) return true;
       if (big) return true;
+      // The curated lite list, consulted as an ACCEPT-list only.
+      //
+      // The comment above already makes this argument — "a tiny curated list
+      // is a sound accept-list and an unsound reject-list" — and the block
+      // below makes it again for productive morphology. The list itself was
+      // still unreachable: once the big dictionary loads it answers false and
+      // nothing downstream consults DICTIONARY_IT, so every word added to it
+      // after a real report ("del", "canzone", "markdown", the tech loanwords)
+      // had no effect in the full and chrome builds. Only the lite build,
+      // which routes through isCorrect(), ever saw them.
+      if (DICTIONARY_IT.has(word.toLowerCase())) return true;
       // Productive Italian morphology: -izzare (ottimizzare, tipizzare,
       // refactorizzare) and -abile/-ibile (testabile, configurabile,
       // leggibile) coinages the big dictionary doesn't enumerate. Checked
@@ -160,7 +172,42 @@ export class NspellAdapter implements SpellAdapter {
     return this._spellEn.correct(word);
   }
 
+  /**
+   * Longest word worth searching corrections for, and the memoisation of the
+   * search itself. Both were present in NspellBrowserAdapter and absent here,
+   * so the two adapters had the same interface and a different cost model:
+   * the extension paid for an unknown token once, the full build paid on every
+   * analysis. Measured across the three benchmark corpora, three passes each:
+   *
+   *              p50     p95      p99      max
+   *   chrome    0.67    4.35     58.2    1014 ms
+   *   full      0.89   46.53    191.2    1198 ms
+   *
+   * Length does not explain the tail — "Rendilo migliore" is two words and
+   * took 290 ms, because "Rendilo" is a clitic form the dictionary does not
+   * hold and nspell then walks the affixed dictionary looking for it. The cost
+   * is per unknown token, not per character, which is why caching it works and
+   * why the extension was already fast.
+   *
+   * Copied rather than shared: the two adapters differ in how they hold their
+   * dictionaries, and factoring the cache out into a common base would couple
+   * them for the sake of thirty lines. If a third adapter appears, that is the
+   * moment to extract it.
+   */
+  private static readonly MAX_SUGGESTABLE = 24;
+  private _suggestCache = new Map<string, string[]>();
+
+  /** Bounded so a long-lived process cannot grow it without limit. */
+  private _cacheSuggest(key: string, value: string[]): void {
+    if (this._suggestCache.size > 2000) this._suggestCache.clear();
+    this._suggestCache.set(key, value);
+  }
+
   suggest(word: string, max = 5): string[] {
+    if (word.length > NspellAdapter.MAX_SUGGESTABLE) return [];
+    const cacheKey = `${this._activeLang}:${word.toLowerCase()}:${max}`;
+    const cached = this._suggestCache.get(cacheKey);
+    if (cached !== undefined) return cached;
     // Domain-aware suggestions first: a typo of a domain term ("embeddigs",
     // "kubernets") can only be fixed from the domain list, since nspell / the
     // Italian dictionary don't contain the term at all. Merge them ahead of the
@@ -175,12 +222,18 @@ export class NspellAdapter implements SpellAdapter {
         seen.add(k); out.push(w);
         if (out.length >= max) break;
       }
-      return out;
+      // Applied here rather than at each call site: take() is the single point
+      // every suggestion passes through in both adapters.
+      return filterSuggestions(out);
     };
     if (this._activeLang === 'it') {
       const big = suggestItBig(word, max);
-      return take(big !== null ? big : this._liteFallback.suggest(word, max));
+      const outIt = take(big !== null ? big : this._liteFallback.suggest(word, max));
+      this._cacheSuggest(cacheKey, outIt);
+      return outIt;
     }
+    // Not cached: nspell is still constructing, so the empty result is a
+    // transient state rather than an answer about this word.
     if (!this._spellEn) return take([]);
     // nspell orders by its own Hunspell heuristic, which isn't frequency-aware:
     // it can surface a rare word above the common one the user obviously meant.
@@ -192,7 +245,9 @@ export class NspellAdapter implements SpellAdapter {
       .map((w, i) => ({ w, i, f: freqRankEn(w) }))
       .sort((a, b) => (a.f - b.f) || (a.i - b.i))
       .map(x => x.w);
-    return take(ranked);
+    const outEn = take(ranked);
+    this._cacheSuggest(cacheKey, outEn);
+    return outEn;
   }
 
   // ── Personal dictionary (Italian) ──

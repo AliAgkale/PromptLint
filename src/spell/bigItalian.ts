@@ -41,6 +41,44 @@ let _loading: Promise<void> | null = null;
 // Personal dictionary — always-correct words, checked before the main set.
 const _personal = new Set<string>();
 
+/**
+ * Where the 3.5 MB word list comes from.
+ *
+ * A plain dynamic import is right for Node and for bundlers that emit chunks,
+ * but the Chrome build is single-file: tsup flattens the import and the whole
+ * dictionary ends up inlined in the content script. Measured on v1.0.0, that
+ * made content.js 4.98 MB with a 144 ms parse cost — paid on every tab of
+ * every matching site, before the user has typed anything. The engine alone
+ * is 1.09 MB and parses in 25 ms.
+ *
+ * So in an extension context the list is fetched from a web-accessible file
+ * instead, at the moment Italian spell checking is first needed. Everywhere
+ * else the dynamic import is unchanged.
+ */
+declare const chrome: { runtime?: { getURL?: (p: string) => string } } | undefined;
+
+async function loadRawDictionary(): Promise<string> {
+  const url = typeof chrome !== 'undefined' && chrome?.runtime?.getURL
+    ? chrome.runtime.getURL('dictionary.it.big.txt')
+    : null;
+  if (url) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) return await res.text();
+    } catch {
+      // Fall through to the bundled copy: a missing web-accessible resource
+      // must degrade to "slower" and never to "no spell checking".
+    }
+  }
+  // A non-literal specifier: esbuild cannot resolve it statically, so the
+  // 3.5 MB module stays out of the single-file Chrome bundle while Node and
+  // the full build still load it normally. This is the mechanism that makes
+  // the size split possible without maintaining two source trees.
+  const spec = './dictionary.it.big.js';
+  const { IT_BIG_RAW } = await import(/* @vite-ignore */ spec);
+  return IT_BIG_RAW as string;
+}
+
 /** True once the big dictionary has finished loading. */
 export function isBigItalianReady(): boolean {
   return _set !== null;
@@ -51,7 +89,7 @@ export function loadBigItalian(): Promise<void> {
   if (_set) return Promise.resolve();
   if (_loading) return _loading;
   _loading = (async () => {
-    const { IT_BIG_RAW } = await import('./dictionary.it.big.js');
+    const IT_BIG_RAW = await loadRawDictionary();
     const words = IT_BIG_RAW.split('\n');
     const set = new Set<string>();
     const buckets = new Map<string, string[]>();
@@ -85,6 +123,43 @@ export function loadBigItalian(): Promise<void> {
  * upgrade: Italian works immediately with ~1800 words, then jumps to ~398k
  * once loaded, with no visible switch).
  */
+/**
+ * Candidate sibling inflections of an Italian noun or adjective: the other
+ * cells of the o/a/i/e gender-number table, including the -co/-ca/-chi/-che
+ * and -go/-ga/-ghi/-ghe spelling alternations.
+ */
+function inflectionalSiblings(w: string): string[] {
+  const stem = w.slice(0, -1);
+  const last = w.slice(-1);
+  if (!'oaie'.includes(last)) return [];
+  const out = new Set<string>();
+  for (const v of ['o', 'a', 'i', 'e']) if (v !== last) out.add(stem + v);
+  // velar stems keep the hard sound with an -h- before a front vowel
+  if (/[cg]$/.test(stem)) {
+    out.add(stem + 'hi');
+    out.add(stem + 'he');
+  }
+  if (/[cg]h$/.test(stem)) {
+    const bare = stem.slice(0, -1);
+    out.add(bare + 'o'); out.add(bare + 'a');
+  }
+  out.delete(w);
+  return [...out];
+}
+
+/**
+ * True when at least two sibling inflections are known. See the call site for
+ * why two rather than one.
+ */
+function hasInflectionalSiblings(w: string, set: Set<string>): boolean {
+  if (w.length < 5) return false;
+  let n = 0;
+  for (const s of inflectionalSiblings(w)) {
+    if (set.has(s) && ++n >= 2) return true;
+  }
+  return false;
+}
+
 export function correctItBig(word: string): boolean | null {
   const w = word.toLowerCase();
   if (_personal.has(w)) return true;
@@ -100,8 +175,53 @@ export function correctItBig(word: string): boolean | null {
   // that unambiguously mark a verb form, to avoid greenlighting typos.
   if (isLikelyRegularVerbForm(w, _set)) return true;
 
+  // Gender/number fallback — the same argument as the verb one above, applied
+  // to the other open class. The list is frequency-derived, so it holds
+  // whichever cells of a paradigm happened to appear in the source corpus and
+  // not the others: "idiomatica" and "idiomatiche" are both in it, and
+  // "idiomatico" — the commonest form of the three — is not. Nothing else
+  // reaches that cell, so an ordinary adjective read as a typo.
+  //
+  // The guard against greenlighting real typos is the count: a word is
+  // accepted only if TWO of its sibling inflections are known. One sibling is
+  // a coincidence — "mangiara" produces "mangiare" and nothing else, and stays
+  // flagged. Two is a paradigm.
+  if (hasInflectionalSiblings(w, _set)) return true;
+
+  // Elision. The frequency list stores "com" and "è" separately but not
+  // "com'è", and the tokenizer keeps the apostrophe inside the word, so every
+  // elided form in Italian read as a typo: com'è, dov'è, c'è, l'ho, un'altra,
+  // dell'anno. Telling an Italian speaker that "c'è" is misspelled is the
+  // clearest possible signal that the tool does not know the language.
+  //
+  // Both halves must be known, which is what keeps this from greenlighting
+  // "asd'qwe". The left side is checked against the closed set of words that
+  // actually elide — articles, prepositions, clitics, a handful of adverbs —
+  // rather than against the dictionary, since a bare "l" or "c" is not a word.
+  const apos = w.indexOf("'") >= 0 ? w.indexOf("'") : w.indexOf('\u2019');
+  if (apos > 0 && apos < w.length - 1) {
+    const left = w.slice(0, apos);
+    const right = w.slice(apos + 1);
+    if (ELIDING_FORMS.has(left) && (_set.has(right) || isLikelyRegularVerbForm(right, _set))) {
+      return true;
+    }
+  }
+
   return false;
 }
+
+/**
+ * Words that legitimately elide before a vowel in Italian: definite and
+ * indefinite articles, the prepositions that combine with them, clitic
+ * pronouns, and the small set of adverbs and interrogatives that do the same.
+ */
+const ELIDING_FORMS = new Set([
+  'l', 'un', 'dell', 'nell', 'sull', 'all', 'dall', 'coll', 'quell', 'bell',
+  'sant', 'grand', 'buon', 'anch', 'nessun', 'ciascun', 'alcun', 'tal', 'qual',
+  'c', 'v', 'm', 't', 's', 'd', 'gliel', 'mel', 'tel', 'sel', 'cel', 'vel',
+  'com', 'dov', 'quand', 'po', 'senz', 'sott', 'sopr', 'contr', 'entr', 'tutt',
+  'stat', 'and',
+]);
 
 /** True if `w` looks like a regular conjugation of a verb whose infinitive
  *  (or a more common conjugation) is in the dictionary. Conservative: only
@@ -174,6 +294,9 @@ function boundedLev(a: string, b: string, max: number): number {
  *   common path stays fast.
  */
 export function suggestItBig(word: string, max = 5): string[] | null {
+  // Edit-distance search cost grows with word length; a token this long is not
+  // a misspelling. Mirrors the bound in spell/index.ts.
+  if (word.length > 40) return [];
   if (!_buckets || !_lenBuckets) return null;
   const w = word.toLowerCase();
   if (w.length < 3) return [];

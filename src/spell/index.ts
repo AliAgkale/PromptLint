@@ -194,6 +194,22 @@ const SUFFIX_RULES_IT: SR[] = [
   // dictionary, so it can't create false negatives on non-words.
   [/i$/, 'o'], [/i$/, 'e'], [/e$/, 'a'], [/he$/, 'ca'], [/he$/, 'ga'],
   [/ci$/, 'co'], [/gi$/, 'go'],
+  // Masculine singular had no rule at all. Every other cell of the gender/
+  // number table could be derived — plural to singular, -e to -a — but
+  // nothing produced the feminine from the masculine, so an adjective whose
+  // other three forms were in the dictionary was still flagged in its most
+  // common form. Found on "idiomatico": the suggestion list offered
+  // "idiomatica" and "idiomatiche", which is the dictionary saying it knows
+  // the word and cannot reach this cell of it.
+  //
+  // Same shape as the documented -i→-e gap above, and the same safety
+  // argument: these only generate a candidate that is then checked against
+  // the dictionary. The cost is that a wrong-gender form of a word that only
+  // exists in the feminine ("problemo" → "problema") now passes. That is a
+  // real false negative, accepted knowingly: this checker's stated position
+  // is that flagging a correct word is worse than missing an incorrect one,
+  // and the words reached here are ordinary vocabulary in its commonest form.
+  [/o$/, 'a'], [/co$/, 'ca'], [/go$/, 'ga'],
   // Adverbs -mente → adjective
   [/mente$/, ''], [/mente$/, 'e'],
   // Bare 3rd-person-singular present tense ("aiuta" -> "aiutare", "vede" is
@@ -442,8 +458,27 @@ export function isCorrectAnyLanguage(word: string): boolean {
   return isCorrect(word, 'en') || isCorrect(word, 'it');
 }
 
+/**
+ * Longest word we will look for corrections for.
+ *
+ * Suggestion search runs Damerau-Levenshtein against every dictionary entry in
+ * a ±3 length window, and that distance is O(n·m) in the two word lengths. For
+ * a normal word the window excludes almost the whole dictionary and the search
+ * is cheap; for a 300-character token nothing is excluded by length and each
+ * comparison is 300 cells wide. Measured: a single 50-character word took
+ * 1.3 s, 300 characters took 6.4 s, and 1500 exhausted the heap and killed the
+ * process — while the same character count split into ordinary words took
+ * 124 ms.
+ *
+ * No real word is this long, so there is nothing to suggest anyway: a token
+ * over the bound is a URL, a base64 blob, a hash, or a paste accident. Found
+ * by adversarial input testing, not by the corpus.
+ */
+const MAX_SUGGESTABLE_LENGTH = 40;
+
 export function getSuggestions(word: string, max = 5, lang: SupportedLanguage = 'en'): string[] {
   const lower = word.toLowerCase();
+  if (lower.length > MAX_SUGGESTABLE_LENGTH) return [];
   if (isCorrect(lower, lang)) return [];
 
   const dict = getDictionary(lang);

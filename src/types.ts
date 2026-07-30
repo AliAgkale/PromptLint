@@ -169,6 +169,7 @@ export type PromptIntent =
   | 'convert'        // "converti…", "convert…", "trasforma…"
   | 'table'          // asks specifically for tabular output
   | 'json'           // asks specifically for JSON output
+  | 'fix'            // "correggi…", "debug…", "trova il bug…", "refactor…"
   | 'explain'        // "spiega…", "explain…", "describe…"
   | 'write'          // generic creative/generative writing
   | 'question'       // a direct question, not an imperative task

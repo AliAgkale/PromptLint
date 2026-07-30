@@ -20,6 +20,7 @@ import { EMPTY_STRUCTURE } from './types.js';
 import { detectIntent } from './analyzers/intent.js';
 import { buildScaffold } from './scaffold/index.js';
 import { analyzeTokens } from './tokenizer/index.js';
+import { normaliseForAnalysis } from './analyzers/input-guard.js';
 import { estimateCosts, DEFAULT_PRICES } from './tokenizer/costs.js';
 import { runAllObservations, makeLangState, resolveConversational, resolveEnrichment, resolveLanguageForAnalysis, type LangState } from './analyzers/observations.js';
 import { buildPromptModel } from './slots/model.js';
@@ -79,6 +80,15 @@ function buildResult(
     };
   }
 
+  // Developers paste logs. A single token thousands of characters long — a
+  // base64 blob, a minified bundle, a URL with a huge query string — used to
+  // exhaust the heap inside spell checking and take the tab with it. The
+  // analysers read a normalised copy in which such tokens are blanked to
+  // same-length filler; `text` itself is untouched, so offsets and everything
+  // the caller sees are unchanged.
+  const guard = normaliseForAnalysis(text);
+  const analysisText = guard.text;
+
   // Token count — uses tiktoken if ready, else heuristic
   const tokenCount = tokenizer.count(text);
 
@@ -92,15 +102,15 @@ function buildResult(
   // and scoring could silently judge the same prompt in two different
   // languages. Resolving once and threading the result through both closes
   // that gap structurally instead of hoping the two detectors agree.
-  const detectedLang = resolveLanguageForAnalysis(text, langState, language);
-  const promptModel = buildPromptModel(text, detectedLang);
+  const detectedLang = resolveLanguageForAnalysis(analysisText, langState, language);
+  const promptModel = buildPromptModel(analysisText, detectedLang);
 
   // Run observations — inject spell adapter, and the pre-resolved language +
   // model so it doesn't redo either.
   // See index.ts for why this matches costs[0] instead of a hardcoded rate.
   const cheapestInputRate = Math.min(...modelPrices.map(m => m.inputPer1M));
   let observations = runAllObservations(
-    text, disabledRules, spell, cheapestInputRate, langState, language, conversationTurn,
+    analysisText, disabledRules, spell, cheapestInputRate, langState, language, conversationTurn,
     { detected: detectedLang, model: promptModel }, uiLocale,
   );
 
@@ -123,7 +133,7 @@ function buildResult(
     ...observations,
     ...capsToObservations(
       (score.breakdown ?? []).filter((b) => b.kind === 'cap').map((b) => b.label),
-      text, uiLocale, observations, conversational,
+      text, uiLocale, observations, conversational, score.total, conversationTurn,
     ),
   ], text, score.total);
   const costs = estimateCosts(tokenCount, outputRatio, modelPrices);
@@ -140,7 +150,7 @@ function buildResult(
   // — a second, non-sticky detection here could disagree with the first on
   // ambiguous text, checking observations against one dictionary and
   // autocorrect against the other within the same analysis.
-  const autocorrect = includeAutocorrect ? getAutocorrectSuggestions(text, spell, langState.lastLang) : [];
+  const autocorrect = includeAutocorrect ? getAutocorrectSuggestions(analysisText, spell, langState.lastLang) : [];
   const potentialSavings = observations.reduce((n, o) => n + o.impact.tokensSaved, 0);
 
   const byLine = new Map<number, typeof observations>();

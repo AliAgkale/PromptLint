@@ -52,6 +52,8 @@ export interface TaskSlot {
     | 'nominal-request'      // "ho bisogno di…", "mi serve…", "vorrei…"
     | 'elliptical'           // "sinonimo di…", "traduzione di…", "correggi:"
     | 'enclitic-imperative'  // verb + attached pronoun ("sistemalo")
+    | 'modal-request'        // "puoi tradurre…", "could you translate…" (no "?")
+    | 'deontic-passive'      // "il paragrafo va tradotto", "this should be rewritten"
     | 'none';
   /** 0–1 confidence. The rule layer treats <0.5 as "no reliable task". */
   confidence: number;
@@ -283,6 +285,65 @@ export function extractTask(text: string, lang: SupportedLanguage): TaskSlot {
       }
     }
     return { verb: null, object: null, source: 'question', confidence: 0.95 };
+  }
+
+  // 1b) Modal or deontic request WITHOUT a question mark.
+  //
+  // Rule 1 above already knows that "puoi scrivermi un riassunto?" is a command
+  // in disguise, but the whole block is gated on the question mark. People do
+  // not reliably type one, and the same sentence without it fell all the way
+  // through the ladder to confidence 0:
+  //
+  //   "Puoi tradurre in francese il paragrafo qui sotto?"   0.95  →  83
+  //   "Puoi tradurre in francese il paragrafo qui sotto."   0.00  →  23
+  //
+  // Sixty points for a missing "?". The same hole swallowed every passive and
+  // deontic phrasing — "Il paragrafo qui sotto va tradotto in francese.",
+  // "Questo testo andrebbe riassunto in 100 parole.", "Ho bisogno che tu
+  // traduca…" — which between them are a large share of how people actually
+  // write a request, and which this tool was then telling them had no task
+  // at all.
+  //
+  // Confidence 0.8: as unambiguous a request as an imperative, one notch below
+  // because the verb is recovered from a construction rather than read off the
+  // lead position.
+  const MODAL_REQUEST_IT =
+    /^(?:puoi|potresti|riesci\s+a|sapresti|sai|vuoi|ti\s+va\s+di|ti\s+chiedo\s+di|ti\s+chiederei\s+di|mi\s+serve\s+che\s+tu|ho\s+bisogno\s+che\s+tu|avrei\s+bisogno\s+che\s+tu|vorrei\s+che\s+tu|mi\s+piacerebbe\s+che\s+tu)\s+/i;
+  const MODAL_REQUEST_EN =
+    /^(?:can|could|would|will)\s+you\s+|^(?:i\s+need\s+you\s+to|i'?d\s+like\s+you\s+to|i\s+want\s+you\s+to|i'?d\s+appreciate\s+it\s+if\s+you)\s+/i;
+  // Matched against the RAW text, not `lead`: stripLeadingNoise removes
+  // "puoi"/"potresti"/"could you" as politeness, so by the time we reach `lead`
+  // the modal that identifies the construction is already gone.
+  const rawTrimmed = raw.trim();
+  const modalMatch = rawTrimmed.match(MODAL_REQUEST_IT) ?? rawTrimmed.match(MODAL_REQUEST_EN);
+  if (modalMatch) {
+    const rest = rawTrimmed.slice(modalMatch[0].length).trim();
+    const rw = firstWord(rest);
+    if (rw) {
+      return {
+        verb: stripEnclitic(rw),
+        object: objectAfter(rest, rw),
+        source: 'modal-request',
+        confidence: 0.8,
+      };
+    }
+  }
+
+  // Deontic passive: the thing to act on is the subject and the operation is a
+  // past participle. "Il paragrafo va tradotto", "this should be rewritten".
+  const DEONTIC_PASSIVE_IT =
+    /\b(?:va|vanno|andrebbe|andrebbero|dev[eo]\s+essere|devono\s+essere|dovrebbe\s+essere|dovrebbero\s+essere)\s+([a-zà-ù]{3,}(?:t[oaie]|s[oaie]))\b/i;
+  const DEONTIC_PASSIVE_EN =
+    /\b(?:should|needs?\s+to|has\s+to|have\s+to|must)\s+be\s+([a-z]{3,}(?:ed|en))\b/i;
+  const deontic = raw.match(DEONTIC_PASSIVE_IT) ?? raw.match(DEONTIC_PASSIVE_EN);
+  if (deontic) {
+    return {
+      verb: deontic[1].toLowerCase(),
+      // The subject sits before the construction and is what gets acted on.
+      object: raw.slice(0, deontic.index ?? 0).trim() || null,
+      source: 'deontic-passive',
+      confidence: 0.8,
+    };
   }
 
   // 2) Imperative at the lead (after strippable prefixes).

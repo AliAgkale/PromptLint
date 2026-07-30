@@ -18,7 +18,7 @@ import { createAnalyzer } from '../src/index.full.js';
 const a = createAnalyzer();
 await a.ready();
 
-const band = (s) => (s >= 62 ? 'good' : s >= 42 ? 'medium' : 'bad');
+const band = (s) => (s >= 66 ? "good" : s >= 45 ? "medium" : "bad");
 const IDX = { bad: 0, medium: 1, good: 2 };
 
 function load(path, key) {

@@ -1,0 +1,80 @@
+{"id":"g081","band":"cattivo","turn":"first","fam":"vuoto","text":"Fai una cosa.","why":"nessun oggetto, nessun compito riconoscibile"}
+{"id":"g082","band":"cattivo","turn":"first","fam":"vuoto","text":"Scrivimi qualcosa.","why":"il verbo c'è, l'oggetto è un segnaposto"}
+{"id":"g083","band":"cattivo","turn":"first","fam":"vuoto","text":"Fai una cosa bella.","why":"segnaposto più aggettivo valutativo"}
+{"id":"g084","band":"cattivo","turn":"first","fam":"vuoto","text":"Aiutami.","why":"nessuna richiesta"}
+{"id":"g085","band":"cattivo","turn":"first","fam":"vuoto","text":"Aiutami con il progetto.","why":"il progetto non è identificato né descritto"}
+{"id":"g086","band":"cattivo","turn":"first","fam":"vuoto","text":"Puoi fare una cosa?","why":"offerta senza contenuto"}
+{"id":"g087","band":"cattivo","turn":"first","fam":"vuoto","text":"Decidi tu cosa fare.","why":"delega totale senza dominio"}
+{"id":"g088","band":"cattivo","turn":"first","fam":"vuoto","text":"Write exactly what I want.","why":"il contenuto voluto non è espresso"}
+{"id":"g089","band":"cattivo","turn":"first","fam":"vuoto","text":"Dammi qualcosa di utile.","why":"segnaposto con aggettivo, nessun dominio"}
+{"id":"g090","band":"cattivo","turn":"first","fam":"cortesia","text":"Scusa il disturbo, ma potresti aiutarmi con una cosa?","why":"cortesia integrale, nessuna richiesta dietro"}
+{"id":"g091","band":"cattivo","turn":"first","fam":"cortesia","text":"Scusami tanto, non voglio disturbarti, ma potresti magari aiutarmi con una cosa?","why":"come sopra, più lunga"}
+{"id":"g092","band":"cattivo","turn":"first","fam":"cortesia","text":"Spero di non darti fastidio, ho bisogno di un consiglio.","why":"il consiglio non ha oggetto"}
+{"id":"g093","band":"cattivo","turn":"first","fam":"cortesia","text":"Buongiorno! Grazie mille per l'aiuto che mi darai!","why":"nessuna richiesta"}
+{"id":"g094","band":"cattivo","turn":"first","fam":"riferimento","text":"Sistema il file che ti ho mandato.","why":"regola 6: materiale citato assente"}
+{"id":"g095","band":"cattivo","turn":"first","fam":"riferimento","text":"Correggi gli errori che avevo nel testo.","why":"regola 6: nessun testo"}
+{"id":"g096","band":"cattivo","turn":"first","fam":"riferimento","text":"Scrivi il codice per fare questo.","why":"anafora senza antecedente"}
+{"id":"g097","band":"cattivo","turn":"first","fam":"riferimento","text":"Riassumi questo.","why":"dimostrativo senza materiale"}
+{"id":"g098","band":"cattivo","turn":"first","fam":"riferimento","text":"Questo è il testo che avevo mandato ieri. Puoi darmi un feedback?","why":"il testo non è nel prompt"}
+{"id":"g099","band":"cattivo","turn":"first","fam":"memoria","text":"Come si usa quello strumento che mi hai consigliato la settimana scorsa?","why":"presuppone memoria fra sessioni"}
+{"id":"g100","band":"cattivo","turn":"first","fam":"memoria","text":"Hai dimenticato quello che ti avevo detto.","why":"presuppone memoria, nessuna richiesta"}
+{"id":"g101","band":"cattivo","turn":"first","fam":"memoria","text":"Nella nostra conversazione precedente mi avevi consigliato di usare React. Ora dimmi il resto.","why":"il contenuto precedente non è disponibile"}
+{"id":"g102","band":"cattivo","turn":"first","fam":"eseguibilita","text":"Riscrivi la copy della landing su https://www.acme.com per aumentare le conversioni. Focus su: chiarezza del titolo, proposta di valore, forza della CTA.","why":"regola 4: scritto benissimo, il modello non apre URL"}
+{"id":"g103","band":"cattivo","turn":"first","fam":"eseguibilita","text":"Questa è la schermata del mio sito. Cosa cambieresti nel design?","why":"regola 4: nessuna immagine allegata"}
+{"id":"g104","band":"cattivo","turn":"first","fam":"eseguibilita","text":"Leggi il PDF allegato e riassumilo in una pagina.","why":"regola 4: nessun allegato"}
+{"id":"g105","band":"cattivo","turn":"first","fam":"contraddizione","text":"Traduci questo documento legale in italiano semplice che capisca un bambino di 10 anni, mantenendo piena validità legale e tutti i termini tecnici invariati.","why":"vincoli che si escludono, e nessun documento"}
+{"id":"g106","band":"cattivo","turn":"first","fam":"contraddizione","text":"Write a novel in a tweet.","why":"budget impossibile per il deliverable"}
+{"id":"g107","band":"cattivo","turn":"first","fam":"contraddizione","text":"Rispondi solo con emoji. Spiega la Rivoluzione Francese in dettaglio.","why":"formato e profondità incompatibili"}
+{"id":"g108","band":"cattivo","turn":"first","fam":"contraddizione","text":"Riassumi questo report di 50 pagine in una frase di massimo 8 parole conservando tutti i dati statistici e le sfumature.","why":"budget impossibile, materiale assente"}
+{"id":"g109","band":"cattivo","turn":"first","fam":"ruolo","text":"Sei un esperto. Cosa faresti?","why":"persona specificata, lavoro no"}
+{"id":"g110","band":"cattivo","turn":"first","fam":"ruolo","text":"Sei un genio del marketing di livello mondiale con 30 anni di esperienza. Cosa ne pensi?","why":"ruolo elaborato, oggetto assente"}
+{"id":"g111","band":"cattivo","turn":"first","fam":"ruolo","text":"Sei un esperto di marketing con 20 anni di esperienza nelle aziende Fortune 500, specializzato in growth. Cosa pensi del mio progetto?","why":"il progetto non è mai descritto"}
+{"id":"g112","band":"cattivo","turn":"first","fam":"ruolo","text":"You are a world-class data scientist with expertise in NLP, computer vision, and reinforcement learning. What do you think I should focus on?","why":"nessun contesto su cui basare la raccomandazione"}
+{"id":"g113","band":"cattivo","turn":"first","fam":"ruolo","text":"Sei un assistente AI. Rispondi sempre in italiano.","why":"configurazione senza compito"}
+{"id":"g114","band":"cattivo","turn":"first","fam":"consulenza","text":"We need to grow 10x in 12 months. What should we do?","why":"nessun dato su azienda, mercato o risorse"}
+{"id":"g115","band":"cattivo","turn":"first","fam":"consulenza","text":"Our churn rate is too high. What should we do?","why":"nessun numero, prodotto o segmento"}
+{"id":"g116","band":"cattivo","turn":"first","fam":"consulenza","text":"Cosa faresti tu se fossi al posto mio?","why":"la situazione non è descritta"}
+{"id":"g117","band":"cattivo","turn":"first","fam":"consulenza","text":"Voglio che il mio sito abbia più traffico.","why":"desiderio senza sito, metrica o vincoli"}
+{"id":"g118","band":"cattivo","turn":"first","fam":"consulenza","text":"URGENT: Our website is down. Fix it now.","why":"nessun accesso, log o descrizione del guasto"}
+{"id":"g119","band":"cattivo","turn":"first","fam":"urgenza","text":"AIUTAMI CON QUESTO COMPITO URGENTEMENTE!!!! È IMPORTANTISSIMO!!!","why":"solo urgenza, nessun compito"}
+{"id":"g120","band":"cattivo","turn":"first","fam":"illimitato","text":"Scrivi un haiku su ogni argomento possibile nell'universo.","why":"insieme non enumerabile"}
+{"id":"g121","band":"cattivo","turn":"first","fam":"illimitato","text":"Scrivimi tutto il codice per la mia app.","why":"nessuna app descritta, ambito illimitato"}
+{"id":"g122","band":"cattivo","turn":"first","fam":"illimitato","text":"Dimmi tutto quello che sai sulla fisica.","why":"quantificatore illimitato senza taglio"}
+{"id":"g123","band":"cattivo","turn":"first","fam":"illimitato","text":"Do all of these things: 1) Fix my website, 2) Write my book, 3) Manage my social media for a year.","why":"lavori indipendenti, nessuno eseguibile"}
+{"id":"g124","band":"cattivo","turn":"first","fam":"retorica","text":"Non è forse vero che il futuro dell'AI è nelle mani di chi sa usarla?","why":"domanda retorica, nessuna richiesta"}
+{"id":"g125","band":"cattivo","turn":"first","fam":"retorica","text":"Non è che non vuoi aiutarmi, vero? Allora scrivimi un articolo.","why":"articolo senza argomento"}
+{"id":"g126","band":"cattivo","turn":"first","fam":"retorica","text":"Sei sicuro di quello che hai detto? Dimmi la verità.","why":"in prima battuta non c'è nulla a cui riferirsi"}
+{"id":"g127","band":"cattivo","turn":"first","fam":"tautologia","text":"Qual è la differenza tra una buona domanda e una domanda giusta?","why":"i termini non sono definiti, la domanda gira su sé stessa"}
+{"id":"g128","band":"cattivo","turn":"first","fam":"vuoto","text":"Describe the visual appearance of how it looks visually to the human eye.","why":"ridondanza pura, nessun oggetto"}
+{"id":"g129","band":"cattivo","turn":"first","fam":"vuoto","text":"Crea contenuto e materiale creativo e originale per un post.","why":"catena di sinonimi, nessuna specifica"}
+{"id":"g130","band":"cattivo","turn":"first","fam":"vuoto","text":"Ottimizza.","why":"verbo isolato"}
+{"id":"g131","band":"cattivo","turn":"followup","fam":"followup","text":"Fallo meglio.","why":"regola 2: ambiguo anche in contesto, nessun criterio"}
+{"id":"g132","band":"cattivo","turn":"followup","fam":"followup","text":"Non mi piace. Rifallo.","why":"rifiuto senza direzione"}
+{"id":"g133","band":"cattivo","turn":"followup","fam":"followup","text":"Non va bene. Riprova totalmente diverso.","why":"\"diverso\" non è una direzione"}
+{"id":"g134","band":"cattivo","turn":"followup","fam":"followup","text":"Rifai tutto ma stavolta pensa fuori dagli schemi.","why":"nessun criterio verificabile"}
+{"id":"g135","band":"cattivo","turn":"followup","fam":"followup","text":"Qualcosa non va. Sistemalo.","why":"non dice cosa non va"}
+{"id":"g136","band":"cattivo","turn":"followup","fam":"followup","text":"Scrivi la stessa cosa in modo diverso.","why":"nessuna dimensione lungo cui variare"}
+{"id":"g137","band":"medio","turn":"first","fam":"aperta","text":"Quale framework JavaScript devo usare per il mio progetto?","why":"domanda chiara, progetto non descritto: taglio da indovinare"}
+{"id":"g138","band":"medio","turn":"first","fam":"aperta","text":"Meglio affittare o comprare casa?","why":"regola 1: domanda comune e ben posta, contesto assente"}
+{"id":"g139","band":"medio","turn":"first","fam":"aperta","text":"Perché il cielo è blu?","why":"risposta nota, profondità da scegliere"}
+{"id":"g140","band":"buono","turn":"first","fam":"struttura","text":"Analizza questa recensione e restituisci: 1) sentiment (positivo/neutro/negativo), 2) tre temi principali, 3) una frase di risposta.\n\n\"Prodotto arrivato rotto, assistenza inesistente. Mai più.\"","why":"output strutturato ed enumerato, materiale presente"}
+{"id":"g141","band":"buono","turn":"first","fam":"struttura","text":"Rispondi a questa recensione da 1 stella in modo professionale, sotto le 80 parole, senza offrire rimborsi:\n\n\"Prodotto arrivato rotto, assistenza inesistente. Mai più.\"","why":"materiale, registro, lunghezza e vincolo"}
+{"id":"g142","band":"buono","turn":"first","fam":"struttura","text":"Crea una tabella markdown che confronti Postgres, MySQL e SQLite su: licenza, concorrenza in scrittura, supporto JSON.","why":"formato, elementi e colonne dati"}
+{"id":"g143","band":"buono","turn":"first","fam":"lunga","text":"Sto preparando un workshop di 3 ore su Git per sviluppatori junior che usano solo la GUI. Scrivimi la scaletta con: durata di ogni blocco, un esercizio pratico per blocco, e i tre errori più comuni da mostrare dal vivo.","why":"contesto, pubblico, durata e struttura richiesta"}
+{"id":"g144","band":"buono","turn":"first","fam":"lunga","text":"Ho una API REST in Node che risponde in 800ms sulla rotta /orders. Il DB è Postgres, la query fa tre join e ritorna 200 righe. Elencami in ordine di impatto le cinque cose da verificare per prima.","why":"contesto tecnico completo e formato di risposta"}
+{"id":"g145","band":"medio","turn":"first","fam":"lunga","text":"Sto preparando un workshop su Git. Scrivimi la scaletta.","why":"stesso compito di g143 senza durata né pubblico"}
+{"id":"g146","band":"cattivo","turn":"first","fam":"lingua","text":"Do a thing.","why":"equivalente inglese di g081"}
+{"id":"g147","band":"cattivo","turn":"first","fam":"lingua","text":"Write me something.","why":"equivalente inglese di g082"}
+{"id":"g148","band":"buono","turn":"first","fam":"lingua","text":"Summarise this article in 5 bullet points, one per main topic, max 20 words each.","why":"equivalente inglese di g023"}
+{"id":"g149","band":"buono","turn":"first","fam":"lingua","text":"Write an apology email to a customer about a late delivery, under 150 words, offering a 10% discount.","why":"destinatario, scopo, lunghezza e offerta"}
+{"id":"g150","band":"medio","turn":"first","fam":"lingua","text":"Explain the difference between TCP and UDP.","why":"compito chiaro, pubblico e profondità assenti"}
+{"id":"g151","band":"buono","turn":"first","fam":"modale","text":"Potresti riassumere questo testo in 100 parole:\n\n\"La riunione ha coperto budget, assunzioni e roadmap. Il budget resta invariato.\"","why":"regola 3: forma modale, materiale e lunghezza presenti"}
+{"id":"g152","band":"buono","turn":"first","fam":"modale","text":"Ho bisogno che tu traduca in francese questa frase: \"Domani piove.\"","why":"regola 3: costruzione con congiuntivo, prompt determinato"}
+{"id":"g153","band":"buono","turn":"first","fam":"modale","text":"Questo testo andrebbe riassunto in 100 parole:\n\n\"La riunione ha coperto budget, assunzioni e roadmap. Il budget resta invariato.\"","why":"regola 3: passivo deontico, stesso prompt di g151"}
+{"id":"g154","band":"medio","turn":"first","fam":"modale","text":"Potresti darmi qualche consiglio?","why":"forma modale ma oggetto assente"}
+{"id":"g155","band":"buono","turn":"followup","fam":"reali","text":"cosa manca ora?","why":"messaggio reale: domanda breve e completa in thread"}
+{"id":"g156","band":"buono","turn":"followup","fam":"reali","text":"procedi come meglio credi lascia solo stare l'aggiornamento di versione","why":"messaggio reale: delega con un vincolo verificabile"}
+{"id":"g157","band":"buono","turn":"followup","fam":"reali","text":"Continua, sistema i bug che hai trovato e crea altri prompt di test, se vuoi puoi usare anche tutti i prompt che ti ho scritto da quando hai memoro","why":"messaggio reale: tre istruzioni e un permesso; refuso ininfluente"}
+{"id":"g158","band":"buono","turn":"followup","fam":"reali","text":"Che manca ora? Vogliamo continuare?","why":"messaggio reale: due domande brevi in contesto"}
+{"id":"g159","band":"medio","turn":"first","fam":"reali","text":"Analizza e procedi","why":"messaggio reale: due imperativi, oggetto in un allegato che il motore non vede"}
+{"id":"g160","band":"buono","turn":"followup","fam":"reali","text":"Continua, non solo, crea altri prompt di test analizza il punteggio e se noti path che non vanno bene correggi, guarda le motivazioni dei punteggi, fermati quando arrivi al 75% del limite della sessione","why":"messaggio reale: cinque istruzioni coordinate e un vincolo di processo"}

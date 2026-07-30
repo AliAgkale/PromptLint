@@ -62,6 +62,16 @@ export const CAP_REASON_TEXT: Record<string, { it: string; en: string }> = {
   // v2.26 new caps
   instruction_override: { it: 'tentativo di manipolazione o injection del prompt', en: 'prompt injection or manipulation attempt' },
   scope_overload: { it: 'troppe richieste per una singola risposta', en: 'too many deliverables for a single response' },
+  // Added with the coverage work. Both caps existed and bound the score since v3, but had no
+  // reason text and no advice entry, so the postProcess layer lowered the score
+  // and said nothing. See CAP_SURFACEABLE in postprocess.ts.
+  tautology_long: { it: 'la frase gira su sé stessa: definisce un termine con lo stesso termine', en: 'the sentence turns on itself: it defines a term using the same term' },
+  harmful: { it: 'richiesta che i modelli rifiutano di eseguire', en: 'request that models decline to carry out' },
+  revision_no_criterion: { it: 'chiede di rifare senza dire cosa cambiare', en: 'asks for a redo without saying what to change' },
+  prior_session: { it: 'presuppone che il modello ricordi uno scambio precedente', en: 'assumes the model remembers an earlier exchange' },
+  contextless_consulting: { it: 'chiede un consiglio senza dire su cosa', en: 'asks for advice without saying about what' },
+  rhetorical: { it: 'domanda retorica: chiede consenso, non lavoro', en: 'rhetorical question: asks for agreement, not work' },
+  scope_explosion: { it: 'più lavori indipendenti chiesti in un solo messaggio', en: 'several independent jobs asked for in one message' },
   dangling_reference: { it: 'riferimento a qualcosa non presente nel prompt', en: 'reference to something not in the prompt' },
   underspecified_degraded: { it: 'oggetto presente ma contenuto degradato (ridondanza, vaghezza)', en: 'object present but degraded content (redundancy, vagueness)' },
   underspecified_followup: { it: 'sembra un followup — in contesto potrebbe essere valido', en: 'looks like a followup — may be valid in context' },

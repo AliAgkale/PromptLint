@@ -53,8 +53,17 @@ describe('real Italian typos are still flagged (no over-acceptance)', () => {
 // change which dictionary is used.
 
 describe('language option forces dictionary (was previously ignored)', () => {
-  it('auto-detects ambiguous "bella poesia" as EN and flags it', () => {
-    const obs = runAllObservations('bella poesia', [], undefined, 2.5, makeLangState());
+  // These two used to assert that "bella poesia" IS flagged when the English
+  // dictionary is active — using a false positive as the observable proof that
+  // the dictionary had switched. A later guard suppresses spell checking when
+  // most words are unknown, because that means the dictionary is wrong rather
+  // than the text, so the proof mechanism no longer works. The purpose is kept
+  // with an input the guard does not touch: mostly-English text with one
+  // Italian word, where the ratio stays under the threshold.
+  it('auto-detects English text and flags the one Italian word in it', () => {
+    const obs = runAllObservations(
+      'please write a short summary of this poesia for me today', [], undefined, 2.5, makeLangState()
+    );
     expect(obs.some((o) => o.code === 'SPELL_001')).toBe(true);
   });
 
@@ -65,9 +74,9 @@ describe('language option forces dictionary (was previously ignored)', () => {
     expect(obs.some((o) => o.code === 'SPELL_001')).toBe(false);
   });
 
-  it('forcing language=en still flags Italian words', () => {
+  it('forcing language=en still flags an Italian word among English ones', () => {
     const obs = runAllObservations(
-      'bella poesia', [], undefined, 2.5, makeLangState(), 'en'
+      'please write a short summary of this poesia for me today', [], undefined, 2.5, makeLangState(), 'en'
     );
     expect(obs.some((o) => o.code === 'SPELL_001')).toBe(true);
   });
